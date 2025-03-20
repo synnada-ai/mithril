@@ -19,9 +19,8 @@ from dataclasses import dataclass
 from types import EllipsisType
 from typing import Any, Self
 
-from ...common import find_dominant_type
+from ...common import contains_given_type
 from ...types import Dtype as CoreDtype
-from ...utils.utils import constant_fn
 from ..common import (
     NOT_GIVEN,
     TBD,
@@ -32,6 +31,7 @@ from ..common import (
     ShapeTemplateType,
     Tensor,
     UniadicRecord,
+    VariableSequenceType,
     Variadic,
     get_summary,
     get_summary_shapes,
@@ -67,8 +67,8 @@ from .operators import (
     MaxOp,
     MeanOp,
     MinOp,
-    MinusOp,
     MultiplyOp,
+    NegateOp,
     NotEqualOp,
     PowerOp,
     ProdOp,
@@ -109,9 +109,21 @@ class TemplateBase:
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
+        | tuple[
+            slice
+            | int
+            | None
+            | EllipsisType
+            | TemplateBase
+            | IOKey
+            | VariableSequenceType[int]
+            | Tensor[int],
+            ...,
+        ]
         | IOKey
         | TemplateBase
+        | Tensor[int]
+        | VariableSequenceType[int]
         | None,
     ) -> ExtendTemplate:
         match key:
@@ -123,11 +135,16 @@ class TemplateBase:
                     connections=[self, slice_output], model=IndexerOp
                 )
 
-            case int() | EllipsisType() | None:
-                output = ExtendTemplate(connections=[self, key], model=IndexerOp)
-
             case tuple():
-                connections: list[TemplateBase | int | None | EllipsisType] = []
+                connections: list[
+                    TemplateBase
+                    | int
+                    | None
+                    | EllipsisType
+                    | VariableSequenceType[int]
+                    | IOKey
+                    | Tensor[int]
+                ] = []
                 for item in key:
                     if isinstance(item, slice):
                         slice_output = ExtendTemplate(
@@ -145,6 +162,9 @@ class TemplateBase:
                 output = ExtendTemplate(
                     connections=[self, tuple_template], model=IndexerOp
                 )
+
+            case int() | EllipsisType() | None | Tensor() | Sequence():
+                output = ExtendTemplate(connections=[self, key], model=IndexerOp)  # type: ignore
         return output
 
     def __add__(self, other: TemplateConnectionType) -> ExtendTemplate:
@@ -264,7 +284,7 @@ class TemplateBase:
         return ExtendTemplate(connections=[self], model=LogicalNotOp)
 
     def __neg__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=MinusOp)
+        return ExtendTemplate(connections=[self], model=NegateOp)
 
     def abs(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=AbsoluteOp)
@@ -405,7 +425,9 @@ class ExtendTemplate(TemplateBase):
 @dataclass
 class ExtendInfo:
     _model: BaseModel
-    _connections: dict[str, ConnectionType]
+    _connections: Mapping[
+        str, ConnectionType | MainValueType | Tensor[int | float | bool]
+    ]
 
     def __post_init__(self) -> None:
         external_keys = (
@@ -423,7 +445,9 @@ class ExtendInfo:
         return self._model
 
     @property
-    def connections(self) -> dict[str, ConnectionType]:
+    def connections(
+        self,
+    ) -> Mapping[str, ConnectionType | MainValueType | Tensor[int | float | bool]]:
         return self._connections
 
 
@@ -436,17 +460,11 @@ TemplateConnectionType = (
     | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
     | Tensor[int | float | bool]
+    | VariableSequenceType[int]
 )
 
-ConnectionType = (
-    str
-    | MainValueType
-    | ExtendTemplate
-    | NullConnection
-    | IOKey
-    | ConnectionData
-    | Tensor[int | float | bool]
-)
+ConnectionType = str | ExtendTemplate | NullConnection | IOKey | ConnectionData
+
 
 ConnectionInstanceType = (
     str
@@ -458,9 +476,15 @@ ConnectionInstanceType = (
     | Tensor  # type: ignore
 )
 
+UnrollTriggerTypes = (
+    ConnectionData | ExtendTemplate | Connection | IOKey | Tensor  # type: ignore
+)
+
 
 class Model(BaseModel):
-    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+    def __call__(
+        self, **kwargs: ConnectionType | MainValueType | Tensor[int | float | bool]
+    ) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
 
     def _create_connection(
@@ -484,10 +508,8 @@ class Model(BaseModel):
         setattr(self, key, conn)
 
     def _unroll_template(self, template: ConnectionType) -> ConnectionType:
-        types = [ConnectionData, ExtendTemplate, Connection, IOKey, Tensor]
-        if (
-            isinstance(template, tuple | list)
-            and find_dominant_type(template, False, constant_fn) in types
+        if isinstance(template, tuple | list) and contains_given_type(
+            template, UnrollTriggerTypes
         ):
             _model = ToTupleOp if isinstance(template, tuple) else ToListOp
             template = ExtendTemplate(template, _model, {"n": len(template)})
@@ -538,7 +560,10 @@ class Model(BaseModel):
     def _extend(
         self,
         model: BaseModel,
-        kwargs: Mapping[str, ConnectionType] | None = None,
+        kwargs: Mapping[
+            str, ConnectionType | MainValueType | Tensor[int | float | bool]
+        ]
+        | None = None,
         trace: bool = True,
     ) -> Self:
         if kwargs is None:
@@ -585,7 +610,7 @@ class Model(BaseModel):
                     "Submodel must have single available canonical input! "
                     "Set canonical input or use |= operator."
                 )
-            kwargs[next(iter(available_cin))] = self.cout
+            kwargs[next(iter(available_cin))] = self.cout  # type: ignore
         return self._extend(model, kwargs)
 
     __iadd__ = __add__

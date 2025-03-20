@@ -540,4 +540,4 @@ class TestComposite:
         assert in1_conn.metadata._type is bool
         assert sort_type(in2_conn.metadata._type) == sort_type(int | bool)
         assert sort_type(in3_conn.metadata._type) == sort_type(Tensor[int | bool])
-        assert sort_type(in4_conn.metadata._type) == sort_type(Tensor[int | bool])
+        assert sort_type(in4_conn.metadata._type) == sort_type(Tensor[int])

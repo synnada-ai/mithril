@@ -8,7 +8,7 @@ Backend device     : TFRT_CPU_0
 -------------------------------------
 Output keys        : output          
 -------------------------------------
-Constant inputs    : slope           
+Constant inputs    : None            
 -------------------------------------
 Static keys        : in1, left, right
 -------------------------------------

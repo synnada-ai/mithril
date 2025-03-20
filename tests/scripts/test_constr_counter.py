@@ -24,10 +24,10 @@ from mithril.framework.common import (
     Uniadic,
     Updates,
 )
-from mithril.framework.constraints import bcast, general_tensor_type_constraint
-from mithril.framework.logical.base import BaseKey
+from mithril.framework.constraints import bcast, general_type_constraint
 from mithril.models import (
     Add,
+    BaseKey,
     Buffer,
     Connection,
     ConnectionType,
@@ -121,9 +121,7 @@ class Model2(PrimitiveModel):
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
         self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
-        self._add_constraint(
-            fn=general_tensor_type_constraint, keys=["output", "input"]
-        )
+        self._add_constraint(fn=general_type_constraint, keys=["output", "input"])
 
 
 class Model3(PrimitiveModel):
@@ -844,9 +842,9 @@ def test_shape_constraint_counter_13():
             slice_model.start: [],
             slice_model.stop: [],
             slice_model.step: [],
-            model_1.input: [0, 0, 2],
-            model_1.index: [0, 0],
-            model_2.left: [0, 0, 0, 0, 0, 0, 1, 2],
+            model_1.input: [0, 0, 3],
+            model_1.index: [0, 0, 3],
+            model_2.left: [0, 0, 0, 0, 0, 0, 1, 3],
             model_2.right: [0, 0, 0, 0, 1],
             model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
             model_3.right: [0, 0, 0, 0, 2],
@@ -863,9 +861,9 @@ def test_shape_constraint_counter_13():
             slice_model.start: [],
             slice_model.stop: [],
             slice_model.step: [],
-            model_1.input: [0, 0, 2],
-            model_1.index: [0, 0],
-            model_2.left: [0, 0, 0, 0, 0, 0, 2, 2],
+            model_1.input: [0, 0, 3],
+            model_1.index: [0, 0, 3],
+            model_2.left: [0, 0, 0, 0, 0, 0, 2, 3],
             model_2.right: [0, 0, 0, 0, 2],
             model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 3],
             model_3.right: [0, 0, 0, 0, 3],

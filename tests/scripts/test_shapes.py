@@ -49,6 +49,7 @@ from mithril.models import (
     Accuracy,
     Activation,
     Add,
+    Arange,
     AUCCore,
     BaseModel,
     BinaryCrossEntropy,
@@ -84,10 +85,10 @@ from mithril.models import (
     MaxPool1D,
     MaxPool2D,
     Mean,
-    Minus,
     Model,
     Multiply,
     NanToNum,
+    Negate,
     NormModifier,
     Operator,
     Pad,
@@ -1880,9 +1881,9 @@ def test_cross_entropy_shapes_1():
     logical_ref = {
         "input": [8, 10],
         "target": [8],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1891,7 +1892,7 @@ def test_cross_entropy_shapes_1():
         "target": [8],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8],
     }
@@ -1901,7 +1902,7 @@ def test_cross_entropy_shapes_1():
 
 def test_cross_entropy_shapes_2():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 10])
     model |= ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -1911,8 +1912,8 @@ def test_cross_entropy_shapes_2():
         "input": [8, 10],
         "target": [8, 10],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1921,7 +1922,7 @@ def test_cross_entropy_shapes_2():
         "target": [8, 10],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8],
     }
@@ -1931,7 +1932,7 @@ def test_cross_entropy_shapes_2():
 
 def test_cross_entropy_shapes_3():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, 32, 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1940,8 +1941,8 @@ def test_cross_entropy_shapes_3():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1950,7 +1951,7 @@ def test_cross_entropy_shapes_3():
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -1960,7 +1961,7 @@ def test_cross_entropy_shapes_3():
 
 def test_cross_entropy_shapes_5():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1969,8 +1970,8 @@ def test_cross_entropy_shapes_5():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1979,7 +1980,7 @@ def test_cross_entropy_shapes_5():
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -1989,7 +1990,7 @@ def test_cross_entropy_shapes_5():
 
 def test_cross_entropy_shapes_6():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], output=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1998,8 +1999,8 @@ def test_cross_entropy_shapes_6():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2008,7 +2009,7 @@ def test_cross_entropy_shapes_6():
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2018,7 +2019,7 @@ def test_cross_entropy_shapes_6():
 
 def test_cross_entropy_shapes_7():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -2028,8 +2029,8 @@ def test_cross_entropy_shapes_7():
         "input": [8, "u1", 16, 32, 64],
         "target": [8, 16, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 16, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2038,7 +2039,7 @@ def test_cross_entropy_shapes_7():
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 16, 32, 64],
     }
@@ -2048,7 +2049,7 @@ def test_cross_entropy_shapes_7():
 
 def test_cross_entropy_shapes_8():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -2058,8 +2059,8 @@ def test_cross_entropy_shapes_8():
         "input": [8, 16, 32, 64],
         "target": [8, 16, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2068,7 +2069,7 @@ def test_cross_entropy_shapes_8():
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2078,7 +2079,7 @@ def test_cross_entropy_shapes_8():
 
 def test_cross_entropy_shapes_9():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -2087,8 +2088,8 @@ def test_cross_entropy_shapes_9():
         "input": [8, 16, "(V1, ...)", 64],
         "target": [8, "(V1, ...)", 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2097,7 +2098,7 @@ def test_cross_entropy_shapes_9():
         "target": [8, "...", 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, "...", 64],
     }
@@ -2114,9 +2115,9 @@ def test_cross_entropy_shapes_10():
     logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64, 128],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2125,7 +2126,7 @@ def test_cross_entropy_shapes_10():
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, "...", 64, 128],
     }
@@ -2142,9 +2143,9 @@ def test_cross_entropy_shapes_11():
     logical_ref: Mapping = {
         "input": [8, 4, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64, 128],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2153,7 +2154,7 @@ def test_cross_entropy_shapes_11():
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, "...", 64, 128],
     }
@@ -3318,9 +3319,9 @@ def test_shape_9():
     model_1 = Model3()
     model_2 = Model3()
     model_3 = Model3()
-    model |= model_1(input=[IOKey("input"), IOKey()])
-    model |= model_2(input=[model_1.output, IOKey()])
-    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))
+    model |= model_1(input=[IOKey("input"), IOKey()])  # type: ignore
+    model |= model_2(input=[model_1.output, IOKey()])  # type: ignore
+    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))  # type: ignore
     logical_ref = {
         "input": ["u1", "u2", "u3"],
         "$input2_0": ["u3", "u2", "u1"],
@@ -6679,7 +6680,7 @@ def test_total_repr_count_1():
         NanToNum: 1,
         Relu: 1,
         StableReciprocal: 2,
-        LeakyRelu: 2,
+        LeakyRelu: 1,
         IsNan: 1,
         Log: 1,
         Tanh: 1,
@@ -6691,7 +6692,7 @@ def test_total_repr_count_1():
         AUC: 1,
         Accuracy: 2,
         Buffer: 1,
-        Minus: 1,
+        Negate: 1,
         LogicalNot: 1,
         Absolute: 1,
         NormModifier: 1,
@@ -10161,8 +10162,8 @@ def test_shapes_tensor_item_symbolic():
         "$_Slice_2_output": None,
         "$_Slice_3_output": None,
         "$_ToTuple_4_output": None,
-        "$_Indexer_5_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
-        "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "$_Indexer_5_output": ["u1", 1, "u5", "u6", "(V2, ...)"],
+        "output2": ["u1", 1, "u5", "u6", "(V2, ...)"],
         "input": ["u1", "(V1, ...)", "u2", "u3"],
         "$start_0": None,
         "$stop_0": None,
@@ -10174,5 +10175,266 @@ def test_shapes_tensor_item_symbolic():
         "$stop_2": None,
         "$step_2": None,
         "$input2": None,
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_tensor_item_with_single_tensor_index():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]])]
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_Indexer_1_output": [3, 3, 4, 5],
+        "input": [7, 4, 5],
+        "$index": [3, 3],
+        "output2": [3, 3, 4, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_tensor_item_with_multiple_tensor_index():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]]), Tensor([[[1]]])]  # type: ignore
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_ToTuple_1_output": None,
+        "$_Indexer_2_output": [1, 3, 3, 5],
+        "input": [7, 4, 5],
+        "$input1": [3, 3],
+        "$input2": [1, 1, 1],
+        "output2": [1, 3, 3, 5],
+    }
+
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_tensor_item_with_slice_and_multiple_tensor_index():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[
+        1:7,  # type: ignore
+        Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
+        Tensor([[[1]], [[2]], [[3]], [[1]], [[0]]]),
+    ]
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "$_Slice_1_output": None,
+        "output": [7, 4, 5],
+        "$_ToTuple_2_output": None,
+        "$_Indexer_3_output": [6, 5, 3, 3],
+        "input": [7, 4, 5],
+        "$start": None,
+        "$stop": None,
+        "$step": None,
+        "$input2": [3, 3],
+        "$input3": [5, 1, 1],
+        "output2": [6, 5, 3, 3],
+    }
+
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_tensor_item_with_slice_and_non_consecutive_tensors():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[
+        1:7,  # type: ignore
+        Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
+        None,
+        Tensor([[[1]], [[2]], [[3]], [[1]], [[0]]]),
+    ]
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "$_Slice_1_output": None,
+        "output": [7, 4, 5],
+        "$_ToTuple_2_output": None,
+        "$_Indexer_3_output": [5, 3, 3, 6, 1],
+        "input": [7, 4, 5],
+        "$start": None,
+        "$stop": None,
+        "$step": None,
+        "$input2": [3, 3],
+        "$input3": None,
+        "$input4": [5, 1, 1],
+        "output2": [5, 3, 3, 6, 1],
+    }
+
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_tensor_item_with_post_ellipsis_non_consecutive_tensors_and_int():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[..., Tensor([[1, 1, 0], [1, 0, 2], [2, 2, 2]]), None, 2]  # type: ignore
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_ToTuple_1_output": None,
+        "$_Indexer_2_output": [3, 3, 7, 1],
+        "input": [7, 4, 5],
+        "$input1": None,
+        "$input2": [3, 3],
+        "$input3": None,
+        "$input4": None,
+        "output2": [3, 3, 7, 1],
+    }
+
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_index_with_two_consec_arange():
+    model = Model()
+    model |= (arr_1 := Arange(stop=7))
+    model |= (arr_2 := Arange(stop=8))
+
+    model |= (relu := Relu())
+
+    tensor1 = arr_1.output[None, ...]
+    tensor2 = arr_2.output[..., None]
+
+    model.set_shapes({relu.input: [2, 3, 4]})
+
+    output = relu.output[None, None, None, tensor1, tensor2]
+    model |= Buffer()(input=output, output="output")
+
+    ref: Mapping[str, list | None] = {
+        "$_Arange_0_output": [7],
+        "$_ToTuple_3_output": None,
+        "$_Arange_1_output": [8],
+        "$_ToTuple_5_output": None,
+        "$_Indexer_4_output": [1, 7],
+        "$_Indexer_6_output": [8, 1],
+        "$_Relu_2_output": [2, 3, 4],
+        "$_ToTuple_7_output": None,
+        "$_Indexer_8_output": [1, 1, 1, 8, 7, 4],
+        "$input": [2, 3, 4],
+        "$input1_0": None,
+        "$input2_0": None,
+        "$input1_1": None,
+        "$input2_1": None,
+        "$input1_2": None,
+        "$input2_2": None,
+        "$input3": None,
+        "$_Arange_0_start": None,
+        "$_Arange_0_stop": None,
+        "$_Arange_0_step": None,
+        "$_Arange_0_dtype": None,
+        "$_Arange_1_start": None,
+        "$_Arange_1_stop": None,
+        "$_Arange_1_step": None,
+        "$_Arange_1_dtype": None,
+        "output": [1, 1, 1, 8, 7, 4],
+    }
+
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_index_with_two_non_consec_arange():
+    model = Model()
+    model |= (arr_1 := Arange(stop=7))
+    model |= (arr_2 := Arange(stop=8))
+
+    model |= (relu := Relu())
+
+    tensor1 = arr_1.output[None, ...]
+    tensor2 = arr_2.output[..., None]
+
+    model.set_shapes({relu.input: [2, 3, 4]})
+
+    output = relu.output[None, None, None, tensor1, 1:3, tensor2]
+    model |= Buffer()(input=output, output="output")
+
+    ref: Mapping[str, list | None] = {
+        "$_Arange_0_output": [7],
+        "$_ToTuple_3_output": None,
+        "$_Arange_1_output": [8],
+        "$_ToTuple_6_output": None,
+        "$_Indexer_4_output": [1, 7],
+        "$_Slice_5_output": None,
+        "$_Indexer_7_output": [8, 1],
+        "$_Relu_2_output": [2, 3, 4],
+        "$_ToTuple_8_output": None,
+        "$_Indexer_9_output": [8, 7, 1, 1, 1, 2],
+        "$input": [2, 3, 4],
+        "$input1_0": None,
+        "$input2_0": None,
+        "$start": None,
+        "$stop": None,
+        "$step": None,
+        "$input1_1": None,
+        "$input2_1": None,
+        "$input1_2": None,
+        "$input2_2": None,
+        "$input3": None,
+        "$_Arange_0_start": None,
+        "$_Arange_0_stop": None,
+        "$_Arange_0_step": None,
+        "$_Arange_0_dtype": None,
+        "$_Arange_1_start": None,
+        "$_Arange_1_stop": None,
+        "$_Arange_1_step": None,
+        "$_Arange_1_dtype": None,
+        "output": [8, 7, 1, 1, 1, 2],
+    }
+
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_index_with_list_int():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[[[1, 2, 3], [4, 5, 6], [7, 8, 9]]]
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_Indexer_1_output": [3, 3, 4, 5],
+        "input": [7, 4, 5],
+        "$index": None,
+        "output2": [3, 3, 4, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_index_with_list_of_tuple_ints():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[None, None, [[1, 2, 3, 4, 5, 6]], None, [[1], [2], [3]]]  # type: ignore
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_ToTuple_1_output": None,
+        "$_Indexer_2_output": [3, 6, 1, 1, 1, 5],
+        "input": [7, 4, 5],
+        "$input1": None,
+        "$input2": None,
+        "$input3": None,
+        "$input4": None,
+        "$input5": None,
+        "output2": [3, 6, 1, 1, 1, 5],
     }
     check_shapes_semantically(model.get_shapes(), ref)

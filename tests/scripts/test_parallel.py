@@ -466,7 +466,7 @@ def test_torch_parallel_4():
     # in Add primitive.
     model = Model()
     model += (linear := Linear(256))(input="input", weight="w", bias="b", output="out1")
-    model += Add()(left=linear.output, right=[3] * 256, output="output")
+    model += Add()(left=linear.output, right=[3] * 256, output="output")  # type: ignore
 
     backend = mithril.TorchBackend()
     backend_parallel = create_parallel_backend(device_mesh=(4, 1))
@@ -1050,7 +1050,7 @@ def test_jax_parallel_4():
         model += (linear := Linear(256))(
             input="input", weight="w", bias="b", output="out1"
         )
-        model += Add()(left=linear.output, right=[3] * 256, output="output")
+        model += Add()(left=linear.output, right=Tensor([3] * 256), output="output")
 
         backend = mithril.JaxBackend("cuda")
         backend_parallel = mithril.JaxBackend("cuda", device_mesh=(4, 1))

@@ -47,8 +47,8 @@ from ..common_primitives import (
     logical_not,
     logical_or,
     matrix_multiplication,
-    minus,
     multiplication,
+    negate,
     not_equal,
     padding_converter_1d,
     padding_converter_2d,
@@ -57,7 +57,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    sequence_slice,
     shift_left,
     shift_right,
     square,
@@ -165,7 +164,7 @@ __all__ = [
     "shift_right",
     "power",
     "squared_error",
-    "minus",
+    "negate",
     "transpose",
     "swapaxes",
     "square",
@@ -175,7 +174,6 @@ __all__ = [
     "item",
     "indexer",
     "primitive_slice",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -228,22 +226,22 @@ def flatten(input: mx.array, start_dim: int = 0, end_dim: int = -1) -> mx.array:
     return mx.flatten(input, start_axis=start_dim, end_axis=end_dim)
 
 
-def robust_sqrt(input: mx.array, cutoff: mx.array) -> mx.array:
+def robust_sqrt(input: mx.array, threshold: mx.array) -> mx.array:
     input = mx.abs(input)
-    cond = input < cutoff
+    cond = input < threshold
     return mx.where(
         cond,
-        input * mx.reciprocal(mx.sqrt(mx.array(cutoff))),
+        input * mx.reciprocal(mx.sqrt(mx.array(threshold))),
         mx.sqrt(mx.where(cond, 1, input)),
     )
 
 
-def robust_log(input: mx.array, cutoff: mx.array) -> mx.array:
+def robust_log(input: mx.array, threshold: mx.array) -> mx.array:
     input = mx.abs(input)
-    cond = input < cutoff
+    cond = input < threshold
     return mx.where(
         cond,
-        mx.log(cutoff) + (input / cutoff) - 1.0,
+        mx.log(threshold) + (input / threshold) - 1.0,
         mx.log(mx.where(cond, 1, input)),
     )
 
@@ -275,13 +273,13 @@ def robust_power(base: mx.array, exponent: mx.array, threshold: mx.array) -> mx.
     )
 
 
-def stable_reciprocal(input: mx.array, cutoff: mx.array) -> mx.array:
-    # cutoff = cutoff.item()
-    cond = mx.abs(input) < cutoff
+def stable_reciprocal(input: mx.array, threshold: mx.array) -> mx.array:
+    # threshold = threshold.item()
+    cond = mx.abs(input) < threshold
     return mx.where(
         cond,
-        -input / mx.square(cutoff)
-        + (2 / cutoff) * (mx.sign(input) + (1 - mx.sign(mx.abs(input)))),
+        -input / mx.square(threshold)
+        + (2 / threshold) * (mx.sign(input) + (1 - mx.sign(mx.abs(input)))),
         mx.reciprocal(mx.where(cond, 1, input)),
     )
 
@@ -615,13 +613,13 @@ def cross_entropy(
     input: mx.array,
     target: mx.array,
     weights: list[float] | bool,
-    cutoff: mx.array,
+    threshold: mx.array,
     *,
     categorical: bool = True,
     robust: bool = False,
 ) -> mx.array:
     log: partial[mx.array] | Callable[..., mx.array] = (
-        partial(robust_log, cutoff=cutoff) if robust else mx.log
+        partial(robust_log, threshold=threshold) if robust else mx.log
     )
     _weights = utils.calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -642,13 +640,13 @@ def cross_entropy_with_logits(
     input: mx.array,
     target: mx.array,
     weights: list[float] | bool,
-    cutoff: mx.array,
+    threshold: mx.array,
     *,
     categorical: bool = True,
     robust: bool = False,
 ) -> mx.array:
     log: partial[mx.array] | Callable[..., mx.array] = (
-        partial(robust_log, cutoff=cutoff) if robust else mx.log
+        partial(robust_log, threshold=threshold) if robust else mx.log
     )
     _weights = utils.calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -694,13 +692,13 @@ def cross_entropy_with_log_probs(
 def binary_cross_entropy(
     input: mx.array,
     target: mx.array,
-    cutoff: mx.array,
+    threshold: mx.array,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> mx.array:
     log: partial[mx.array] | Callable[..., mx.array] = (
-        partial(robust_log, cutoff=cutoff) if robust else mx.log
+        partial(robust_log, threshold=threshold) if robust else mx.log
     )
     _pos_weight: mx.array | float | bool
     if isinstance(pos_weight, bool) and pos_weight:
@@ -714,13 +712,13 @@ def binary_cross_entropy(
 def binary_cross_entropy_with_logits(
     input: mx.array,
     target: mx.array,
-    cutoff: mx.array,
+    threshold: mx.array,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> mx.array:
     log: partial[mx.array] | Callable[..., mx.array] = (
-        partial(robust_log, cutoff=cutoff) if robust else mx.log
+        partial(robust_log, threshold=threshold) if robust else mx.log
     )
     _pos_weight: mx.array | float
 
@@ -748,8 +746,8 @@ def absolute_error(input: mx.array, target: mx.array) -> mx.array:
     return mx.abs(input - target)
 
 
-def kl_divergence(input: mx.array, target: mx.array, cutoff: mx.array) -> mx.array:
-    return target * (robust_log(target, cutoff) - robust_log(input, cutoff))
+def kl_divergence(input: mx.array, target: mx.array, threshold: mx.array) -> mx.array:
+    return target * (robust_log(target, threshold) - robust_log(input, threshold))
 
 
 def quantile_loss(input: mx.array, target: mx.array, quantile: mx.array) -> mx.array:
@@ -781,7 +779,7 @@ def shape(input: mx.array) -> tuple[int, ...]:
     return input.shape
 
 
-def size(input: mx.array, dim: int | tuple[int, ...] | None) -> int | tuple[int]:
+def size(input: mx.array, dim: int | Sequence[int] | None) -> int | tuple[int]:
     if dim is None:
         return input.size
     if isinstance(dim, int):
@@ -871,8 +869,10 @@ def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()  # type: ignore
 
 
-def concat(input: list[mx.array], axis: AxisType = 0) -> mx.array:
-    return mx.concatenate(input, axis=axis)
+def concat(
+    input: list[mx.array] | tuple[mx.array, ...], axis: AxisType = 0
+) -> mx.array:
+    return mx.concatenate(input, axis=axis)  # type: ignore
 
 
 def matrix_concat(input1: mx.array, input2: mx.array) -> mx.array:
@@ -1056,11 +1056,12 @@ array_creation_funcs = [
     "arange",
     "randn",
     "randint",
+    "ones",
     "to_tensor",
     "eye",
     "ones_with_zero_diag",
-    "ones",
 ]
+
 primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
 } | common_primitive_func_dict
