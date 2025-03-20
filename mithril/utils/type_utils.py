@@ -13,7 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from types import EllipsisType, GenericAlias, UnionType
+from types import GenericAlias, UnionType
 from typing import (
     Any,
     TypeGuard,
@@ -85,14 +85,6 @@ def is_padding_type(
             or is_tuple_of_two_ints(padding)
         )
     return is_padding
-
-
-def is_index_type(
-    index: Any,
-) -> TypeGuard[tuple[int | slice | EllipsisType | None, ...]]:
-    return isinstance(index, tuple) and all(
-        isinstance(i, int | slice | EllipsisType | None) for i in index
-    )
 
 
 def is_union_type(

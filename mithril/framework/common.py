@@ -223,20 +223,24 @@ TypeVarTensorType = TypeVar(
 # Availale types for Tensor type ("_type" attribute of Tensor class).
 _TensorTypes = type[int] | type[float] | type[bool] | UnionType
 ValType = int | float | bool
-SequenceValType = (
-    Sequence[ValType]
-    | Sequence[Sequence[ValType]]
-    | Sequence[Sequence[Sequence[ValType]]]
-    | Sequence[Sequence[Sequence[Sequence[ValType]]]]
-    | Sequence[Sequence[Sequence[Sequence[Sequence[ValType]]]]]
+VariableSequenceType = (
+    Sequence[TypeVarTensorType]
+    | Sequence[Sequence[TypeVarTensorType]]
+    | Sequence[Sequence[Sequence[TypeVarTensorType]]]
+    | Sequence[Sequence[Sequence[Sequence[TypeVarTensorType]]]]
+    | Sequence[Sequence[Sequence[Sequence[Sequence[TypeVarTensorType]]]]]
 )
-ListValType = (
-    list[ValType]
-    | list[list[ValType]]
-    | list[list[list[ValType]]]
-    | list[list[list[list[ValType]]]]
-    | list[list[list[list[list[ValType]]]]]
+SequenceValType = VariableSequenceType[ValType]
+
+VariableListType = (
+    list[TypeVarTensorType]
+    | list[list[TypeVarTensorType]]
+    | list[list[list[TypeVarTensorType]]]
+    | list[list[list[list[TypeVarTensorType]]]]
+    | list[list[list[list[list[TypeVarTensorType]]]]]
 )
+ListValType = VariableListType[ValType]
+
 # Nested Sequence type values for Tensor class.
 _TensorValueType = ValType | SequenceValType
 # Logical value types for Tensor class (i.e. "value" attribute of
@@ -3599,3 +3603,17 @@ def is_type_adjustment_required(
     rule2 = issubclass(float, right._value.type) and issubclass(int, left._value.type)
 
     return rule1 | rule2
+
+
+def is_index_type(
+    index: Any,
+) -> TypeGuard[tuple[int | slice | EllipsisType | Tensor[int] | None, ...]]:
+    return isinstance(index, tuple) and all(
+        isinstance(val, int | slice | EllipsisType | None)
+        or find_intersection_type(
+            find_type(val),
+            Tensor[int] | VariableSequenceType[int],  # type: ignore
+        )
+        is not None
+        for val in index
+    )
