@@ -3630,6 +3630,7 @@ def tensor_item_constraints(
 
                 if isinstance(value, Sequence):
                     shp, *_ = process_value(value)
+                    assert shp is not None
                     tensor_reprs.append(ShapeRepr(prefix=[Uniadic(idx) for idx in shp]))
 
                 current_index_unis.append(Uniadic())
