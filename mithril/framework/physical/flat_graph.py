@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
+from functools import cached_property
 from typing import Any
 
 import mithril as ml
@@ -99,7 +100,6 @@ class FlatGraph(GenericDataType[DataType]):
         self._all_source_keys: set[str] = set()
         self._all_target_keys: set[str] = set(output_keys)
 
-        self._topological_order: OrderedSet[str] = OrderedSet()
         self._input_keys = input_keys
         self.random_keys: set[str] = set()
 
@@ -168,9 +168,38 @@ class FlatGraph(GenericDataType[DataType]):
     def random_seeds(self) -> dict[str, int]:
         return self.data_store.random_seeds
 
-    @property
+    @cached_property
     def topological_order(self) -> OrderedSet[str]:
-        return self._topological_order
+        # Traverse the model table in topological order
+        topological_order: OrderedSet[str] = OrderedSet()
+        keys_to_visit = list(sorted(self.all_source_keys - self.all_target_keys))
+        visited: set[str] = set()
+
+        while keys_to_visit:
+            key = keys_to_visit.pop()
+            if key in visited:
+                continue
+
+            visited.add(key)
+
+            # Visit all target keys of the current key
+            for target_key in self.get_target_keys(key):
+                if target_key in visited:
+                    continue
+
+                # Numpy backend uses cache keys for internal operations.
+                # So, we need to exclude the cache keys from the source keys.
+                source_keys = self.get_source_keys(target_key)
+                if self.backend.is_manualgrad and source_keys[-1].endswith("_cache"):
+                    source_keys = source_keys[:-1]
+
+                # If all source keys of the target key are visited,
+                # then add the target key to the topological order.
+                if set(source_keys).issubset(visited):
+                    keys_to_visit.append(target_key)
+                    topological_order.add(target_key)
+
+        return topological_order
 
     @property
     def all_target_keys(self) -> set[str]:
@@ -182,7 +211,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     @property
     def all_models(self) -> list[Operator]:
-        return [self.get_model(key) for key in self.topological_order]
+        return list(self.model_table.keys())
 
     def is_key_static(self, key: str) -> bool:
         return key in self.runtime_static_keys or key in self.data_store.data_values
@@ -230,8 +259,6 @@ class FlatGraph(GenericDataType[DataType]):
             conn.target_keys.append(out_conn.key)
             self._all_source_keys.add(conn.key)
 
-        self._topological_order.add(out_conn.key)
-
     def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
         # should be updated with the new reference key.
@@ -249,15 +276,6 @@ class FlatGraph(GenericDataType[DataType]):
 
         self.output_dict[output_key] = new_reference_key
         return True
-
-    def _update_topological_order(self) -> None:
-        unnecessary_keys = set()
-
-        for key in self._topological_order:
-            if key not in self.connections or self.connections[key].op is None:
-                unnecessary_keys.add(key)
-
-        self._topological_order.difference_update(unnecessary_keys)
 
     def get_connection(self, key: str) -> GConnection | None:
         return self.connections.get(key)
@@ -299,9 +317,9 @@ class FlatGraph(GenericDataType[DataType]):
         updates = Updates()
 
         # Traverse the graph connections
-        for key in list(self.topological_order):
+        for conn in list(self.model_table.values()):
+            key = conn.key
             op = self.get_model(key)
-            conn = self.connections[key]
 
             # The connection is allready calculated
             if key in self.data_store.data_values:
@@ -317,6 +335,7 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Clear connection
                 conn.op = None
+                self.model_table.pop(op)
                 assert len(conn.source_keys) == 0
 
                 if key in self._all_target_keys:
@@ -367,8 +386,6 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Finally prune the connection
                 self._prune_connection(conn, source_conn)
-
-        self._update_topological_order()
 
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)
@@ -480,9 +497,6 @@ class FlatGraph(GenericDataType[DataType]):
 
         if conn.key in self._all_target_keys:
             self._all_target_keys.remove(conn.key)
-
-        if conn.key in self._topological_order:
-            self._topological_order.remove(conn.key)
 
         if conn.op in self.model_table:
             self.model_table.pop(conn.op)
