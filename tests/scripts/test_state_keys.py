@@ -551,7 +551,7 @@ def test_constant_initial_true_with_slicer():
     model = Model()
     model |= Add()("input1", "input2", output="output")
     model.set_shapes(input1=[1], input2=[1], output=[1])
-    model.set_values(input1=ml.Tensor(Constant.ONES), initial=True)
+    model.set_values(input1=Constant.ONES, initial=True)
     model |= ToTuple(2)(input1="input1", input2="input1", output="t_output")
     model |= Buffer()(model.t_output[0], output="b_out")  # type: ignore
     assert model.b_out.metadata._value is model.input1.metadata._value  # type: ignore

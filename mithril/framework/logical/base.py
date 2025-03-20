@@ -105,6 +105,8 @@ class ConnectionData:
                 raise ValueError(
                     "Differentiable connection value should be Tensor type!"
                 )
+        if isinstance(value, Constant):
+            value = Tensor(value)
 
         self._name = name
         self._expose = expose

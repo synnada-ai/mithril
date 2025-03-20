@@ -114,6 +114,7 @@ __all__ = [
     "MinimumOp",
     "MaximumOp",
     "AtLeast1DOp",
+    "ConstantType",
 ]
 
 ConstantType = float | int | types.Constant
@@ -197,7 +198,7 @@ class PowerOp(Operator):
         | bool
         | ToBeDetermined = TBD,
         *,
-        threshold: Tensor[float] | ToBeDetermined = TBD,
+        threshold: Tensor[float] | float | types.Constant | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.robust = robust
@@ -216,7 +217,7 @@ class PowerOp(Operator):
                     type=Tensor[int | float | bool],
                     value=exponent,
                 ),
-                threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
+                threshold=BaseKey(type=Tensor[float] | float, value=threshold),
             )
 
             constrs: set[Constraint] = set()
@@ -1231,7 +1232,7 @@ class SqrtOp(Operator):
         robust: bool = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        threshold: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        threshold: Tensor[int | float | bool] | types.Constant | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.robust = robust

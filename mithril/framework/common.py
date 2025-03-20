@@ -169,6 +169,7 @@ type ScalarType = (
     | UnionType
     | GenericAlias
 )
+# TODO: remove Constant from ScalarValueType
 ScalarValueType = (
     int
     | float
@@ -1431,7 +1432,11 @@ class IOHyperEdge:
         # Note that two tensor objects having same value are not equal.
         # Tensor values always have to be matched with the existing one
         # or set as the new value.
-        if not (isinstance(value, ToBeDetermined) or self._value == value):
+        if isinstance(value, Constant):
+            if not isinstance(self._value, Tensor):
+                self.set_type(Tensor[int | float | bool])
+            self._value.set_value(value)  # type: ignore
+        elif not (isinstance(value, ToBeDetermined) or self._value == value):
             # Set new type without automatic tensor value creation.
             # Note that this first type setting actually validates or
             # rejects value setting based on the compatibility of two types.
@@ -1449,8 +1454,8 @@ class IOHyperEdge:
                 updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(find_type(self._value), create_tensor=False)
-            if self.is_tensor and self.is_valued:
-                self.set_differentiability(False)
+        if self.is_tensor and self.is_valued:
+            self.set_differentiability(False)
         return updates
 
     def match(self, other: IOHyperEdge) -> Updates:
