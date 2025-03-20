@@ -169,8 +169,44 @@ class ConnectionData:
     def __hash__(self) -> int:
         return hash(id(self))
 
-    def set_differentiability(self, differentiable: bool = True) -> Updates:
-        return self.metadata.set_differentiability(differentiable)
+    def set_differentiability(self, differentiable: bool = True) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_differentiability({self: differentiable})
+        else:
+            self.metadata.set_differentiability(differentiable)
+
+    def set_value(self, value: ScalarValueType | Tensor[int | float | bool]) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_values({self: value})
+        else:
+            self.metadata.set_value(value)
+
+    def set_type(
+        self, value: type | UnionType | ScalarType | type[Tensor[int | float | bool]]
+    ) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_types({self: value})
+        else:
+            self.metadata.set_type(value)
+
+    def set_shapes(self, value: ShapeTemplateType) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_shapes({self: value})
+        else:
+            assert self.metadata.shape is not None
+            repr = create_shape_repr(value)
+            self.metadata.shape.merge(repr.node)
+
+    def expose(self) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.expose_keys(self)
+        else:
+            self._expose = True
 
 
 BaseKey = ConnectionData
@@ -473,7 +509,7 @@ class BaseModel:
 
         updates = Updates()
         # Set differentiability of input connection to False.
-        updates |= in_con.set_differentiability(False)
+        updates = in_con.metadata.set_differentiability(False)
         # Merge types.
         updates |= in_con.metadata.set_type(out_con.metadata._type)
         updates |= out_con.metadata.set_type(in_con.metadata._type)
@@ -1445,12 +1481,13 @@ class BaseModel:
                     raise KeyError(f"Connection {key} is not found in the model.")
 
                 conn_data = self.conns.all[key]
-                updates |= conn_data.set_differentiability(value)
+                updates |= conn_data.metadata.set_differentiability(value)
             elif isinstance(key, ConnectionData):
-                if key not in self.conns.all.values():
+                conn = self.conns.get_con_by_metadata(key.metadata)
+                if conn is None:
                     raise KeyError(f"Connection {key} is not found in the model.")
                 conn_data = key
-                updates |= conn_data.set_differentiability(value)
+                updates |= conn_data.metadata.set_differentiability(value)
 
             if trace:
                 self.assigned_differentiabilities[conn_data] = value
