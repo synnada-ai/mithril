@@ -412,10 +412,10 @@ def test_comparison_connection_without_model_set_value_vs_model_set_value():
     model_1 = model
 
     bias = IOKey("bias")
+    bias.set_value(Tensor([1, 2.0]))
     model = Model()
     model += Linear(2)(input="input", weight="weight", bias=bias, output="output")
     model_2 = model
-    bias.set_value(Tensor([1, 2.0]))
 
     # Provide backend and data.
     backend = JaxBackend()

@@ -232,7 +232,7 @@ def test_set_types_connection():
     model = Model()
     buf_model = Buffer()
     model += buf_model(input="input", output=IOKey("output"))
-    buf_model.set_types(input=Tensor[int])
+    buf_model.input.set_type(Tensor[int])
 
     assert model.input.metadata.value_type is int  # type: ignore
     assert model.output.metadata.value_type is int  # type: ignore

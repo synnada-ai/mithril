@@ -242,9 +242,12 @@ def test_comparison_connection__without_model_set_shape():
     model2 += model1(left="left", right="right", output=IOKey("output"))
     model3 += model2(left="left", right="right", output=IOKey("output"))
 
-    left = IOKey("left", shape=[3, 4])
-    right = IOKey("right", shape=[3, 4])
-    final_right = IOKey("final_right", shape=[3, 4])
+    left = IOKey("left")
+    left.set_shapes([3, 4])
+    right = IOKey("right")
+    right.set_shapes([3, 4])
+    final_right = IOKey("final_right")
+    final_right.set_shapes([3, 4])
 
     model4 += model3(left=left, right=right, output=IOKey("output"))
     model4 += Add()(right=final_right, output=IOKey("final_output"))

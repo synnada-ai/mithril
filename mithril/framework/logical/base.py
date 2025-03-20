@@ -197,6 +197,7 @@ class ConnectionData:
             m = self.model._get_outermost_parent()
             m.set_shapes({self: value})
         else:
+            self.metadata.set_type(Tensor[int | float | bool])
             assert self.metadata.shape is not None
             repr = create_shape_repr(value)
             self.metadata.shape.merge(repr.node)
