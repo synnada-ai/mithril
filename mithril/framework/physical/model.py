@@ -1055,8 +1055,11 @@ class PhysicalModel(GenericDataType[DataType]):
             ):
                 outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
             else:
-                if self.flat_graph.cached_data and not self.contains_invalid_cache_value(
+                if (
                     self.flat_graph.cached_data
+                    and not self.contains_invalid_cache_value(
+                        self.flat_graph.cached_data
+                    )
                 ):
                     outputs = self._generated_eval_fn(
                         params, data, cache=self.flat_graph.cached_data
