@@ -1069,6 +1069,7 @@ class Tensor(Generic[TypeVarTensorType]):
         self._temp_shape: ShapeRepr | None = None  # set random repr
         self.type: _TensorTypes = type
         self.referees: set[IOHyperEdge] = set()
+        self.initial_valued: bool = False
         self.differentiable = differentiable
         if differentiable:
             if find_intersection_type(type, float) is None:
@@ -1078,7 +1079,6 @@ class Tensor(Generic[TypeVarTensorType]):
         self.value: TensorValueType | ToBeDetermined = TBD
         if not isinstance(value, ToBeDetermined):
             self.set_value(value)
-        self.initial_valued: bool = False
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
@@ -1120,8 +1120,8 @@ class Tensor(Generic[TypeVarTensorType]):
                 updates.add(edge, update_type=UpdateType.SHAPE)
                 updates.value_updates.add(edge)
             self.value = val
-
-        self.differentiable = False
+        if self.initial_valued is False:
+            self.differentiable = False
         return updates
 
     def match(self, other: Tensor[int | float | bool]) -> Updates:
@@ -1136,8 +1136,9 @@ class Tensor(Generic[TypeVarTensorType]):
                 )
                 assert not isinstance(valued.value, ToBeDetermined)
                 updates |= non_valued.set_value(valued.value)
-                self.differentiable = False
-                other.differentiable = False
+                if self.initial_valued is False:
+                    self.differentiable = False
+                    other.differentiable = False
             elif self.differentiable is None:
                 self.differentiable = other.differentiable
                 # Differentiable tensors can only be float type.
@@ -1251,10 +1252,14 @@ class IOHyperEdge:
 
     @property
     def is_valued(self) -> bool:
+        return not self.initial_valued and self._is_valued
+
+    @property
+    def _is_valued(self) -> bool:
         # TODO: Update as it can handle mixed type values which contains
         # both tensors and scalars.
         tensors = self.tensors
-        return not self.initial_valued and (
+        return (
             all(tensor.value is not TBD for tensor in tensors)
             if tensors
             else self._value is not TBD

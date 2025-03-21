@@ -508,7 +508,19 @@ def test_set_initial_value():
     assert params["right"] == backend.array(2.0)
 
 
-def test_set_initial_value_as_statekey():
+def test_set_initial_value_as_state_key():
+    model = Model()
+    model |= Add()("left", "right", output="output")
+    model.set_shapes(left=[1], right=[1], output=[1])
+    model.bind_state_keys("left", "output", ml.Tensor(Constant.ZEROS))
+    model.expose_keys("output")
+    backend = ml.JaxBackend()
+    pm = ml.compile(model, backend, inference=True)
+    state = pm.initial_state_dict
+    assert state == {"left": backend.zeros([1])}
+
+
+def test_set_initial_value_as_regular_params():
     model = Add()
     model.set_differentiability(left=True, right=True)
     model.set_shapes(left=[1], right=[1], output=[1])
@@ -522,18 +534,16 @@ def test_set_initial_value_as_statekey():
     assert params["right"] == backend.zeros([1])
 
 
-def test_set_initial_value_as_regular_data():
+def test_set_initial_value_as_data_error():
     model = Add()
-    model.set_differentiability(left=True, right=True)
     model.set_shapes(left=[1], right=[1], output=[1])
     model.set_values(
         left=ml.Tensor(Constant.ONES), right=ml.Tensor(Constant.ZEROS), initial=True
     )
     backend = ml.JaxBackend()
-    pm = ml.compile(model, backend, inference=True)
-    params = pm.randomize_params()
-    assert params["left"] == backend.ones([1])
-    assert params["right"] == backend.zeros([1])
+    with pytest.raises(ValueError) as err_info:
+        ml.compile(model, backend, inference=True)
+    assert str(err_info.value) == "Initial valued data should be differentiable!"
 
 
 def test_constant_with_zeros_and_ones():
@@ -566,6 +576,13 @@ def test_constant_with_single_element_slicer():
     model |= Buffer()(model.t_output[0], output="b_out")  # type: ignore
 
     assert model.b_out.metadata._value is model.output.metadata._value  # type: ignore
+
+
+def test_initial_without_value_error():
+    with pytest.raises(ValueError) as err_info:
+        Add().set_values(left=ml.TBD, initial=True)
+
+    assert str(err_info.value) == "Initial flag can only be set with value."
 
 
 @pytest.mark.skip(reason="Not fixed yet.")

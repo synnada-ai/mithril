@@ -798,10 +798,12 @@ class FlatGraph(GenericDataType[DataType]):
             state_keys.add(item.in_key)
             state_keys.add(item.out_key)
         for key, value in data.items():
-            if key not in state_keys and (
-                value.initial_valued or any_differentiable(value._value)
-            ):
-                continue
+            if key not in state_keys:
+                is_diff = any_differentiable(value._value)
+                if value.initial_valued and not is_diff:
+                    raise ValueError("Initial valued data should be differentiable!")
+                elif is_diff:
+                    continue
 
             # Distribute non-differentiable keys into 3 attributes using
             # type of values. If a key has a definite value, add it into cached_data.

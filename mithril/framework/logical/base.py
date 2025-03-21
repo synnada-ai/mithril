@@ -481,8 +481,8 @@ class BaseModel:
         # Set differentiability of input connection to False.
         updates |= in_con.set_differentiability(False)
         # Merge types.
-        updates |= out_con.metadata.set_type(in_con.metadata._type)
         updates |= in_con.metadata.set_type(out_con.metadata._type)
+        updates |= out_con.metadata.set_type(in_con.metadata._type)
         if in_con.metadata.is_tensor:
             # Merge shapes if connections are Tensors.
             assert isinstance(in_con.metadata._value, Tensor)
@@ -1588,7 +1588,10 @@ class BaseModel:
         if value != TBD:
             self.conns.cins.discard(key)
         # Data is scalar, set the value directly.
-        return key.metadata.set_value(value, initial=initial)
+        updates = key.metadata.set_value(value, initial=initial)
+        if initial is True and not key.metadata._is_valued:
+            raise ValueError("Initial flag can only be set with value.")
+        return updates
 
     def set_values(
         self,
