@@ -18,6 +18,7 @@ from typing import Any, Generic, TypeGuard
 from ...backends.backend import Backend
 from ...common import BiMap
 from ...types import Constant, DataType, Dtype, data_types, epsilon_table
+from ...utils.type_utils import is_list_int
 from ..common import (
     TBD,
     AllValueType,
@@ -35,12 +36,10 @@ class StaticDataStore(Generic[DataType]):
     def __init__(
         self,
         backend: Backend[DataType],
-        inference: bool,
     ) -> None:
         self._all_data: dict[str, IOHyperEdge] = dict()
         self.data_memo: dict[int, IOHyperEdge] = dict()
         self.backend: Backend[DataType] = backend
-        self.inference = inference
         self.intermediate_non_differentiables: BiMap[str, IOHyperEdge] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
@@ -145,13 +144,13 @@ class StaticDataStore(Generic[DataType]):
             return {k: self.convert_phys_value_to_logical(v) for k, v in value.items()}
         return value  # type: ignore
 
-    def _convert_to_physical_value(
-        self, data: AllValueType | Tensor[int | float | bool]
+    def convert_to_physical_value(
+        self, key: str, data: AllValueType | Tensor[int | float | bool]
     ) -> DataType | ScalarValueType | str:
         _data: DataType | AllValueType | Tensor[int | float | bool] = data
         if isinstance(data, Tensor) and data.value is not TBD:
             _data = self.backend.array(
-                self._convert_to_physical_value(data.value)
+                self.convert_to_physical_value(key, data.value)
                 if isinstance(data.value, Constant)
                 else data.value
             )
@@ -159,26 +158,36 @@ class StaticDataStore(Generic[DataType]):
             raise ValueError("Tensor value is not set!")
         elif isinstance(data, list | tuple):
             result: list[Any] | tuple[Any, ...] = [
-                self._convert_to_physical_value(d) for d in data
+                self.convert_to_physical_value(key, d) for d in data
             ]
             if isinstance(data, tuple):
                 result = tuple(result)
             _data = result
         elif isinstance(data, dict):
-            _data = {k: self._convert_to_physical_value(v) for k, v in data.items()}
+            _data = {k: self.convert_to_physical_value(key, v) for k, v in data.items()}
         elif isinstance(data, Constant):
-            _data = epsilon_table[self.backend.precision][data]
+            if data is Constant.ZEROS:
+                _data = self.backend.zeros(*self._get_key_shape(key))
+            elif data is Constant.ONES:
+                _data = self.backend.ones(*self._get_key_shape(key))
+            else:
+                _data = epsilon_table[self.backend.precision][data]
         elif isinstance(data, Dtype):
             _data = getattr(self.backend, data.name)
-
         assert not isinstance(_data, Tensor)
         return _data
+
+    def _get_key_shape(self, key: str) -> list[int]:
+        d_shp = self.all_data[key].shape
+        if d_shp is None or not is_list_int(shp := d_shp.get_shapes()):
+            raise ValueError(f"Key: '{key}' shape must be fully determined.")
+        return shp
 
     def _set_data_value(self, key: str, data: IOHyperEdge) -> None:
         value: AllValueType | Tensor[int | float | bool] = data._value
         assert not isinstance(value, ToBeDetermined)
         try:
-            phys_value = self._convert_to_physical_value(value)
+            phys_value = self.convert_to_physical_value(key, value)
             self.data_values[key] = phys_value
         except Exception as e:
             if str(e) == "Tensor value is not set!":

@@ -361,3 +361,50 @@ def test_expose_latent_inputs():
     model.expose_keys("axis", "keepdim")
     ref_inputs = {"input", "axis", "keepdim"}
     assert_inputs(model, ref_inputs=ref_inputs, ref_pm_inputs=ref_inputs)
+
+
+def test_connection_with_model():
+    model = Model()
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model.output1.expose()  # type: ignore
+    model_1 = model
+
+    model = Model()
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model_2 = model
+
+    # Provide backend and data.
+    backend = JaxBackend()
+    data = {"input": backend.array([[1.0, 2], [3, 4]])}
+
+    # Check equality.
+    assert model_1.input_keys == model_2.input_keys
+    assert model_1.output_keys == model_2.output_keys
+    assert model_1.conns.internal_keys == model_2.conns.internal_keys
+    compare_models(model_1, model_2, backend, data)
+
+
+def test_connection_without_model():
+    key = IOKey("output1")
+    key.expose()
+    model = Model()
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=key)
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model_1 = model
+
+    model = Model()
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model_2 = model
+
+    # Provide backend and data.
+    backend = JaxBackend()
+    data = {"input": backend.array([[1.0, 2], [3, 4]])}
+
+    # Check equality.
+    assert model_1.input_keys == model_2.input_keys
+    assert model_1.output_keys == model_2.output_keys
+    assert model_1.conns.internal_keys == model_2.conns.internal_keys
+    compare_models(model_1, model_2, backend, data)

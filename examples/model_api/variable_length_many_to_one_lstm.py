@@ -137,7 +137,7 @@ total_epochs = 8000
 
 # Train the model.
 for epoch in range(total_epochs):
-    outputs, gradients = compiled_model.evaluate_all(params)
+    outputs, gradients = compiled_model.evaluate(params, output_gradients=True)
     updates, opt_state = optimizer.update(gradients, opt_state)
     params = optax.apply_updates(params, updates)
     final_cost = outputs["final_cost"]

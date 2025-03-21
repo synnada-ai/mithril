@@ -15,13 +15,12 @@
 from __future__ import annotations
 
 import math
-import random
 import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
@@ -30,18 +29,17 @@ from ..common import (
     TBD,
     DataEvalType,
     EvaluateAllType,
-    EvaluateGradientsType,
     EvaluateType,
+    FinalCost,
     IOHyperEdge,
     MainValueInstance,
     MainValueType,
-    NullConnection,
     ParamsEvalType,
     ShapeResultType,
     StateKey,
-    StateValue,
     Table,
     Tensor,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     Variadic,
@@ -63,8 +61,6 @@ from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
 
-LossKey = "loss"
-FinalCost = "final_cost"
 
 PhysicalShapeValueType = Sequence[int | None]
 PhysicalConstantType = (
@@ -140,9 +136,10 @@ class PhysicalModel(GenericDataType[DataType]):
         # Save state_outputs (containing its exposure info) with
         # their corresponding input keys (containing its initial value).
         # Also, update input_keys and output_keys.
-        for out_con, (in_con, val) in flat_model.state_keys.items():
+        for out_con, in_con in flat_model.state_keys.items():
             in_key = flat_model.assigned_edges[in_con.metadata].name
             out_key = flat_model.assigned_edges[out_con.metadata].name
+            val = in_con.metadata._value
             self._input_keys.add(in_key)
             is_exposed_output = out_key in self._output_keys
             self._output_keys.add(out_key)
@@ -180,6 +177,7 @@ class PhysicalModel(GenericDataType[DataType]):
             self._output_keys,
             self.backend,
             model.constraint_solver,
+            self.state_keys,
             memo,
         )
 
@@ -253,8 +251,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
             self.flat_graph.add_value(p_model, mappings)
 
-        self.flat_graph.set_random_seed_keys(self.flat_graph.random_keys)
-
         # First part of the pm with all the inferences.
         self._pre_compile(
             constant_keys=_constant_keys,
@@ -273,7 +269,6 @@ class PhysicalModel(GenericDataType[DataType]):
                     for local_key in unnamed_inputs
                     if (key := self.external_key_mapping.get(local_key, local_key))
                     in runtime_data_keys
-                    and key not in self._random_seeds
                 ]
             )
             if unnamed_data_keys:
@@ -282,13 +277,6 @@ class PhysicalModel(GenericDataType[DataType]):
                     "safe_names set to True. The following keys are unnamed: "
                     f"{', '.join(str(key) for key in unnamed_data_keys)}"
                 )
-
-    def __call__(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-    ) -> DataEvalType[DataType]:
-        return self.evaluate(params=params, data=data)
 
     @property
     def cotangent_keys(self) -> set[str]:
@@ -317,10 +305,6 @@ class PhysicalModel(GenericDataType[DataType]):
             # Only differentiable output keys require output gradients.
             keys = {key for key in self._output_keys if self.has_grad(key)}
         return keys
-
-    @property
-    def _random_seeds(self) -> dict[str, int]:
-        return self.flat_graph.random_seeds
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
@@ -523,7 +507,11 @@ class PhysicalModel(GenericDataType[DataType]):
             if key in non_randomized_keys:
                 continue
 
-            # seed_key = self.backend.set_seed_key(seed, seed_key)
+            if self.data[key].initial_valued:
+                shapes[key] = self.flat_graph.data_store.convert_to_physical_value(  # type: ignore
+                    key, self.data[key].value
+                )
+                continue
             shape = self.shapes[key]
             assert shape is not None
             shape_len = len(shape)
@@ -603,13 +591,9 @@ class PhysicalModel(GenericDataType[DataType]):
     def generate_functions(
         self,
         eval_fn: EvaluateType[DataType],
-        grad_fn: EvaluateGradientsType[DataType] | None,
         eval_all_fn: EvaluateAllType[DataType] | None,
     ) -> None:
         self._generated_eval_fn: EvaluateType[DataType] = eval_fn
-        self._generated_compute_gradients_fn: EvaluateGradientsType[DataType] | None = (
-            grad_fn
-        )
         self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
 
     def _calculate_parameters(
@@ -914,15 +898,6 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         return conn_info
 
-    def set_random_seed_values(self, **seed_mapping: int) -> None:
-        self.flat_graph.set_random_seed_values(**seed_mapping)
-
-    def _step_random_seed_values(self) -> None:
-        for key, value in self.flat_graph.random_seeds.items():
-            random.seed(value)
-            new_seed = random.randint(0, 2**14)
-            self.flat_graph.random_seeds[key] = new_seed
-
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
     ) -> tuple[Operator, dict[str, str]]:
@@ -973,30 +948,13 @@ class PhysicalModel(GenericDataType[DataType]):
         for item in self.state_keys:
             val = item.initial_value
             in_key = item.in_key
-            if isinstance(val, NullConnection):
+            if isinstance(val, ToBeDetermined):
                 raise ValueError(
                     f"State key '{in_key}' initial value must be indicated."
                 )
-            elif isinstance(val, StateValue):
-                _data = self.flat_graph.all_data[in_key]
-                if _data.shape is None:
-                    raise ValueError(
-                        f"State key '{in_key}' shape must be fully determined."
-                    )
-                _shp = _data.shape.get_shapes()
-                for s in _shp:
-                    if not isinstance(s, int):
-                        raise ValueError(
-                            f"State key '{in_key}' shape must be fully determined."
-                        )
-                assert isinstance(_shp, list)
-                if val is StateValue.ZEROS:
-                    _state_vals[in_key] = self.backend.zeros(*_shp)
-                elif val is StateValue.ONES:
-                    _state_vals[in_key] = self.backend.ones(*_shp)
-            else:
-                _state_vals[in_key] = val
-
+            _state_vals[in_key] = self.flat_graph.data_store.convert_to_physical_value(  # type: ignore
+                in_key, val
+            )
         return _state_vals
 
     def _extract_state_outputs(
@@ -1030,6 +988,8 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[False] = False,
     ) -> DataEvalType[DataType]: ...
 
     @overload
@@ -1037,152 +997,99 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[False] = False,
         state: DataEvalType[DataType] | None = None,
     ) -> tuple[DataEvalType[DataType], DataEvalType[DataType]]: ...
 
+    @overload
     def evaluate(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> DataEvalType[DataType] | tuple[DataEvalType[DataType], DataEvalType[DataType]]:
-        # Inject seed values.
-        if state is None:
-            state = {}
-        if data is None:
-            data = {}
-        data = data | state | self._random_seeds  # type: ignore
-        self._step_random_seed_values()
-        if (
-            isinstance(self.backend, ParallelBackend)
-            and self.backend.get_parallel_manager() is not None
-        ):
-            outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
-        else:
-            if self.flat_graph.cached_data and not self.contains_invalid_cache_value(
-                self.flat_graph.cached_data
-            ):
-                outputs = self._generated_eval_fn(
-                    params, data, cache=self.flat_graph.cached_data
-                )
-            else:
-                outputs = self._generated_eval_fn(params, data)
-
-        outputs, state_outputs = self._extract_state_outputs(outputs)
-        if len(state_outputs) == 0:
-            return outputs
-        return outputs, state_outputs
-
-    @overload
-    def evaluate_gradients(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> ParamsEvalType[DataType]: ...
-
-    @overload
-    def evaluate_gradients(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> tuple[ParamsEvalType[DataType], DataEvalType[DataType]]: ...
-
-    def evaluate_gradients(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> (
-        ParamsEvalType[DataType]
-        | tuple[ParamsEvalType[DataType], DataEvalType[DataType]]
-    ):
-        if state is None:
-            state = {}
-        if data is None:
-            data = {}
-        data = data | state | self._random_seeds  # type: ignore
-        if self.inference:
-            raise NotImplementedError(
-                "Inference mode does not support gradients calculation"
-            )
-        if (
-            isinstance(self.backend, ParallelBackend)
-            and self.backend.get_parallel_manager() is not None
-        ):
-            outputs, gradients = self.backend._run_callable(
-                params, data, output_gradients, fn_name="eval_all_fn"
-            )
-        else:
-            outputs, gradients = self._generated_evaluate_all_fn(
-                params, data, output_gradients
-            )  # type: ignore
-
-        # Extract state outputs from the outputs.
-        outputs, state_outputs = self._extract_state_outputs(outputs)
-        if len(state_outputs) == 0:
-            return gradients
-        return gradients, state_outputs
-
-    @overload
-    def evaluate_all(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[True] | ParamsEvalType[DataType] = True,
     ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
 
     @overload
-    def evaluate_all(
+    def evaluate(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[True] | ParamsEvalType[DataType] = True,
         state: DataEvalType[DataType] | None = None,
     ) -> tuple[
         ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
     ]: ...
 
-    def evaluate_all(
+    def evaluate(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
+        *,
+        output_gradients: ParamsEvalType[DataType] | bool = False,
         state: DataEvalType[DataType] | None = None,
     ) -> (
-        tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
+        DataEvalType[DataType]
+        | tuple[DataEvalType[DataType], DataEvalType[DataType]]
+        | tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
         | tuple[
             ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
         ]
     ):
+        # Inject seed values.
         if state is None:
+            if len(self.state_keys) > 0:
+                raise ValueError(
+                    "State keys must be provided when evaluating the model."
+                )
             state = {}
         if data is None:
             data = {}
-        data = data | state | self._random_seeds  # type: ignore
-        if self.inference:
-            raise NotImplementedError(
-                "Inferece mode does not support gradients calculation"
-            )
-        if (
-            isinstance(self.backend, ParallelBackend)
-            and self.backend.get_parallel_manager() is not None
-        ):
-            outputs, gradients = self.backend._run_callable(
-                params, data, output_gradients, fn_name="eval_all_fn"
-            )
-        else:
-            outputs, gradients = self._generated_evaluate_all_fn(
-                params, data, output_gradients
-            )  # type: ignore
+        data = data | state  # type: ignore
+        if output_gradients is False:
+            if (
+                isinstance(self.backend, ParallelBackend)
+                and self.backend.get_parallel_manager() is not None
+            ):
+                outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
+            else:
+                if self.flat_graph.cached_data and not self.contains_invalid_cache_value(
+                    self.flat_graph.cached_data
+                ):
+                    outputs = self._generated_eval_fn(
+                        params, data, cache=self.flat_graph.cached_data
+                    )
+                else:
+                    outputs = self._generated_eval_fn(params, data)
 
-        outputs, state_outputs = self._extract_state_outputs(outputs)
-        if len(state_outputs) == 0:
-            return outputs, gradients
-        return outputs, gradients, state_outputs
+            outputs, state_outputs = self._extract_state_outputs(outputs)
+            if len(state_outputs) == 0:
+                return outputs
+            return outputs, state_outputs
+        else:
+            if self.inference:
+                raise NotImplementedError(
+                    "Inference mode does not support gradients calculation"
+                )
+            _gradients = None if output_gradients is True else output_gradients
+            if (
+                isinstance(self.backend, ParallelBackend)
+                and self.backend.get_parallel_manager() is not None
+            ):
+                outputs, gradients = self.backend._run_callable(
+                    params, data, _gradients, fn_name="eval_all_fn"
+                )
+            else:
+                outputs, gradients = self._generated_evaluate_all_fn(
+                    params, data, _gradients
+                )  # type: ignore
+
+            outputs, state_outputs = self._extract_state_outputs(outputs)
+            if len(state_outputs) == 0:
+                return outputs, gradients
+            return outputs, gradients, state_outputs
 
 
 @dataclass
@@ -1302,7 +1209,7 @@ class FlatModel:
         external_keys += autogenerated_conns
 
         state_inputs = set()
-        for out_con, (in_con, _) in self.state_keys.items():
+        for out_con, in_con in self.state_keys.items():
             if in_con.metadata not in edges:
                 external_keys.append(in_con)
             if out_con.metadata not in edges:
@@ -1320,7 +1227,7 @@ class FlatModel:
                 base_name_str = "$" + str(key_count)
 
             if self.short_namings:
-                if not (conn.is_autogenerated and conn.model is self.model):
+                if not base_name_str.startswith("$"):
                     name_str = self._get_unique_name_str(base_name_str)
                     name = self._create_name(name_str, base_name_str)
                 else:

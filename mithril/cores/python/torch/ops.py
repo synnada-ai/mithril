@@ -35,7 +35,6 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
-    indexer,
     item,
     length,
     less,
@@ -1255,6 +1254,60 @@ def atleast_1d(input: torch.Tensor) -> torch.Tensor:
 
 def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
     return weight[input.long()]
+
+
+def indexer(
+    input: torch.Tensor
+    | list[int | float | bool | torch.Tensor]
+    | tuple[int | float | bool | torch.Tensor, ...],
+    index: int
+    | slice
+    | tuple[int | list[int] | slice | torch.Tensor, ...]
+    | torch.Tensor,
+) -> (
+    torch.Tensor
+    | list[int | float | bool]
+    | tuple[int | float | bool, ...]
+    | int
+    | float
+    | bool
+):
+    # This special handling in torch's indexer done for handling incompatibility
+    # between torch and other backends (Jax, NumPy, MLX)
+
+    # Torch handles non-consecutive
+    # tensor indices differently than other backends
+
+    # Example:
+
+    #   torch_array = torch.randn(3, 4, 5)
+    #   torch_output = torch_array[None, torch.tensor([1, 1, 0, 1, 1, 0]), ..., 1]
+    #   torch_output.shape # (1, 6, 4)
+
+    #   numpy_array = np.random.randn(3, 4, 5)
+    #   numpy_output = numpy_array[None, np.array([1, 1, 0, 1, 1, 0]), ..., 1]
+    #   numpy_output.shape # (6, 1, 4)
+
+    # Both NumPy and torch reshapes broadcasted dimensions to the first rank if there
+    # are non-consecutive arrays in indices. However difference stems from
+    # their definition of 'array'. While numpy takes integers as arrays,
+    # torch does not take integers as tensors.
+
+    # So in the example, there is no non-consecutive tensors in terms of torch.
+    # As a result, it does not swap broadcasted dimensions to first dim. However,
+    # for NumPy and other supported backends, there are non-consecutive tensors in
+    # indices.
+
+    if isinstance(index, tuple) and any(
+        (isinstance(item, torch.Tensor) and item.ndim >= 1) or isinstance(item, list)
+        for item in index
+    ):
+        new_index = [
+            torch.atleast_1d(idx) if isinstance(idx, int | torch.Tensor) else idx  # type: ignore
+            for idx in index
+        ]
+        return input[new_index]  # type: ignore
+    return input[index]  # type: ignore
 
 
 array_creation_funcs = [

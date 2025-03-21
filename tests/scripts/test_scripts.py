@@ -156,7 +156,7 @@ def test_composite_1_extend_from_inputs():
         "bias1": np.array([-5.0, 5]),
     }
 
-    inputs_1, grads_1 = compiled_model.evaluate_all(inputs)
+    inputs_1, grads_1 = compiled_model.evaluate(inputs, output_gradients=True)
 
     model = Model()
 
@@ -194,7 +194,7 @@ def test_composite_1_extend_from_inputs():
         "bias1": np.array([-5.0, 5]),
     }
 
-    inputs_2, grads_2 = compiled_model.evaluate_all(inputs)
+    inputs_2, grads_2 = compiled_model.evaluate(inputs, output_gradients=True)
 
     assert_results_equal(inputs_1, inputs_2)
     assert_results_equal(grads_1, grads_2)
@@ -512,10 +512,9 @@ def test_compile_gradients_boolean():
         "bias_1": backend.randn(*bias_1_shape),
     }
 
-    assert compiled_model._generated_compute_gradients_fn is None
     assert compiled_model._generated_evaluate_all_fn is None
     with pytest.raises(NotImplementedError) as err_info:
-        compiled_model.evaluate_gradients(params)
+        compiled_model.evaluate(params, output_gradients=True)
     assert (
         str(err_info.value) == "Inference mode does not support gradients calculation"
     )
@@ -596,21 +595,26 @@ def test_pickle_empty_backend():
         model=ctx, backend=unpickled_torch_backend, jit=False
     )
     params = comp_model_1.randomize_params()
-    outputs_1, grads_1 = comp_model_1.evaluate_all(params)
-    outputs_2, grads_2 = comp_model_2.evaluate_all(
-        {key: jax_backend.array(param) for key, param in params.items()}
+    outputs_1, grads_1 = comp_model_1.evaluate(params, output_gradients=True)
+    outputs_2, grads_2 = comp_model_2.evaluate(
+        {key: jax_backend.array(param) for key, param in params.items()},
+        output_gradients=True,
     )
-    outputs_3, grads_3 = comp_model_3.evaluate_all(
-        {key: torch_backend.array(param) for key, param in params.items()}
+    outputs_3, grads_3 = comp_model_3.evaluate(
+        {key: torch_backend.array(param) for key, param in params.items()},
+        output_gradients=True,
     )
-    outputs_4, grads_4 = comp_model_4.evaluate_all(
-        {key: unpickled_numpy_backend.array(param) for key, param in params.items()}
+    outputs_4, grads_4 = comp_model_4.evaluate(
+        {key: unpickled_numpy_backend.array(param) for key, param in params.items()},
+        output_gradients=True,
     )
-    outputs_5, grads_5 = comp_model_5.evaluate_all(
-        {key: unpickled_jax_backend.array(param) for key, param in params.items()}
+    outputs_5, grads_5 = comp_model_5.evaluate(
+        {key: unpickled_jax_backend.array(param) for key, param in params.items()},
+        output_gradients=True,
     )
-    outputs_6, grads_6 = comp_model_6.evaluate_all(
-        {key: unpickled_torch_backend.array(param) for key, param in params.items()}
+    outputs_6, grads_6 = comp_model_6.evaluate(
+        {key: unpickled_torch_backend.array(param) for key, param in params.items()},
+        output_gradients=True,
     )
     assert_results_equal(
         outputs_1, outputs_2, outputs_3, outputs_4, outputs_5, outputs_6
@@ -1035,10 +1039,10 @@ def test_vjp_output_grad_orders():
             "output2": backend.ones([4, 24]),
             "output1": backend.ones([4, 12]),
         }
-        result_1 = pm.evaluate_gradients(
+        _, result_1 = pm.evaluate(
             inputs, data={"input": input, "target": target}, output_gradients=out_grads1
         )
-        result_2 = pm.evaluate_gradients(
+        _, result_2 = pm.evaluate(
             inputs, data={"input": input, "target": target}, output_gradients=out_grads2
         )
         for key in result_1:
@@ -1076,8 +1080,10 @@ def test_batch_minibatch_grad():
         batch_result = pm.evaluate(
             inputs, data={"input": backend_input, "target": backend_target}
         )
-        batch_grad_results = pm.evaluate_gradients(
-            inputs, data={"input": backend_input, "target": backend_target}
+        _, batch_grad_results = pm.evaluate(
+            inputs,
+            data={"input": backend_input, "target": backend_target},
+            output_gradients=True,
         )
         minibatch_result: list[dict] = []
         minibatch_grad_result: list[dict] = []
@@ -1091,12 +1097,13 @@ def test_batch_minibatch_grad():
                     "target": backend_target[idx : idx + 1],
                 },
             )
-            grad_result = pm.evaluate_gradients(
+            _, grad_result = pm.evaluate(
                 inputs,
                 data={
                     "input": backend_input[idx : idx + 1],
                     "target": backend_target[idx : idx + 1],
                 },
+                output_gradients=True,
             )
             assert isinstance(result["final_cost"], torch.Tensor)
             minibatch_result.append(result)  # type: ignore
@@ -1138,12 +1145,13 @@ def test_train_context_numpy():
             "target": backend.ones(32, dtype=mithril.int),
         },
     )
-    gradients_ds = comp_model.evaluate_gradients(
+    _, gradients_ds = comp_model.evaluate(
         params=params,
         data={
             "input": backend.ones(32, 8),
             "target": backend.ones(32, dtype=mithril.int),
         },
+        output_gradients=True,
     )
     assert set(out.keys()) == {"final_cost", "output", "output2"}
     np.testing.assert_allclose(gradients_ds["weight_1"], backend.zeros(16, 8))
@@ -1179,7 +1187,7 @@ def test_train_context_example():
         "output": np.array([[7.0]]),
         "final_cost": np.array(18.0),
     }
-    outputs, grads = comp_model.evaluate_all(params=params)
+    outputs, grads = comp_model.evaluate(params=params, output_gradients=True)
     assert_results_equal(outputs, ref_outputs)
     assert_results_equal(grads, ref_grads)
 
@@ -1442,7 +1450,7 @@ def test_flatten_dag0():
         "bias_4": backend.array([1.0]),
     }
     output_gradients = {"output1": backend.array([[1.0]])}
-    outputs, grads = pm.evaluate_all(params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params, output_gradients=output_gradients)
     assert_results_equal(outputs, ref_outputs)
     assert_results_equal(grads, ref_grads)
 
@@ -1469,7 +1477,7 @@ def test_geo_mean_1():
         "weight2": backend.array([[1.1]]),
         "bias": backend.array([1.0]),
     }
-    outputs, grads = pm.evaluate_all(params)
+    outputs, grads = pm.evaluate(params, output_gradients=True)
 
     assert_results_equal(outputs, ref_outputs)
     assert_results_equal(grads, ref_grads)
@@ -1717,8 +1725,8 @@ def test_geomean_evaluate():
     comp1_results = comp_1.evaluate(inputs)
     comp2_results = comp_2.evaluate(inputs)
 
-    comp1_grad_results = comp_1.evaluate_gradients(inputs)
-    comp2_grad_results = comp_2.evaluate_gradients(inputs)
+    _, comp1_grad_results = comp_1.evaluate(inputs, output_gradients=True)
+    _, comp2_grad_results = comp_2.evaluate(inputs, output_gradients=True)
     assert (
         comp1_results["final_cost"]
         == comp2_results["final_cost"]
@@ -2703,7 +2711,7 @@ def test_prune_duplicate_grad():
     grads = backend.ones(4, 4)
     backend.set_seed(10)
     params = pm.randomize_params()
-    res = pm.evaluate_gradients(
+    _, res = pm.evaluate(
         params=params,
         data={"input1": input1, "input2": input2},
         output_gradients={pm.output_keys[0]: grads},
@@ -3008,12 +3016,13 @@ def test_generate_gradients():
         jit=False,
     )
 
-    output_directly = comp_model.evaluate_gradients(
+    _, output_directly = comp_model.evaluate(
         params=params,
         data={
             "input": backend.ones(32, 8),
             "target": backend.ones(32, dtype=mithril.int),
         },
+        output_gradients=True,
     )
     comp_model_2.evaluate(
         params=params,
@@ -3022,12 +3031,13 @@ def test_generate_gradients():
             "target": backend.ones(32, dtype=mithril.int),
         },
     )
-    output = comp_model_2.evaluate_gradients(
+    _, output = comp_model_2.evaluate(
         params=params,
         data={
             "input": backend.ones(32, 8),
             "target": backend.ones(32, dtype=mithril.int),
         },
+        output_gradients=True,
     )
     for val1, val2 in zip(output.values(), output_directly.values(), strict=False):
         np.testing.assert_allclose(val1, val2, rtol=1e-7, atol=1e-7)
@@ -3065,19 +3075,21 @@ def test_evaluate_all_2():
             "target": backend.ones(32, dtype=mithril.int),
         },
     )
-    eval_grad_out = comp_model.evaluate_gradients(
+    _, eval_grad_out = comp_model.evaluate(
         params=params,
         data={
             "input": backend.ones(32, 8),
             "target": backend.ones(32, dtype=mithril.int),
         },
+        output_gradients=True,
     )
-    eval_all_out = comp_model_2.evaluate_all(
+    eval_all_out = comp_model_2.evaluate(
         params=params,
         data={
             "input": backend.ones(32, 8),
             "target": backend.ones(32, dtype=mithril.int),
         },
+        output_gradients=True,
     )
 
     assert eval_out.keys() == eval_all_out[0].keys()
@@ -3091,6 +3103,22 @@ def test_evaluate_all_2():
         eval_grad_out.values(), eval_all_out[1].values(), strict=False
     ):
         np.testing.assert_allclose(val1, val2, rtol=1e-7, atol=1e-7)
+
+
+def test_single_scalar_output_gradients():
+    model = Model()
+    model |= Linear(1)(input="input", weight="w", bias="b")
+    model += Mean()(output="output")
+
+    backend = NumpyBackend()
+    pm = compile(model=model, backend=backend, jit=False)
+    _, grad = pm.evaluate(
+        params={"w": backend.ones(1, 1), "b": backend.ones(1)},
+        data={"input": backend.ones(1, 1)},
+        output_gradients=True,
+    )
+    np.testing.assert_allclose(grad["w"], np.array([[1.0]]), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(grad["b"], np.array([1.0]), rtol=1e-6, atol=1e-6)
 
 
 def test_demo_model():
@@ -3146,7 +3174,7 @@ def test_empy_out_grad():
     target = backend.ones(1, dtype=mithril.int32)
     input = backend.ones(8, 32)
     with pytest.raises(ValueError):
-        comp_model.evaluate_gradients(
+        comp_model.evaluate(
             params=params, data={"input": input, "output": target}, output_gradients={}
         )
 
@@ -3162,7 +3190,7 @@ def test_empy_out_grad():
     jax_input = jax_backend.ones(8, 32)
     jax_target = jax_backend.ones(1, dtype=mithril.int32)
     with pytest.raises(ValueError):
-        comp_model_2.evaluate_gradients(
+        comp_model_2.evaluate(
             params=jax_params,
             data={"input": jax_input, "output": jax_target},
             output_gradients={},
@@ -6161,7 +6189,7 @@ def test_leaky_relu_trainable_slope():
     params = {"input": backend.array([-2.0, 2.0]), "slope": backend.array(0.2)}
 
     output_gradients = {"output": backend.array([1.0, 1.0])}
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([-0.4, 2.0])}
 
