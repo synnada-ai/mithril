@@ -377,3 +377,55 @@ def test_set_values_tensor_6():
     with pytest.raises(Exception) as err_info:
         model.set_values(output=Tensor([2, 3, 4]))
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
+
+
+def test_comparison_connection_set_value_vs_model_set_value():
+    model = Model()
+    model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
+    model.set_values(bias=Tensor([1, 2.0]))
+    model_1 = model
+
+    model = Model()
+    lin = Linear(2)
+    model += lin(input="input", weight="weight", bias="bias", output="output")
+    lin.bias.set_value(Tensor([1, 2.0]))
+    model_2 = model
+
+    # Provide backend and data.
+    backend = JaxBackend()
+    data = {"input": backend.array([[1.0, 2], [3, 4]])}
+    # Check equality.
+    compare_models(model_1, model_2, backend, data)
+
+    pm_1 = mithril.compile(model_1, backend=backend, constant_keys=data)
+    pm_2 = mithril.compile(model_2, backend=backend, constant_keys=data)
+    # Initialize parameters.
+    params_1, params_2 = init_params(backend, pm_1, pm_2)
+    # Check evaluations.
+    check_evaluations(backend, pm_1, pm_2, params_1, params_2)
+
+
+def test_comparison_connection_without_model_set_value_vs_model_set_value():
+    model = Model()
+    model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
+    model.set_values(bias=Tensor([1, 2.0]))
+    model_1 = model
+
+    bias = IOKey("bias")
+    bias.set_value(Tensor([1, 2.0]))
+    model = Model()
+    model += Linear(2)(input="input", weight="weight", bias=bias, output="output")
+    model_2 = model
+
+    # Provide backend and data.
+    backend = JaxBackend()
+    data = {"input": backend.array([[1.0, 2], [3, 4]])}
+    # Check equality.
+    compare_models(model_1, model_2, backend, data)
+
+    pm_1 = mithril.compile(model_1, backend=backend, constant_keys=data)
+    pm_2 = mithril.compile(model_2, backend=backend, constant_keys=data)
+    # Initialize parameters.
+    params_1, params_2 = init_params(backend, pm_1, pm_2)
+    # Check evaluations.
+    check_evaluations(backend, pm_1, pm_2, params_1, params_2)

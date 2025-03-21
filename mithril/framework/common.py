@@ -3281,14 +3281,14 @@ def create_shape_map(
 
 def create_shape_repr(
     shp_list: ShapeTemplateType,
-    solver: ConstraintSolver,
+    solver: ConstraintSolver | None = None,
     used_keys: UsedKeysType | None = None,
 ) -> ShapeRepr:
     if used_keys is None:
         _used_keys: UsedKeysType = {}
     else:
         _used_keys = used_keys
-    if shp_list == []:
+    if solver is not None and shp_list == []:
         assert solver.empty_node is not None
         return next(iter(solver.empty_node.reprs))
 
@@ -3311,7 +3311,9 @@ def create_shape_repr(
             if symbol not in _used_keys:
                 match symbol:
                     case int() if not isinstance(symbol, bool):
-                        if (_uni := solver.symbol_store.get(symbol)) is not None:
+                        if solver is None:
+                            symbol_obj = Uniadic(symbol)
+                        elif (_uni := solver.symbol_store.get(symbol)) is not None:
                             symbol_obj = _uni
                         else:
                             symbol_obj = solver.symbol_store[symbol] = Uniadic(symbol)
