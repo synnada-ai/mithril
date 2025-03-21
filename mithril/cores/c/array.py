@@ -15,6 +15,8 @@
 import ctypes
 from collections.abc import Sequence
 
+import numpy as np
+
 
 class PyArray:
     def __init__(self, arr: ctypes.Structure, shape: tuple[int, ...] | list[int]):
@@ -29,6 +31,10 @@ class PyArray:
     # TODO: Implement __del__ method for deleting the struct
     # def __del__(self):
     #     lib.delete_struct(self.arr)
+
+    @property
+    def dtype(self) -> type:
+        return np.float32
 
     @property
     def data(self) -> Sequence[int | Sequence[int | Sequence[int]]]:
