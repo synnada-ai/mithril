@@ -56,9 +56,7 @@ def test_state_keys_shp_error():
     pm = ml.compile(model, backend, use_short_namings=False, inference=True)
     with pytest.raises(ValueError) as err_info:
         pm.initial_state_dict["input1"]
-    assert (
-        str(err_info.value) == "Constant key 'input1' shape must be fully determined."
-    )
+    assert str(err_info.value) == "Key: 'input1' shape must be fully determined."
 
 
 def test_state_keys_shp_tensor_error():
@@ -72,9 +70,7 @@ def test_state_keys_shp_tensor_error():
 
     with pytest.raises(ValueError) as err_info:
         pm.initial_state_dict["input1"]
-    assert (
-        str(err_info.value) == "Constant key 'input1' shape must be fully determined."
-    )
+    assert str(err_info.value) == "Key: 'input1' shape must be fully determined."
 
 
 def test_state_keys_init_value_error():

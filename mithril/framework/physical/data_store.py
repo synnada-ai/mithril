@@ -180,7 +180,7 @@ class StaticDataStore(Generic[DataType]):
     def _get_key_shape(self, key: str) -> list[int]:
         d_shp = self.all_data[key].shape
         if d_shp is None or not is_list_int(shp := d_shp.get_shapes()):
-            raise ValueError(f"Constant key '{key}' shape must be fully determined.")
+            raise ValueError(f"Key: '{key}' shape must be fully determined.")
         return shp
 
     def _set_data_value(self, key: str, data: IOHyperEdge) -> None:
