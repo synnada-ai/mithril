@@ -40,6 +40,7 @@ from ..types import (
     Constant,
     DataType,
     Dtype,
+    constant_shp_table,
     constant_type_table,
 )
 from ..utils.type_utils import is_union_type
@@ -63,6 +64,7 @@ __all__ = [
     "get_summary_shapes",
     "get_summary_types",
     "ConstraintSolver",
+    "Constant",
 ]
 
 
@@ -125,18 +127,12 @@ class KeyType(Enum):
     LATENT_OUTPUT = 5
 
 
-class StateValue(Enum):
-    ZEROS = 0
-    ONES = 1
-    # RANDOM = 0 # TODO: Implement random state value
-
-
 @dataclass
 class StateKey:
     in_key: str
     out_key: str
     is_exposed: bool
-    initial_value: MainValueInstance | StateValue | NullConnection = NOT_GIVEN
+    initial_value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD
 
 
 type FixedValueType = (
@@ -173,6 +169,7 @@ type ScalarType = (
     | UnionType
     | GenericAlias
 )
+# TODO: remove Constant from ScalarValueType
 ScalarValueType = (
     int
     | float
@@ -627,12 +624,12 @@ def check_uniformity(sublist: SequenceValType) -> None:
 
 def process_value(
     value: TensorValueType,
-) -> tuple[list[int], TensorValueType, type[int] | type[float] | type[bool]]:
+) -> tuple[list[int] | None, TensorValueType, type[int] | type[float] | type[bool]]:
     # If value is not a sequence, directly return empty shape, value and
     # its type directly.
     if not isinstance(value, tuple | list | range):
         return (
-            [],
+            [] if not isinstance(value, Constant) else constant_shp_table[value],
             value,
             type(value) if not isinstance(value, Constant) else find_type(value),
         )  # type: ignore
@@ -662,8 +659,9 @@ def process_value(
             dominant_type = float
         elif sub_type is int and dominant_type is bool:
             dominant_type = int
-
-    return [len(result)] + sub_shape, result, dominant_type
+    if sub_shape is not None:
+        sub_shape = [len(value)] + sub_shape
+    return sub_shape, result, dominant_type
 
 
 def find_intersection_type(
@@ -1062,6 +1060,7 @@ class Tensor(Generic[TypeVarTensorType]):
         self._temp_shape: ShapeRepr | None = None  # set random repr
         self.type: _TensorTypes = type
         self.referees: set[IOHyperEdge] = set()
+        self.initial_valued: bool = False
         self.differentiable = differentiable
         if differentiable:
             if find_intersection_type(type, float) is None:
@@ -1104,20 +1103,22 @@ class Tensor(Generic[TypeVarTensorType]):
             # Set type.
             updates |= self.set_type(typ)
             # Set shape.
-            updates |= self.shape.set_values(shape)
+            if shape is not None:
+                updates |= self.shape.set_values(shape)
             # Add all referee edges into the updates.
             for edge in self.referees:
                 updates.add(edge, update_type=UpdateType.VALUE)
                 updates.add(edge, update_type=UpdateType.SHAPE)
                 updates.value_updates.add(edge)
             self.value = val
-
-        self.differentiable = False
+        if self.initial_valued is False:
+            self.differentiable = False
         return updates
 
     def match(self, other: Tensor[int | float | bool]) -> Updates:
         updates = Updates()
         if self is not other:
+            self.initial_valued |= other.initial_valued
             updates |= self.set_type(other.type)
             updates |= other.set_type(self.type)
             if self.value is not TBD or other.value is not TBD:
@@ -1126,8 +1127,9 @@ class Tensor(Generic[TypeVarTensorType]):
                 )
                 assert not isinstance(valued.value, ToBeDetermined)
                 updates |= non_valued.set_value(valued.value)
-                self.differentiable = False
-                other.differentiable = False
+                if self.initial_valued is False:
+                    self.differentiable = False
+                    other.differentiable = False
             elif self.differentiable is None:
                 self.differentiable = other.differentiable
                 # Differentiable tensors can only be float type.
@@ -1184,6 +1186,7 @@ class IOHyperEdge:
         # Initially set type and value as not determined yet.
         self._type = ToBeDetermined
         self._value = TBD
+        self._initial_valued: bool = False
         # Set given type.
         self.set_type(type)
         # If any value is provided, set it.
@@ -1207,6 +1210,12 @@ class IOHyperEdge:
         # as None. Depending on its instant type updates, it can
         # become True or False (e.g Tensor or int type).
         return None
+
+    @property
+    def initial_valued(self) -> bool:
+        if isinstance(self._value, Tensor):
+            return self._value.initial_valued
+        return self._initial_valued
 
     @property
     def tensors(self) -> set[Tensor[int | float | bool]]:
@@ -1233,11 +1242,11 @@ class IOHyperEdge:
         return not (is_tbd or has_tensor)
 
     @property
-    def is_non_diff(self) -> bool:
-        return not self.differentiable
+    def is_valued(self) -> bool:
+        return not self.initial_valued and self._is_valued
 
     @property
-    def is_valued(self) -> bool:
+    def _is_valued(self) -> bool:
         # TODO: Update as it can handle mixed type values which contains
         # both tensors and scalars.
         tensors = self.tensors
@@ -1406,13 +1415,24 @@ class IOHyperEdge:
                 self.update_tensor_values(val, updates)
 
     def set_value(
-        self, value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
+        self,
+        value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
+        initial: bool = False,
     ) -> Updates:
         updates = Updates()
+        self._initial_valued = initial
+        if isinstance(self._value, Tensor):
+            self._value.initial_valued = initial
+        if isinstance(value, Tensor):
+            value.initial_valued = initial
         # Note that two tensor objects having same value are not equal.
         # Tensor values always have to be matched with the existing one
         # or set as the new value.
-        if not (isinstance(value, ToBeDetermined) or self._value == value):
+        if isinstance(value, Constant):
+            if not isinstance(self._value, Tensor):
+                self.set_type(Tensor[int | float | bool])
+            self._value.set_value(value)  # type: ignore
+        elif not (isinstance(value, ToBeDetermined) or self._value == value):
             # Set new type without automatic tensor value creation.
             # Note that this first type setting actually validates or
             # rejects value setting based on the compatibility of two types.
@@ -1430,14 +1450,15 @@ class IOHyperEdge:
                 updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(find_type(self._value), create_tensor=False)
-            if self.is_tensor and self.is_valued:
-                self.set_differentiability(False)
+        if self.is_tensor and self.is_valued:
+            self.set_differentiability(False)
         return updates
 
     def match(self, other: IOHyperEdge) -> Updates:
         # TODO: Get global Updates object for global consistency.
         updates = Updates()
         if self is not other:
+            self._initial_valued |= other.initial_valued
             # TODO: If any valued edge, set_value only since it sets types as well.
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
@@ -1445,7 +1466,7 @@ class IOHyperEdge:
                 valued, non_valued = (
                     (other, self) if other._value is not TBD else (self, other)
                 )
-                updates |= non_valued.set_value(valued._value)
+                updates |= non_valued.set_value(valued._value, self._initial_valued)
                 updates.value_updates.discard(other)
                 IOHyperEdge._discard_edge_from_tensors(other, self._value)
 

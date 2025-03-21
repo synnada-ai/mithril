@@ -109,7 +109,7 @@ class TestLayers:
         input = backend.array(torch_input_ids.clone().numpy())
         expected_result = o_model(torch_input_ids).pooler_output
 
-        outs = pm.evaluate(params, {"input": input})
+        outs, state = pm.evaluate(params, {"input": input}, state=pm.initial_state_dict)
         res = outs["output"]
 
         np.testing.assert_allclose(
@@ -174,10 +174,8 @@ class TestLayers:
         expected_result = o_model(
             input_ids=torch_input_ids, pixel_values=torch_pixel_values
         )
-
-        outs = pm.evaluate(
-            params, {"input_ids": input_ids, "pixel_values": pixel_values}
-        )
+        data = {"input_ids": input_ids, "pixel_values": pixel_values}
+        outs, state = pm.evaluate(params, data, state=pm.initial_state_dict)
 
         np.testing.assert_allclose(
             np.array(outs["text_embeds"]),
@@ -230,9 +228,8 @@ class TestClipMLXEndToEnd:
         expected_result = o_model(
             input_ids=torch.tensor(tokens), pixel_values=torch.tensor(image_input)
         )
-        outs = pm.evaluate(
-            params, {"input_ids": input_ids, "pixel_values": pixel_values}
-        )
+        data = {"input_ids": input_ids, "pixel_values": pixel_values}
+        outs, state = pm.evaluate(params, data, state=pm.initial_state_dict)
 
         np.testing.assert_allclose(
             np.array(outs["text_embeds"]),
