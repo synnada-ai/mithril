@@ -365,10 +365,8 @@ def test_torch_parallel_1():
 
     output_grad = backend.randn(8, 256)
     output_grad_parallel = backend_parallel.array(output_grad)
-    grads = pm.evaluate_gradients(
-        params, input, output_gradients={"output": output_grad}
-    )
-    grads_parallel = pm_parallel.evaluate_gradients(
+    _, grads = pm.evaluate(params, input, output_gradients={"output": output_grad})
+    _, grads_parallel = pm_parallel.evaluate(
         params_parallel,
         input_parallel,
         output_gradients={"output": output_grad_parallel},
@@ -446,10 +444,8 @@ def test_torch_parallel_3():
 
     output_grad = backend.randn(256, 256)
     output_grad_parallel = backend_parallel.array(output_grad)
-    grads = pm.evaluate_gradients(
-        params, input, output_gradients={"output": output_grad}
-    )
-    grads_parallel = pm_parallel.evaluate_gradients(
+    _, grads = pm.evaluate(params, input, output_gradients={"output": output_grad})
+    _, grads_parallel = pm_parallel.evaluate(
         params_parallel,
         input_parallel,
         output_gradients={"output": output_grad_parallel},
@@ -490,10 +486,8 @@ def test_torch_parallel_4():
 
     output_grad = backend.rand(256, 256)
     output_grad_parallel = backend_parallel.array(output_grad)
-    grads = pm.evaluate_gradients(
-        params, input, output_gradients={"output": output_grad}
-    )
-    grads_parallel = pm_parallel.evaluate_gradients(
+    _, grads = pm.evaluate(params, input, output_gradients={"output": output_grad})
+    _, grads_parallel = pm_parallel.evaluate(
         params_parallel,
         input_parallel,
         output_gradients={"output": output_grad_parallel},
@@ -549,10 +543,10 @@ def test_torch_parallel_5():
     output_full_tensor = out_parallel.full_tensor()
     np.testing.assert_allclose(output_full_tensor, out)
 
-    param_grads = pm.evaluate_gradients(
+    _, param_grads = pm.evaluate(
         params, input, output_gradients={"output": output_grads}
     )
-    param_grads_parallel = pm_parallel.evaluate_gradients(
+    _, param_grads_parallel = pm_parallel.evaluate(
         params_parallel,
         input_parallel,
         output_gradients={"output": outout_grads_parallel},
@@ -942,10 +936,8 @@ def test_jax_parallel_1():
 
         output_grad = backend.randn(8, 256)
         output_grad_parallel = backend_parallel.array(output_grad)
-        grads = pm.evaluate_gradients(
-            params, input, output_gradients={"output": output_grad}
-        )
-        grads_parallel = pm_parallel.evaluate_gradients(
+        _, grads = pm.evaluate(params, input, output_gradients={"output": output_grad})
+        _, grads_parallel = pm_parallel.evaluate(
             params_parallel,
             input_parallel,
             output_gradients={"output": output_grad_parallel},
@@ -1028,10 +1020,8 @@ def test_jax_parallel_3():
 
         output_grad = backend.randn(256, 256)
         output_grad_parallel = backend_parallel.array(output_grad)
-        grads = pm.evaluate_gradients(
-            params, input, output_gradients={"output": output_grad}
-        )
-        grads_parallel = pm_parallel.evaluate_gradients(
+        _, grads = pm.evaluate(params, input, output_gradients={"output": output_grad})
+        _, grads_parallel = pm_parallel.evaluate(
             params_parallel,
             input_parallel,
             output_gradients={"output": output_grad_parallel},
@@ -1075,10 +1065,8 @@ def test_jax_parallel_4():
 
         output_grad = backend.randn(256, 256)
         output_grad_parallel = backend_parallel.array(output_grad)
-        grads = pm.evaluate_gradients(
-            params, input, output_gradients={"output": output_grad}
-        )
-        grads_parallel = pm_parallel.evaluate_gradients(
+        _, grads = pm.evaluate(params, input, output_gradients={"output": output_grad})
+        _, grads_parallel = pm_parallel.evaluate(
             params_parallel,
             input_parallel,
             output_gradients={"output": output_grad_parallel},
@@ -1134,10 +1122,10 @@ def test_jax_parallel_5():
         assert isinstance(output_full_tensor, jax.numpy.ndarray)
         np.testing.assert_allclose(output_full_tensor, out)
 
-        param_grads = pm.evaluate_gradients(
+        _, param_grads = pm.evaluate(
             params, input, output_gradients={"output": output_grads}
         )
-        param_grads_parallel = pm_parallel.evaluate_gradients(
+        _, param_grads_parallel = pm_parallel.evaluate(
             params_parallel,
             input_parallel,
             output_gradients={"output": outout_grads_parallel},

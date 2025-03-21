@@ -101,7 +101,7 @@ def test_set_values_scalar_1():
 
     ref_grads = {"input": backend.ones(2, 2) / 2}
 
-    outputs, grads = pm.evaluate_all(params, data, gradients)
+    outputs, grads = pm.evaluate(params, data, output_gradients=gradients)
 
     assert_results_equal(grads, ref_grads)
     assert_results_equal(outputs, ref_outputs)
@@ -125,7 +125,7 @@ def test_set_values_scalar_1_kwargs_arg():
 
     ref_grads = {"input": backend.ones(2, 2) / 2}
 
-    outputs, grads = pm.evaluate_all(params, data, gradients)
+    outputs, grads = pm.evaluate(params, data, output_gradients=gradients)
 
     assert_results_equal(grads, ref_grads)
     assert_results_equal(outputs, ref_outputs)
@@ -151,7 +151,7 @@ def test_set_values_scalar_2():
 
     ref_grads = {"input": backend.ones(2, 2) / 2}
 
-    outputs, grads = pm.evaluate_all(params, data, gradients)
+    outputs, grads = pm.evaluate(params, data, output_gradients=gradients)
 
     assert_results_equal(grads, ref_grads)
     assert_results_equal(outputs, ref_outputs)
@@ -177,7 +177,7 @@ def test_set_values_scalar_3():
 
     ref_grads = {"input": backend.ones(2, 2) / 2}
 
-    outputs, grads = pm.evaluate_all(params, data, gradients)
+    outputs, grads = pm.evaluate(params, data, output_gradients=gradients)
 
     assert_results_equal(grads, ref_grads)
     assert_results_equal(outputs, ref_outputs)

@@ -269,15 +269,6 @@ class EvaluateType(Protocol, Generic[DataType]):
     ) -> DataEvalType[DataType]: ...
 
 
-class EvaluateGradientsType(Protocol, Generic[DataType]):
-    def __call__(
-        self,
-        params: ParamsEvalType[DataType] | None,
-        data: DataEvalType[DataType] | None,
-        output_gradients: ParamsEvalType[DataType] | None,
-    ) -> ParamsEvalType[DataType]: ...
-
-
 class EvaluateAllType(Protocol, Generic[DataType]):
     def __call__(
         self,
