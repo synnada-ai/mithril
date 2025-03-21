@@ -116,7 +116,10 @@ def timestep_embedding(
 
     if dim % 2:
         block |= ZerosLike()(block.embedding[:, :1], output="zeros_like_out")  # type: ignore[attr-defined]
-        block |= Concat(axis=-1)(input=[block.embedding, block.zeros_like_out])  # type: ignore[attr-defined]
+        block |= Concat(axis=-1)(
+            input=[block.embedding, block.zeros_like_out],  # type: ignore
+            output="embedding",
+        )
         block |= Cast()(
             input="zeros_like_out", dtype=input.dtype(), output=IOKey("output")
         )
@@ -201,10 +204,10 @@ def double_stream_block(
     *,
     name: str | None = None,
 ):
-    img = IOKey("img")
-    txt = IOKey("txt")
-    vec = IOKey("vec")
-    pe = IOKey("pe")
+    img = IOKey("img", shape=[1, 4096, 3072])
+    txt = IOKey("txt", shape=(1, 512, 3072))
+    vec = IOKey("vec", shape=(1, 3072))
+    pe = IOKey("pe", shape=(1, 1, 4608, 64, 2, 2))
 
     mlp_hidden_dim = int(hidden_size * mlp_ratio)
 
@@ -258,13 +261,12 @@ def double_stream_block(
     )
     txt_q, txt_k = block.txt_q_out, block.txt_k_out  # type: ignore[attr-defined]
 
-    block |= Concat(axis=2)(input=[txt_q, img_q], output="q_concat")
-    block |= Concat(axis=2)(input=[txt_k, img_k], output="k_concat")
-    block |= Concat(axis=2)(input=[txt_v, img_v], output="v_concat")
+    block |= Concat(axis=2)(input=[txt_q, img_q], output=IOKey("q_concat"))
+    block |= Concat(axis=2)(input=[txt_k, img_k], output=IOKey("k_concat"))
+    block |= Concat(axis=2)(input=[txt_v, img_v], output=IOKey("v_concat"))
 
     block |= attention()(q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn")
-    # TODO: use'[:, txt.shape[1] :]' when fixed.
-    img_attn = block.attn[:, 256:]  # type: ignore[attr-defined]
+    img_attn = block.attn[:, txt.shape[1] :]  # type: ignore
 
     block |= Linear(hidden_size, name="img_attn_proj")(img_attn, output="img_proj")
     img = img + block.img_mod_1[2] * block.img_proj  # type: ignore[attr-defined]
@@ -289,7 +291,7 @@ def double_stream_block(
     img = img + block.img_mod_2[2] * block.img_mlp  # type: ignore[attr-defined]
 
     # TODO: Use txt.shape[1]]
-    txt_attn = block.attn[:, :256]  # type: ignore[attr-defined]
+    txt_attn = block.attn[:, : txt.shape[1]]  # type: ignore
     block |= Linear(hidden_size, name="txt_attn_proj")(txt_attn, output="txt_proj")
 
     txt = txt + block.txt_mod_1[2] * block.txt_proj  # type: ignore[attr-defined]
@@ -421,10 +423,10 @@ def rope(dim: int, theta: int, *, name: str | None = None) -> Model:
 
     block |= Concat(axis=-1)(
         input=[
-            out.cos()[..., None],  # type: ignore
-            -out.sin()[..., None],  # type: ignore
-            out.sin()[..., None],  # type: ignore
-            out.cos()[..., None],  # type: ignore
+            out.cos()[..., None],
+            -out.sin()[..., None],
+            out.sin()[..., None],
+            out.cos()[..., None],
         ],
         output="concat_out",
     )
