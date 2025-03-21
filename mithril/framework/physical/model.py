@@ -1012,17 +1012,19 @@ class PhysicalModel(GenericDataType[DataType]):
             else:
                 state_outputs[in_key] = outputs.pop(out_key)  # type: ignore
         return outputs, state_outputs
-    
-    def contains_invalid_cache_value(self, cache_data):
-        """Returns True if the cache contains an invalid value (Ellipsis, None, or slice)."""
+
+    def contains_invalid_cache_value(self, cache_data: DataEvalType[DataType]) -> bool:
+        # Returns True if the cache contains an invalid value
+        # (Ellipsis, None, or slice).
         return any(
-            isinstance(value, tuple) and (Ellipsis in value or None in value)
+            isinstance(value, tuple)
+            and (Ellipsis in value or None in value)
             or isinstance(value, slice)
             or value is None
             or value is Ellipsis
             for value in cache_data.values()
         )
-    
+
     @overload
     def evaluate(
         self,
@@ -1057,10 +1059,14 @@ class PhysicalModel(GenericDataType[DataType]):
         ):
             outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
         else:
-            if self.flat_graph.cached_data and not self.contains_invalid_cache_value(self.flat_graph.cached_data):
-                outputs = self._generated_eval_fn(params, data, cache=self.flat_graph.cached_data)
+            if self.flat_graph.cached_data and not self.contains_invalid_cache_value(
+                self.flat_graph.cached_data
+            ):
+                outputs = self._generated_eval_fn(
+                    params, data, cache=self.flat_graph.cached_data
+                )
             else:
-                outputs = self._generated_eval_fn(params, data) 
+                outputs = self._generated_eval_fn(params, data)
 
         outputs, state_outputs = self._extract_state_outputs(outputs)
         if len(state_outputs) == 0:
