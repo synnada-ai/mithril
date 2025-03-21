@@ -140,7 +140,7 @@ class TestLayers:
         input = backend.array(torch_input.clone().numpy())
         expected_result = o_model(torch.tensor(input)).pooler_output
 
-        outs = pm(params, {"input": input})
+        outs = pm.evaluate(params, {"input": input})
 
         res = outs["output"]
         np.testing.assert_allclose(

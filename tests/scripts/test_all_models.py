@@ -219,7 +219,7 @@ def compile_and_compare(
                 key: convert_to_array(backend, value)
                 for key, value in reference_gradients.items()
             }
-            gradients = pm.evaluate_gradients(
+            _, gradients = pm.evaluate(
                 backend_params,
                 data=backend_data,
                 output_gradients=backend_output_gradients,
@@ -3057,10 +3057,10 @@ def test_cast_float16():
                 trainable_keys={"input"},
                 inference=False,
             )
-            grads = pm.evaluate_gradients(
+            _, grads = pm.evaluate(
                 {"input": _param}, output_gradients={"output": out_grad}
-            )["input"]
-            assert grads.dtype == ref_grad.dtype
+            )
+            assert grads["input"].dtype == ref_grad.dtype
 
 
 # def test_cast_bfloat16():
@@ -3170,10 +3170,10 @@ def test_cast_float32():
                 trainable_keys={"input"},
                 inference=False,
             )
-            grads = pm.evaluate_gradients(
+            _, grads = pm.evaluate(
                 {"input": _param}, output_gradients={"output": out_grad}
-            )["input"]
-            assert grads.dtype == ref_grad.dtype
+            )
+            assert grads["input"].dtype == ref_grad.dtype
 
 
 def test_cast_float64():
@@ -3235,10 +3235,10 @@ def test_cast_float64():
                 trainable_keys={"input"},
                 inference=False,
             )
-            grads = pm.evaluate_gradients(
+            _, grads = pm.evaluate(
                 {"input": _param}, output_gradients={"output": out_grad}
-            )["input"]
-            assert grads.dtype == ref_grad.dtype
+            )
+            assert grads["input"].dtype == ref_grad.dtype
 
 
 def test_cast_bool():

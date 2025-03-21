@@ -19,7 +19,7 @@ import keyword
 from collections.abc import Callable
 from functools import partial
 from posixpath import basename, splitext
-from typing import Any, Generic, Literal, Protocol, overload
+from typing import Any, Generic, Protocol
 
 from ...backends.backend import ParallelBackend
 from ...common import PythonGenConfig
@@ -28,8 +28,8 @@ from ...utils.func_utils import prepare_function_args
 from ..common import (
     DataEvalType,
     EvaluateAllType,
-    EvaluateGradientsType,
     EvaluateType,
+    FinalCost,
     ParamsEvalType,
 )
 from ..logical import Operator
@@ -41,8 +41,6 @@ from .utils import (
     convert_to_ast_kwarg,
     partial_array_creation_func,
 )
-
-FinalCost = "final_cost"
 
 
 class RawEvaluateType(Protocol, Generic[DataType]):
@@ -65,30 +63,11 @@ class RawGradientType(Protocol, Generic[DataType]):
 
 
 class ManualGradWrapperFn(Protocol, Generic[DataType]):
-    @overload
     def __call__(
         self,
         params: ParamsEvalType[DataType],
         data: DataEvalType[DataType],
         output_gradients: ParamsEvalType[DataType],
-        include_output: Literal[True],
-    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
-
-    @overload
-    def __call__(
-        self,
-        params: ParamsEvalType[DataType],
-        data: DataEvalType[DataType],
-        output_gradients: ParamsEvalType[DataType],
-        include_output: Literal[False],
-    ) -> ParamsEvalType[DataType]: ...
-
-    def __call__(
-        self,
-        params: ParamsEvalType[DataType],
-        data: DataEvalType[DataType],
-        output_gradients: ParamsEvalType[DataType],
-        include_output: bool,
     ) -> (
         ParamsEvalType[DataType]
         | tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
@@ -138,11 +117,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     def compile_code(
         self, jit: bool = False
-    ) -> tuple[
-        EvaluateType[DataType],
-        EvaluateGradientsType[DataType] | None,
-        EvaluateAllType[DataType] | None,
-    ]:
+    ) -> tuple[EvaluateType[DataType], EvaluateAllType[DataType] | None]:
         eval_fn, grad_fn = self.exec_generated_code()
         return self.post_process_fns(eval_fn, grad_fn, jit)
 
@@ -201,11 +176,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         raw_eval_fn: RawEvaluateType[DataType],
         raw_grad_fn: ManualGradWrapperFn[DataType] | None,
         jit: bool,
-    ) -> tuple[
-        EvaluateType[DataType],
-        EvaluateGradientsType[DataType] | None,
-        EvaluateAllType[DataType] | None,
-    ]:
+    ) -> tuple[EvaluateType[DataType], EvaluateAllType[DataType] | None]:
         """In this function going to wrap the raw functions with some additional
         functionalities.
 
@@ -219,10 +190,9 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             fn=raw_eval_fn,
             cache=self.pm.flat_graph.cached_data,
         )
-        grad_fn = None
         evaluate_all_fn = None
         if not self.pm.inference:
-            grad_fn, evaluate_all_fn = self.create_gradient_fn(
+            evaluate_all_fn = self.create_gradient_fn(
                 raw_eval_fn, raw_evaluate_grad_fn=raw_grad_fn
             )
 
@@ -232,26 +202,20 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         ):
             self.pm.backend.register_callable(eval_fn, "eval_fn", jit)
             if not self.pm.inference:
-                assert grad_fn is not None, "Gradient function is not defined!"
                 assert (
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
-
-                self.pm.backend.register_callable(grad_fn, "eval_grad_fn", jit)
                 self.pm.backend.register_callable(evaluate_all_fn, "eval_all_fn", jit)
 
         elif jit and not self.pm.backend.is_manualgrad:
             eval_fn = self.pm.backend.jit(eval_fn)
             if not self.pm.inference:
-                assert grad_fn is not None, "Gradient function is not defined!"
                 assert (
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
-
-                grad_fn = self.pm.backend.jit(grad_fn)  # type: ignore
                 evaluate_all_fn = self.pm.backend.jit(evaluate_all_fn)
 
-        return eval_fn, grad_fn, evaluate_all_fn  # type: ignore
+        return eval_fn, evaluate_all_fn  # type: ignore
 
     def import_backend(self) -> ast.ImportFrom:
         backend = ast.ImportFrom(
@@ -609,59 +573,18 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     def create_gradient_fn(
         self,
-        # raw_evaluate_fn: RawEvaluateType[DataType],
-        # raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
         raw_evaluate_fn: RawEvaluateType[DataType],
         raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
-    ) -> tuple[ManualGradWrapperFn[DataType], RawEvaluateType[DataType]]:
-        fn_all: EvaluateAllType[DataType]
-        grad_fn: EvaluateGradientsType[DataType]
+    ) -> ManualGradWrapperFn[DataType]:
         if not self.pm.backend.is_manualgrad:
-            grad_fn = partial(
+            return partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.flat_graph.cached_data,
-                include_output=False,
             )
-            # Fix fn_all for mlx support!!
-            fn_all = partial(
-                self.compute_gradients,
-                raw_evaluate_fn=raw_evaluate_fn,
-                cache=self.pm.flat_graph.cached_data,
-                include_output=True,
-            )
-            return grad_fn, fn_all  # type: ignore
         else:
             assert raw_evaluate_grad_fn is not None, "Gradient function is not defined!"
-
-            fn_all = partial(raw_evaluate_grad_fn, include_output=True)  # type: ignore
-            grad_fn = partial(raw_evaluate_grad_fn, include_output=False)  # type: ignore
-
-            return grad_fn, fn_all  # type: ignore
-
-    @overload
-    def compute_gradients(
-        self,
-        params: ParamsEvalType[DataType],
-        data: DataEvalType[DataType] | None,
-        output_gradients: ParamsEvalType[DataType] | None,
-        cache: DataEvalType[DataType] | None,
-        include_output: Literal[True],
-        *,
-        raw_evaluate_fn: RawEvaluateType[DataType],
-    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
-
-    @overload
-    def compute_gradients(
-        self,
-        params: ParamsEvalType[DataType],
-        data: DataEvalType[DataType] | None,
-        output_gradients: ParamsEvalType[DataType] | None,
-        cache: DataEvalType[DataType] | None,
-        include_output: Literal[False],
-        *,
-        raw_evaluate_fn: RawEvaluateType[DataType],
-    ) -> ParamsEvalType[DataType]: ...
+            return raw_evaluate_grad_fn
 
     def compute_gradients(
         self,
@@ -669,7 +592,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
         cache: DataEvalType[DataType] | None = None,
-        include_output: bool = False,
         *,
         raw_evaluate_fn: RawEvaluateType[DataType],
     ) -> (
@@ -692,6 +614,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         loss_grad = {}
         if FinalCost in self.pm._output_keys:
             loss_grad = {FinalCost: self.pm.backend.ones()}
+        elif len(output_gradients) == 0 and len(self.pm._output_keys) == 1:
+            (out_key,) = self.pm._output_keys
+            out_edge = self.pm.data[self.pm.flat_graph.output_dict[out_key]]
+            if not out_edge.is_tensor or out_edge.shape.get_shapes() == []:  # type: ignore
+                loss_grad = {out_key: self.pm.backend.ones()}
 
         # NOTE: FinalCost gradient and output_gradients can not exist at the same time.
         if output_gradients and loss_grad:
@@ -726,11 +653,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             has_aux=True,
         )
         all_outputs: DataEvalType[DataType] = output | aux
-
-        if include_output:
-            return all_outputs, input_gradients
-        else:
-            return input_gradients
+        return all_outputs, input_gradients
 
     def filter_ignored_outputs(
         self,

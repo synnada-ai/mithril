@@ -379,7 +379,7 @@ def test_batchnorm_vs_pytorch_training_with_weights():
             "bias": batchnorm_torch.bias.reshape(1, 3, 1, 1),
         }
         # Mithril BatchNorm
-        output_mithril, _, state = pm.evaluate_all(
+        output_mithril, _, state = pm.evaluate(
             params=params,
             data={"input": x_torch},
             state=state,

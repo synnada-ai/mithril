@@ -314,3 +314,30 @@ def test_diff_inference_add():
     model.set_types(left=Tensor)
 
     assert not model.left.metadata.differentiable  # type: ignore
+
+
+def test_diff_inference_add_connection():
+    model = Model()
+    model += (add := Add())("left", "right", "output")
+
+    assert not model.left.metadata.differentiable  # type: ignore
+    assert not model.right.metadata.differentiable  # type: ignore
+    assert not model.output.metadata.differentiable  # type: ignore
+
+    add.left.set_differentiability(False)
+
+    assert not model.left.metadata.differentiable  # type: ignore
+
+    model.set_types(left=Tensor)
+
+    assert not model.left.metadata.differentiable  # type: ignore
+
+
+def test_diff_inference_add_connection_without_model():
+    left = IOKey("left", type=Tensor)
+    assert left.metadata.differentiable is None
+    left.set_differentiability(False)
+    assert left.metadata.differentiable is False
+    model = Model()
+    model += Add()(left, "right", "output")
+    assert not model.left.metadata.differentiable  # type: ignore

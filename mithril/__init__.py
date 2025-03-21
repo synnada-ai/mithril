@@ -174,7 +174,7 @@ def compile(
     CodeGen_Cls = code_gen_map[backend.__class__]
     codegen = CodeGen_Cls(pm)
     codegen.generate_code(file_path=file_path)
-    evaluate, evalute_grad, evaluate_all = codegen.compile_code(jit=jit)
+    evaluate, evaluate_all = codegen.compile_code(jit=jit)
 
-    pm.generate_functions(evaluate, evalute_grad, evaluate_all)
+    pm.generate_functions(evaluate, evaluate_all)
     return pm
