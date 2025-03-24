@@ -15,8 +15,8 @@
 import ctypes
 from collections.abc import Sequence
 from numbers import Real
-from .rawc_definitions import Array, lib
-import ctypes
+
+from .raw_c.raw_c_definitons import Array, lib
 
 
 class PyArray:
@@ -42,14 +42,18 @@ class PyArray:
         # Convert the array into a Python list
         data_ptr = ctypes.cast(self.arr.data, ctypes.POINTER(ctypes.c_float))
         data_list = [data_ptr[i] for i in range(total_elements)]
+
         def reshape(data: list[float], shape: tuple[int, ...]) -> list:
             if len(shape) == 1:
                 return data
             slice_size = 1
             for d in shape[1:]:
                 slice_size *= d
-            return [reshape(data[i * slice_size:(i + 1) * slice_size], shape[1:])
-                    for i in range(shape[0])]
+            return [
+                reshape(data[i * slice_size : (i + 1) * slice_size], shape[1:])
+                for i in range(shape[0])
+            ]
+
         return reshape(data_list, self.shape)
 
     def __repr__(self):
@@ -57,7 +61,7 @@ class PyArray:
 
     def __str__(self):
         return f"PyArray(shape={self.shape})\n{self.data}"
-    
+
     # Element-wise addition
     def __add__(self, other):
         if isinstance(other, PyArray):
@@ -71,7 +75,7 @@ class PyArray:
             result = lib.create_empty_struct(len(c_shape), c_shape)
             self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
             other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
-            lib.add(result,  self_ptr,  other_ptr)
+            lib.add(result, self_ptr, other_ptr)
             return PyArray(result.contents, shape)
         elif isinstance(other, Real):
             # Scalar addition
@@ -85,7 +89,7 @@ class PyArray:
 
     def __radd__(self, other):
         return self.__add__(other)
-    
+
     # Element-wise and scalar multiplication
     def __mul__(self, other):
         if isinstance(other, PyArray):
@@ -107,7 +111,7 @@ class PyArray:
 
     def __rmul__(self, other):
         return self.__mul__(other)
-    
+
     # Element-wise and scalar subtraction
     def __sub__(self, other):
         if isinstance(other, PyArray):

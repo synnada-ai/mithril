@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import ctypes
-import os
 from typing import Any
 
 import numpy as np
 
 from ..array import PyArray
-from ..rawc_definitions import lib, Array
+from ..raw_c.raw_c_definitons import lib
+
 
 def to_c_int_array(lst: list[int] | tuple[int, ...]) -> ctypes.Array[ctypes.c_int]:
     return (ctypes.c_int * len(lst))(*lst)
