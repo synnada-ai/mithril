@@ -47,8 +47,10 @@ def test_primitives_c_1():
     c_inputs = {"input": c_input, "target": c_target}
 
     for i in range(100):
-        outputs, grads = np_pm.evaluate_all(params, data=inputs)
-        c_outputs, c_grads = c_pm.evaluate_all(c_params, data=c_inputs)
+        outputs, grads = np_pm.evaluate(params, data=inputs, output_gradients=True)
+        c_outputs, c_grads = c_pm.evaluate(
+            c_params, data=c_inputs, output_gradients=True
+        )
         for key, grad in c_grads.items():
             c_params[key] = c_params[key] - 0.01 * grad  # type:ignore
 

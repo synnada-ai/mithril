@@ -297,9 +297,7 @@ class CGen(CodeGen[PyArray]):
             gradients = {
                 key + self.BACKWARD_FN_SUFFIX: value for key, value in gradients.items()
             }
-
             inputs = params | data | gradients | forward_pass
-
             inputs_struct = GradInputs(
                 **{
                     key: ctypes.cast(
@@ -313,7 +311,7 @@ class CGen(CodeGen[PyArray]):
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
 
-            _, output_struct = lib.evaluate(inputs_struct_ptr, output_gradients=True)
+            output_struct = lib.evaluate_gradients(inputs_struct_ptr)
             outputs = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
                 key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
@@ -338,7 +336,6 @@ class CGen(CodeGen[PyArray]):
             else:
                 evaluate_gradients_return = outputs
             return evaluate_gradients_return, outputs
-
 
         return evaluate_wrapper, evaluate_gradients_wrapper  # type: ignore
 

@@ -1,10 +1,10 @@
 import ctypes
 import os
 
+current_file_path = os.path.abspath(__file__)
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-lib_path = "/data/emre_fork/c_pr/mithril/mithril/cores/c/raw_c/libmithrilc.so" #os.path.join(current_dir, "raw_c", "libmithrilc.so")
-lib = ctypes.CDLL(lib_path)
+lib = ctypes.CDLL(os.path.join(os.path.dirname(current_file_path), "libmithrilc.so"))
+
 
 class Array(ctypes.Structure):
     _fields_ = [
@@ -14,6 +14,7 @@ class Array(ctypes.Structure):
         ("ndim", ctypes.c_int),
         ("size", ctypes.c_int),
     ]
+
 
 lib.create_struct.restype = ctypes.POINTER(Array)
 lib.create_struct.argtypes = [
