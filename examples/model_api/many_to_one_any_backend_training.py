@@ -68,7 +68,7 @@ def compile_and_train(
 
     num_epochs = 5000
     for i in range(num_epochs):
-        outputs, gradients = pm.evaluate_all(params, constant_keys)
+        outputs, gradients = pm.evaluate(params, constant_keys, output_gradients=True)
         params, opt_state = optimizer.update_params(params, gradients, opt_state)
         if (i % 1000) == 0:
             # Print the cost every 1000 epochs.

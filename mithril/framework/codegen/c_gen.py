@@ -16,7 +16,6 @@ import ctypes
 import os
 import subprocess
 import tempfile
-from functools import partial
 
 from ...backends.with_manualgrad.c_backend import CBackend, backend
 from ...backends.with_manualgrad.ggml_backend import GGMLBackend
@@ -24,7 +23,6 @@ from ...common import CGenConfig
 from ...cores.c.array import PyArray
 from ...framework.common import (
     EvaluateAllType,
-    EvaluateGradientsType,
     EvaluateType,
     FinalCost,
 )
@@ -123,11 +121,7 @@ class CGen(CodeGen[PyArray]):
 
     def compile_code(
         self, jit: bool = False, compile_flags: list[str] | None = None
-    ) -> tuple[
-        EvaluateType[PyArray],
-        EvaluateGradientsType[PyArray] | None,
-        EvaluateAllType[PyArray] | None,
-    ]:
+    ) -> tuple[EvaluateType[PyArray], EvaluateAllType[PyArray] | None]:
         assert not jit, "JIT is not yet supported for CBackend"
         assert self.file_path is not None, "Code has not been generated yet!"
 
@@ -267,7 +261,6 @@ class CGen(CodeGen[PyArray]):
             params: dict[str, PyArray],
             data: dict[str, PyArray] | None = None,
             output_gradients: dict[str, PyArray] | None = None,
-            include_output: bool = False,
         ) -> tuple[dict[str, PyArray], dict[str, PyArray]]:
             if data is None:
                 data = {}
@@ -319,7 +312,8 @@ class CGen(CodeGen[PyArray]):
                 }
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
-            output_struct = lib.evaluate_gradients(inputs_struct_ptr)
+
+            _, output_struct = lib.evaluate(inputs_struct_ptr, output_gradients=True)
             outputs = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
                 key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
@@ -327,6 +321,7 @@ class CGen(CodeGen[PyArray]):
                 outputs[key] = PyArray(
                     array_ptr.contents, shape=self._get_tensor_shape(key)
                 )
+
             evaluate_gradients_return = {}
             if (
                 FinalCost in output_gradients
@@ -344,11 +339,8 @@ class CGen(CodeGen[PyArray]):
                 evaluate_gradients_return = outputs
             return evaluate_gradients_return, outputs
 
-        return (  # type: ignore
-            evaluate_wrapper,
-            evaluate_gradients_wrapper,
-            partial(evaluate_gradients_wrapper, include_output=True),  # type: ignore
-        )
+
+        return evaluate_wrapper, evaluate_gradients_wrapper  # type: ignore
 
     def generate_imports(self) -> list[c_ast.Include]:
         header_path = os.path.join(self.backend.SRC_PATH, self.configs.HEADER_NAME)
