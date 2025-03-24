@@ -31,7 +31,7 @@ __all__ = ["GGMLBackend"]
 
 
 class GGMLBackend(Backend[PyArray]):
-    backend_type = "c"
+    backend_type = "ggml"
     SRC_PATH = os.path.join(
         os.path.dirname(__file__), "..", "..", "..", "cores", "c", "ggml"
     )

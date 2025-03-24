@@ -14,6 +14,8 @@
 
 #include "ops.h"
 
+
+
 struct ggml_tensor * add(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
     struct ggml_tensor * res = ggml_add(ctx, left, right);
     return res;
@@ -26,6 +28,16 @@ struct ggml_tensor * multiplication(struct ggml_context * ctx, struct ggml_tenso
 }
 
 
+struct ggml_tensor * broadcast_to(struct ggml_context * ctx, struct ggml_tensor * input, struct shape * shp ) {
+    // If the target shape is not 4D, the empty dimensions are need to be set to 1
+    struct ggml_tensor * shape = ggml_new_tensor_4d(ctx, GGML_TYPE_I32, 0, 0, 0, 0);
+    shape->ne[0] = shp->dim1;
+    shape->ne[1] = shp->dim2;
+    shape->ne[2] = shp->dim3;
+    shape->ne[3] = shp->dim4;
+    struct ggml_tensor * res = ggml_repeat(ctx, input, shape);
+    return res; 
+}
 
 
 struct ggml_tensor * add_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right)

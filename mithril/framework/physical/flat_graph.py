@@ -103,9 +103,14 @@ class FlatGraph(GenericDataType[DataType]):
         self._input_keys = input_keys
         self.random_keys: set[str] = set()
 
+        # Output dictionary used for mapping output keys to their corresponding keys
         self.output_dict: dict[str, str] = {key: key for key in sorted(output_keys)}
+
+        # Temporary connection info used for updating connections when
+        # a model is removed
         self._temp_connection_info: dict[GConnection, GConnection] = {}
 
+        # Utility tables used for pruning duplicate connections
         self.unique_model_table: dict[str, GConnection] = {}
         self.value_table: dict[str, DataType | ValueType] = {}
 
@@ -216,7 +221,7 @@ class FlatGraph(GenericDataType[DataType]):
     def is_key_static(self, key: str) -> bool:
         return key in self.runtime_static_keys or key in self.data_store.data_values
 
-    def get_model(self, key: str) -> Operator:
+    def get_op(self, key: str) -> Operator:
         conn = self.connections.get(key, None)
         if conn is None or conn.op is None:
             raise ValueError(f"Model with key {key} not found")
@@ -241,8 +246,8 @@ class FlatGraph(GenericDataType[DataType]):
         # Create output connection of the new Connection.
         out_conn = GConnection(output_key, model, [], [])
         self.model_table[model] = out_conn
-        self._all_target_keys.add(output_key)
         self.connections[output_key] = out_conn
+        self._all_target_keys.add(output_key)
 
         # Create input connections
         for inner_key, outer_key in keys.items():
@@ -258,6 +263,41 @@ class FlatGraph(GenericDataType[DataType]):
             out_conn.source_keys.append(conn.key)
             conn.target_keys.append(out_conn.key)
             self._all_source_keys.add(conn.key)
+
+    # This method is used to insert an operator into the graph at a specific position
+    # The output of inserted operator will replace the output of the previous operator
+    def insert_operator(
+        self,
+        new_op: Operator,
+        keys: dict[str, str],
+        base_op: Operator,
+        inserted_key: str,
+    ) -> None:
+        output_key = keys[Operator.output_key]
+
+        assert base_op in self.model_table, "Base operator must already be in the graph"
+        assert (
+            inserted_key in keys.values()
+        ), "Inserted key must be in the keys dictionary"
+        assert output_key not in self.all_keys, "Output key must not be in the graph"
+
+        # Add the new operator to the graph
+        self.add_value(new_op, keys)
+
+        # Disconnect the inserted key from the base operator
+        base_op_out_conn = self.model_table[base_op]
+        replaced_idxs = [
+            i
+            for i, key in enumerate(base_op_out_conn.source_keys)
+            if key == inserted_key
+        ]
+
+        for idx in replaced_idxs:
+            base_op_out_conn.source_keys[idx] = output_key
+
+        self.connections[inserted_key].target_keys.remove(base_op_out_conn.key)
+        self.connections[output_key].target_keys.append(base_op_out_conn.key)
+        self.all_source_keys.add(output_key)
 
     def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
@@ -319,7 +359,7 @@ class FlatGraph(GenericDataType[DataType]):
         # Traverse the graph connections
         for conn in list(self.model_table.values()):
             key = conn.key
-            op = self.get_model(key)
+            op = self.get_op(key)
 
             # The connection is allready calculated
             if key in self.data_store.data_values:
@@ -556,7 +596,7 @@ class FlatGraph(GenericDataType[DataType]):
                 if not set(value_mapping).issubset(static_keys):
                     continue
 
-                model = self.get_model(value)
+                model = self.get_op(value)
 
                 # TODO: Move this outside of while loop
                 # after CBackend is completely implemented.
@@ -833,6 +873,76 @@ class FlatGraph(GenericDataType[DataType]):
                     self.data_store._set_data_value(key, value)
                 else:
                     self.data_store.intermediate_non_differentiables[key] = value
+
+    def graph_update(self) -> None:
+        # Currently only GGML needs graph update!
+
+        if self.backend.backend_type != "ggml":
+            return
+
+        # Implicit broadcast operations
+        implicit_broadcast_ops = {"add", "subtract", "multiplication", "divide"}
+
+        for out_conn in list(self.model_table.values()):
+            out_key = out_conn.key
+            op = self.get_op(out_key)
+
+            if op.formula_key not in implicit_broadcast_ops:
+                continue
+
+            # GGML backend does not support implicit broadcasting when the
+            # left shape needs to be broadcasted to the right shape.
+            # Therefore, we need to add a broadcast_to operator to the graph.
+            source_keys = self.get_source_keys(out_key)
+            left_key = source_keys[0]
+            left_shape: list[int] = self._get_key_shape(left_key)  # type: ignore
+            output_shape: list[int] = self._get_key_shape(out_key)  # type: ignore
+            assert isinstance(
+                left_shape, list
+            ), f"`{left_key}` is not specified with shape!"
+            assert isinstance(
+                output_shape, list
+            ), f"`{out_key}` is not specified with shape!"
+
+            # If left shape is not the same as output shape, we need to add
+            # a broadcast_to operator.
+            if left_shape != output_shape:
+                key = "broadcast_to_shape"
+                shape_out_key = "broadcast_to_shape_output"
+                left_data = self.all_data[left_key]
+                self.update_data(
+                    {
+                        key: IOHyperEdge(tuple[int, ...], tuple(output_shape)),
+                        shape_out_key: IOHyperEdge(left_data._type),
+                    }
+                )
+                _mappings = {
+                    "input": left_key,
+                    "shape": "broadcast_to_shape",
+                    "output": shape_out_key,
+                }
+                kwargs = {
+                    "input": self.all_data[left_key],
+                    "shape": self.all_data[key],
+                    "output": self.all_data[shape_out_key],
+                }
+                self.insert_operator(
+                    Operator("broadcast_to", name="Broadcast_to", **kwargs),
+                    _mappings,
+                    op,
+                    left_key,
+                )
+
+    def _get_key_shape(self, key: str) -> list[int]:
+        if key not in self.all_data:
+            raise ValueError(f"`{key}` is not in the model!")
+        if not self.all_data[key].is_tensor:
+            raise ValueError(f"`{key}` is not a tensor!")
+
+        shape_node = self.all_data[key].shape
+        assert shape_node is not None, f"`{key}` is not specified with shape!"
+        shape: list[int] = shape_node.get_shapes()  # type: ignore
+        return shape
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False

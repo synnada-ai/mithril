@@ -206,7 +206,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
     def get_primitive_details(
         self, output_key: str
     ) -> tuple[Operator, list[str], list[str]]:
-        model = self.pm.flat_graph.get_model(output_key)
+        model = self.pm.flat_graph.get_op(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
         local_input_keys = list(model.input_keys) + ["cache"]
@@ -331,7 +331,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 continue
 
             # Iterate over Primitive models in topological order to add their formula.
-            model = self.pm.flat_graph.get_model(output_key)
+            model = self.pm.flat_graph.get_op(output_key)
 
             output_key = self.pm.flat_graph.connections[output_key].key
             inputs = list(self.pm.flat_graph.get_source_keys(output_key))
