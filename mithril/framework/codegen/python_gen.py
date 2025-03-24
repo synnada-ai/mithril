@@ -312,7 +312,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
     def get_primitive_details(
         self, output_key: str
     ) -> tuple[Operator, list[str], list[str]]:
-        model = self.pm.flat_graph.get_model(output_key)
+        model = self.pm.flat_graph.get_op(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
         local_input_keys = list(model.input_keys)

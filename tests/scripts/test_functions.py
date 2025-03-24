@@ -230,9 +230,9 @@ def test_flatten_dag_2():
     ordered_model_list = [
         relu_0,
         sigmoid,
-        softmax,
         sine,
         cosine,
+        softmax,
         softplus,
         relu,
         leakyrelu,
@@ -299,11 +299,11 @@ def test_flatten_dag_3():
         relu_0,
         sigmoid,
         softmax,
+        abs,
         softplus,
+        sine,
         relu,
         leakyrelu,
-        abs,
-        sine,
     ]
 
     comp_model = mithril.compile(
@@ -409,12 +409,12 @@ def test_code_generator_3(file_path: str):
         input = data["input"]
         weight_0 = params["weight_0"]
         weight_1 = params["weight_1"]
+        output_3 = transpose(weight_1, None)
         output_0 = transpose(weight_0, None)
         output_1 = matrix_multiplication(input, output_0)
         del output_0
         output_2 = add(output_1, bias_0)
         del output_1
-        output_3 = transpose(weight_1, None)
         output_4 = matrix_multiplication(output_2, output_3)
         del output_2
         del output_3
