@@ -17,13 +17,6 @@
 
 #include "ggml/include/ggml.h"
 
-struct shape{
-    int dim1;
-    int dim2;
-    int dim3;
-    int dim4;
-};
-
 struct ggml_tensor * add(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right);
 struct ggml_tensor * multiplication(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right);
 struct ggml_tensor * broadcast_to(struct ggml_context * ctx, struct ggml_tensor * input, int dim1, int dim2, int dim3, int dim4);
