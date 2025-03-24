@@ -895,8 +895,8 @@ class FlatGraph(GenericDataType[DataType]):
             # Therefore, we need to add a broadcast_to operator to the graph.
             source_keys = self.get_source_keys(out_key)
             left_key = source_keys[0]
-            left_shape: list[int] = self._get_key_shape(left_key)  # type: ignore
-            output_shape: list[int] = self._get_key_shape(out_key)  # type: ignore
+            left_shape: list[int] = self._get_key_shape(left_key)
+            output_shape: list[int] = self._get_key_shape(out_key)
             assert isinstance(
                 left_shape, list
             ), f"`{left_key}` is not specified with shape!"
