@@ -70,7 +70,7 @@ def test_cbackend_1():
     # Numpy Backend
 
     np_outputs = np_pm.evaluate({"left": left, "right": right})
-    np_grads = np_pm.evaluate_gradients(
+    _, np_grads = np_pm.evaluate(
         {"left": left, "right": right}, {}, output_gradients={"output": output_grad}
     )
 
@@ -80,7 +80,7 @@ def test_cbackend_1():
     c_output_grad = c_backend.array(output_grad)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right})
-    c_grads = c_pm.evaluate_gradients(
+    _, c_grads = c_pm.evaluate(
         {"left": c_left, "right": c_right},
         {},
         output_gradients={"output": c_output_grad},
@@ -92,7 +92,7 @@ def test_cbackend_1():
     ggml_output_grad = ggml_backend.array(output_grad)
 
     ggml_outputs = ggml_pm.evaluate({"left": ggml_left, "right": ggml_right})
-    ggml_grads = ggml_pm.evaluate_gradients(
+    _, ggml_grads = ggml_pm.evaluate(
         {"left": ggml_left, "right": ggml_right},
         {},
         output_gradients={"output": ggml_output_grad},
@@ -150,7 +150,7 @@ def test_cbackend_2(file_path: str):
 
     # Numpy
     np_outputs = np_pm.evaluate({"left": left, "right": right, "left2": left2})
-    np_grads = np_pm.evaluate_gradients(
+    _, np_grads = np_pm.evaluate(
         {"left": left, "right": right, "left2": left2},
         {},
         output_gradients={
@@ -166,7 +166,7 @@ def test_cbackend_2(file_path: str):
     c_output_grad = c_backend.array(output_grad)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "left2": c_left2})
-    c_grads = c_pm.evaluate_gradients(
+    _, c_grads = c_pm.evaluate(
         {"left": c_left, "right": c_right, "left2": c_left2},
         {},
         output_gradients={"output": c_output_grad, "output2": c_output_grad},
@@ -219,7 +219,7 @@ def test_cbackend_3():
     output_grad = np_backend.rand(5, 5)
 
     np_outputs = np_pm.evaluate({"left": left, "right": right, "mul": mul})
-    np_grads = np_pm.evaluate_gradients(
+    _, np_grads = np_pm.evaluate(
         {"left": left, "right": right, "mul": mul},
         {},
         output_gradients={
@@ -234,7 +234,7 @@ def test_cbackend_3():
     c_output_grad = c_backend.array(output_grad)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "mul": c_mul})
-    c_grads = c_pm.evaluate_gradients(
+    _, c_grads = c_pm.evaluate(
         {"left": c_left, "right": c_right, "mul": c_mul},
         {},
         output_gradients={"output": c_output_grad, "output2": c_output_grad},

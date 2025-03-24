@@ -69,6 +69,7 @@ from ..framework.logical.operators import (
     AtLeast1DOp,
     BufferOp,
     CastOp,
+    ConstantType,
     CosineOp,
     DivideOp,
     DtypeOp,
@@ -180,8 +181,8 @@ __all__ = [
     "Unique",
     "Trapezoid",
     "Pad",
-    "Randn",
-    "RandInt",
+    "PrimitiveRandn",
+    "PrimitiveRandInt",
     "Ones",
     "PrimitiveModel",
     "Buffer",
@@ -237,8 +238,6 @@ __all__ = [
     "Maximum",
     "AtLeast1D",
 ]
-# Define types used to define keys:
-ConstantType = float | int | Constant
 
 
 class CustomPrimitiveModel(PrimitiveModel):
@@ -472,9 +471,6 @@ class CrossEntropy(PrimitiveModel):
         self.factory_args = {"input_type": input_type, "weights": weights}
         self.input_type = input_type
 
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         weights_type: type = list[float]
         if isinstance(weights, str):
             if weights not in ("", "auto"):
@@ -501,7 +497,7 @@ class CrossEntropy(PrimitiveModel):
             "weights": BaseKey(type=weights_type, value=final_weights),
             "categorical": BaseKey(type=bool, value=categorical),
             "threshold": BaseKey(
-                shape=[], type=Tensor[int | float | bool], value=_threshold
+                shape=[], type=Tensor[int | float | bool], value=threshold
             ),
             "robust": BaseKey(type=bool, value=robust),
         }
@@ -577,16 +573,13 @@ class KLDivergence(PrimitiveModel):
         | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         super().__init__(
             formula_key="kl_divergence",
             name=name,
             output=BaseKey(type=Tensor[float]),
             input=BaseKey(type=Tensor[int | float], value=input),
             target=BaseKey(type=Tensor[int | float], value=target),
-            threshold=BaseKey(shape=[], type=Tensor[float], value=_threshold),
+            threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
         )
 
         self.submodel.safe_shapes = {
@@ -641,9 +634,6 @@ class BinaryCrossEntropy(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         self.factory_args = {
             "input_type": input_type,
             "pos_weight": pos_weight,
@@ -736,9 +726,6 @@ class Log(PrimitiveModel):
             raise ValueError(
                 "Log does not accept threshold argument when robust is False."
             )
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
 
         if robust:
             super().__init__(
@@ -748,7 +735,7 @@ class Log(PrimitiveModel):
                 input=BaseKey(
                     shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
                 ),
-                threshold=BaseKey(shape=[], type=Tensor[float], value=_threshold),
+                threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
             )
         else:
             super().__init__(
@@ -793,16 +780,13 @@ class StableReciprocal(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         super().__init__(
             formula_key="stable_reciprocal",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float], value=input),
             threshold=BaseKey(
-                shape=[], type=Tensor[int | float | bool], value=_threshold
+                shape=[], type=Tensor[int | float | bool], value=threshold
             ),
         )
 
@@ -1980,9 +1964,6 @@ class TsnePJoint(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         super().__init__(
             formula_key="tsne_p_joint",
             name=name,
@@ -1993,7 +1974,7 @@ class TsnePJoint(PrimitiveModel):
             target_perplexity=BaseKey(
                 shape=[], type=Tensor[float], value=target_perplexity
             ),
-            threshold=BaseKey(shape=[], type=Tensor[float], value=_threshold),
+            threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
         )
 
     def __call__(  # type: ignore[override]
@@ -2270,7 +2251,7 @@ class Arange(PrimitiveModel):
         )
 
 
-class Randn(PrimitiveModel):
+class PrimitiveRandn(PrimitiveModel):
     shape: Connection
     key: Connection
     dtype: Connection
@@ -2279,7 +2260,7 @@ class Randn(PrimitiveModel):
     def __init__(
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
-        key: int | ToBeDetermined = TBD,
+        key: int | Tensor[int] | ToBeDetermined = TBD,
         dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
@@ -2289,13 +2270,10 @@ class Randn(PrimitiveModel):
             name=name,
             output=BaseKey(type=Tensor[float]),
             shape=BaseKey(type=tuple[int, ...], value=shape),
-            key=BaseKey(type=int, value=key),
+            key=BaseKey(type=int | Tensor[int], value=key),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 
-        self.submodel.random_keys.add(
-            "key"
-        )  # since random_keys must be in primitive models
         self.add_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
@@ -2308,16 +2286,18 @@ class Randn(PrimitiveModel):
         return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
 
 
-class RandInt(PrimitiveModel):
+class PrimitiveRandInt(PrimitiveModel):
     shape: Connection
     key: Connection
+    low: Connection
+    high: Connection
     dtype: Connection
     output: Connection
 
     def __init__(
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
-        key: int | ToBeDetermined = TBD,
+        key: int | Tensor[int] | ToBeDetermined = TBD,
         low: int | ToBeDetermined = TBD,
         high: int | ToBeDetermined = TBD,
         dtype: types.Dtype | None = None,
@@ -2328,26 +2308,27 @@ class RandInt(PrimitiveModel):
             formula_key="randint",
             name=name,
             output=BaseKey(shape=[("output", ...)], type=Tensor[int]),
-            shape=BaseKey(type=tuple[int, ...], value=shape),
-            key=BaseKey(type=int, value=key),
+            shape=BaseKey(type=tuple[int, ...] | tuple[()], value=shape),
+            key=BaseKey(type=int | Tensor[int], value=key),
             low=BaseKey(type=int, value=low),
             high=BaseKey(type=int, value=high),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 
-        self.submodel.random_keys.add(
-            "key"
-        )  # since random_keys must be in primitive models
         self.add_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
         self,
         shape: ConnectionType = NOT_GIVEN,
         key: ConnectionType = NOT_GIVEN,
+        low: ConnectionType = NOT_GIVEN,
+        high: ConnectionType = NOT_GIVEN,
         dtype: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
+        return super().__call__(
+            shape=shape, key=key, low=low, high=high, dtype=dtype, output=output
+        )
 
 
 class BroadcastTo(PrimitiveModel):
@@ -2400,16 +2381,13 @@ class Eigvalsh(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         super().__init__(
             formula_key="eigvalsh",
             name=name,
             output=BaseKey(shape=["N", 1], type=Tensor[float]),
             K_term=BaseKey(shape=["N", "N"], type=Tensor[float], value=K_term),
             L=BaseKey(shape=["N", "N"], type=Tensor[float], value=L),
-            threshold=BaseKey(shape=[], type=Tensor[float], value=_threshold),
+            threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
         )
 
     def __call__(  # type: ignore[override]
@@ -3027,11 +3005,8 @@ class Power(OperatorModel):
         *,
         name: str | None = None,
     ) -> None:
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
         self.robust = robust
-        m = PowerOp(robust=robust, base=base, exponent=exponent, threshold=_threshold)
+        m = PowerOp(robust=robust, base=base, exponent=exponent, threshold=threshold)
         super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
@@ -3641,10 +3616,9 @@ class Sqrt(OperatorModel):
 
         if threshold is not types.Constant.MIN_POSITIVE_NORMAL and not robust:
             raise ValueError("threshold must be specified in robust mode")
-        _threshold: Tensor[float] = (
-            threshold if isinstance(threshold, Tensor) else Tensor(threshold)
-        )
-        m = SqrtOp(robust=robust, input=input, threshold=_threshold)
+        # TODO: get rid of this tensor cast.
+        thd = Tensor(threshold) if not isinstance(threshold, Tensor) else threshold
+        m = SqrtOp(robust=robust, input=input, threshold=thd)
         super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]

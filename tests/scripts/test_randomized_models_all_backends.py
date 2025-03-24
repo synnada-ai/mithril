@@ -258,9 +258,9 @@ def test_randomized(case: str) -> None:
                 }
 
             gradients[init_key] = (
-                compiled_model.evaluate_gradients(
+                compiled_model.evaluate(
                     inputs[init_key], output_gradients=output_gradients[init_key]
-                )
+                )[1]
                 if not inference
                 else {}
             )
@@ -277,7 +277,7 @@ def test_randomized(case: str) -> None:
                 )
                 outputs[backend.backend_type], gradients[backend.backend_type] = (
                     (
-                        compiled_model.evaluate_all(
+                        compiled_model.evaluate(
                             inputs[backend.backend_type],
                             output_gradients=output_gradients[backend.backend_type],
                         )

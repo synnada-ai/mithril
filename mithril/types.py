@@ -42,6 +42,7 @@ __all__ = [
     "double",
     "bool",
     "constant_type_table",
+    "constant_shp_table",
     "epsilon_table",
     "data_types",
 ]
@@ -53,6 +54,8 @@ class Constant(Enum):
     MIN_POSITIVE_NORMAL = 2
     MIN_POSITIVE_SUBNORMAL = 3
     STABLE_RECIPROCAL_THRESHOLD = 4
+    ZEROS = 5
+    ONES = 6
 
 
 constant_type_table = {
@@ -61,7 +64,21 @@ constant_type_table = {
     Constant.MIN_POSITIVE_NORMAL: py_builtins.float,
     Constant.MIN_POSITIVE_SUBNORMAL: py_builtins.float,
     Constant.STABLE_RECIPROCAL_THRESHOLD: py_builtins.float,
+    Constant.ZEROS: py_builtins.float,
+    Constant.ONES: py_builtins.float,
 }
+
+
+constant_shp_table: dict[Constant, list[py_builtins.int] | None] = {
+    Constant.EPSILON: [],
+    Constant.LEFT_EPSILON: [],
+    Constant.MIN_POSITIVE_NORMAL: [],
+    Constant.MIN_POSITIVE_SUBNORMAL: [],
+    Constant.STABLE_RECIPROCAL_THRESHOLD: [],
+    Constant.ZEROS: None,
+    Constant.ONES: None,
+}
+
 
 epsilon_table: dict[py_builtins.int, dict[Constant, py_builtins.float | None]] = {
     64: {

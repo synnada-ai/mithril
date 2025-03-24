@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
-from functools import cached_property
 from typing import Any
 
 import mithril as ml
@@ -32,6 +31,7 @@ from ..common import (
     DataEvalType,
     IOHyperEdge,
     MainValueType,
+    StateKey,
     ToBeDetermined,
     Updates,
     UpdateType,
@@ -86,12 +86,12 @@ class FlatGraph(GenericDataType[DataType]):
         output_keys: set[str],
         backend: ml.Backend[DataType],
         solver: ConstraintSolver,
+        state_keys: list[StateKey],
         memo: dict[int, IOHyperEdge] | None = None,
-        inference: bool = False,
     ) -> None:
         if memo is None:
             memo = {}
-
+        self.state_keys = state_keys
         self.backend: ml.Backend[DataType] = backend
         self.model_table: dict[Operator, GConnection] = {}
         self.connections: dict[
@@ -101,7 +101,6 @@ class FlatGraph(GenericDataType[DataType]):
         self._all_target_keys: set[str] = set(output_keys)
 
         self._input_keys = input_keys
-        self.random_keys: set[str] = set()
 
         # Output dictionary used for mapping output keys to their corresponding keys
         self.output_dict: dict[str, str] = {key: key for key in sorted(output_keys)}
@@ -114,7 +113,7 @@ class FlatGraph(GenericDataType[DataType]):
         self.unique_model_table: dict[str, GConnection] = {}
         self.value_table: dict[str, DataType | ValueType] = {}
 
-        self.data_store: StaticDataStore[DataType] = StaticDataStore(backend, inference)
+        self.data_store: StaticDataStore[DataType] = StaticDataStore(backend)
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
 
     @property
@@ -170,10 +169,6 @@ class FlatGraph(GenericDataType[DataType]):
         return self.data_store.intermediate_non_differentiables
 
     @property
-    def random_seeds(self) -> dict[str, int]:
-        return self.data_store.random_seeds
-
-    @cached_property
     def topological_order(self) -> OrderedSet[str]:
         # Traverse the model table in topological order
         topological_order: OrderedSet[str] = OrderedSet()
@@ -228,20 +223,11 @@ class FlatGraph(GenericDataType[DataType]):
         else:
             return conn.op
 
-    def set_random_seed_keys(self, seed_keys: set[str]) -> None:
-        self.data_store.set_random_seed_keys(seed_keys)
-
-    def set_random_seed_values(self, **seed_mapping: int) -> None:
-        self.data_store.set_random_seed_values(**seed_mapping)
-
     def update_cached_data(self, updates: Updates) -> set[str]:
         return self.data_store.update_cached_data(updates)
 
     def add_value(self, model: Operator, keys: dict[str, str]) -> None:
         output_key = keys[Operator.output_key]
-
-        if model.random_keys:
-            self.random_keys |= {keys[key] for key in model.random_keys}
 
         # Create output connection of the new Connection.
         out_conn = GConnection(output_key, model, [], [])
@@ -580,14 +566,24 @@ class FlatGraph(GenericDataType[DataType]):
         static_keys = set(self.data_store.data_values.keys())
         queue = set(static_keys)
         updates = Updates()
+        state_inputs = {_key.in_key for _key in self.state_keys}
+        state_outputs = {_key.out_key for _key in self.state_keys}
         while queue:
             key = queue.pop()
-            if (key not in self.all_source_keys) or key in self.unused_keys:
+            if (
+                (key not in self.all_source_keys)
+                or key in self.unused_keys
+                or key in state_inputs
+            ):
                 continue
 
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
-                if value in static_keys or value in self.unused_keys:
+                if (
+                    value in static_keys
+                    or value in self.unused_keys
+                    or value in state_outputs
+                ):
                     continue
 
                 value_mapping = self.get_source_keys(value)
@@ -850,9 +846,17 @@ class FlatGraph(GenericDataType[DataType]):
         if data.keys() & self.data_store._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self.data_store._all_data |= data
+        state_keys = set()
+        for item in self.state_keys:
+            state_keys.add(item.in_key)
+            state_keys.add(item.out_key)
         for key, value in data.items():
-            if any_differentiable(value._value):
-                continue
+            if key not in state_keys:
+                is_diff = any_differentiable(value._value)
+                if value.initial_valued and not is_diff:
+                    raise ValueError("Initial valued data should be differentiable!")
+                elif is_diff:
+                    continue
 
             # Distribute non-differentiable keys into 3 attributes using
             # type of values. If a key has a definite value, add it into cached_data.

@@ -514,7 +514,9 @@ def test_rnn_many_to_one():
             for key, value in model_trainable_params.items()
         }
 
-        output_coml, grads_coml = comp_model.evaluate_all(randomized_params)
+        output_coml, grads_coml = comp_model.evaluate(
+            randomized_params, output_gradients=True
+        )
         output_torch, _ = torch_model(input, h0)
         output_torch_dict = {
             f"output{idx}": output_torch[:, idx : idx + 1, :]
@@ -578,7 +580,9 @@ def test_rnn_many_to_one_with_linear():
             for key, value in model_trainable_params.items()
         }
 
-        output_coml, grads_coml = comp_model.evaluate_all(randomized_params)
+        output_coml, grads_coml = comp_model.evaluate(
+            randomized_params, output_gradients=True
+        )
         output_torch, _ = torch_model(input, h0)
         output_torch_dict = {
             f"output{idx}": output_torch[:, idx : idx + 1, :]
@@ -647,7 +651,9 @@ def test_rnn_one_to_many():
             )
             for key, value in model_trainable_params.items()
         }
-        output_coml, grads_coml = comp_model.evaluate_all(randomized_params)
+        output_coml, grads_coml = comp_model.evaluate(
+            randomized_params, output_gradients=True
+        )
         output_torch = torch_model(input, h0)
         output_torch_dict = {
             f"output{idx}": output_torch[:, idx : idx + 1, :]
@@ -768,7 +774,9 @@ def test_torch_encoder_decoder_var_seq_len():
     for key, value in trainable_inputs.items():
         trainable_inputs[key] = value * 0.1
 
-    outputs, gradients_mithril = comp_model.evaluate_all(trainable_inputs)
+    outputs, gradients_mithril = comp_model.evaluate(
+        trainable_inputs, output_gradients=True
+    )
 
     ############# Torch Model #############
 
@@ -937,7 +945,9 @@ def test_lstm_many_to_one():
         # load the torch parameters
         torch_model.load_state_dict(state_dict)
 
-        outputs_mithril, grads_mithril = pm_lstm.evaluate_all(randomized_params)
+        outputs_mithril, grads_mithril = pm_lstm.evaluate(
+            randomized_params, output_gradients=True
+        )
         output_torch, _ = torch_model(inputs, h0, c0)
         loss = output_torch[:, -1, :].sum()
         loss.backward()
