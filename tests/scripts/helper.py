@@ -128,14 +128,14 @@ def evaluate_case(
             # for key in ignore_grad_keys:
             #     if key in model.output_keys:
             #         del output_gradients[key]
-            model_grad = compiled_model.evaluate_gradients(
+            _, model_grad = compiled_model.evaluate(
                 inputs, data={}, output_gradients=output_gradients
             )
             if not reference_shapes:
                 assert_shapes_flag = False
 
         else:
-            model_grad = compiled_model.evaluate_gradients(inputs)
+            _, model_grad = compiled_model.evaluate(inputs, output_gradients=True)
 
         if assert_shapes_flag:
             numeric_shape_dict = (

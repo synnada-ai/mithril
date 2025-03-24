@@ -461,12 +461,13 @@ def test_code_generator_4(file_path: str):
         output_cache = cache["output_cache"]
         right = params["right"]
         target = data["target"]
+        threshold = cache["threshold"]
         output = output_cache["output"] = make_array(
             my_adder(left, right, output_cache)
         )
         output_0 = output_0_cache["output"] = make_array(
             binary_cross_entropy_with_logits(
-                output, target, 2.2250738585072014e-308, cache=output_0_cache
+                output, target, threshold, cache=output_0_cache
             )
         )
         output_1 = output_1_cache["output"] = make_array(
@@ -485,6 +486,7 @@ def test_code_generator_4(file_path: str):
         output_cache = cache["output_cache"]
         right = params["right"]
         target = data["target"]
+        threshold = cache["threshold"]
         gradients["output_1"] += gradients["final_cost"]
         gradients["output_0"] += accumulate_grads(
             make_array(
@@ -496,12 +498,7 @@ def test_code_generator_4(file_path: str):
         )
         gradients["output"] += make_array(
             binary_cross_entropy_with_logits_grad(
-                gradients["output_0"],
-                output_0_cache,
-                0,
-                output,
-                target,
-                2.2250738585072014e-308,
+                gradients["output_0"], output_0_cache, 0, output, target, threshold
             )
         )
         gradients["left"] += accumulate_grads(
@@ -561,10 +558,9 @@ def test_code_generator_5(file_path: str):
         right = params["right"]
         right_0 = params["right_0"]
         target = data["target"]
+        threshold = cache["threshold"]
         output = my_adder(left, right)
-        output_0 = binary_cross_entropy_with_logits(
-            output, target, 2.2250738585072014e-308
-        )
+        output_0 = binary_cross_entropy_with_logits(output, target, threshold)
         output_1 = add(output_0, right_0)
         del output_0
         return {"final_cost": output_1, "output": output}

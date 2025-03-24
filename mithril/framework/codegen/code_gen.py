@@ -18,7 +18,6 @@ from typing import Generic
 from ...cores.core import DataType
 from ..common import (
     EvaluateAllType,
-    EvaluateGradientsType,
     EvaluateType,
 )
 from ..physical.model import PhysicalModel
@@ -42,11 +41,7 @@ class CodeGen(ABC, Generic[DataType]):
     @abstractmethod
     def compile_code(
         self, jit: bool
-    ) -> tuple[
-        EvaluateType[DataType],
-        EvaluateGradientsType[DataType] | None,
-        EvaluateAllType[DataType] | None,
-    ]:
+    ) -> tuple[EvaluateType[DataType], EvaluateAllType[DataType] | None]:
         raise NotImplementedError("compile_code is not implemented")
 
     def _has_grad(self, key: str) -> bool:
