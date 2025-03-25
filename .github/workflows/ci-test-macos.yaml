@@ -11,7 +11,7 @@ env:
 jobs:
 
   pre_ci_checks:
-    runs-on: self-hosted
+    runs-on: macos-latest
     outputs:
       cond_output: ${{ steps.contributors.outputs.cond }}
     steps:
