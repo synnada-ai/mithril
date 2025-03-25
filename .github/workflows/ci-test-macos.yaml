@@ -4,14 +4,42 @@ on:
     branches: [ dev, main ]
   pull_request:
     branches: [ dev, main ]
+  workflow_dispatch: 
+  
 env:
   CI: true
 jobs:
+
+  pre_ci_checks:
+    runs-on: self-hosted
+    outputs:
+      cond_output: ${{ steps.contributors.outputs.cond }}
+    steps:
+    
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check contributors
+        id: contributors
+        run: | 
+          EVENT_NAME=${{ github.event_name }}
+          if [ "${EVENT_NAME}" == "pull_request" ]; then
+            USERNAME=${{ github.actor }}
+            TRUSTED_USERS="${{ vars.TRUSTED_USERS }}"
+            COND=$([[ "$TRUSTED_USERS" =~ "$USERNAME" ]] && echo "true" || echo "false")
+          else
+            COND="true"
+          fi
+          echo "cond=$COND" >> $GITHUB_OUTPUT
+  
+
   build:
-    runs-on: macos-15-xlarge
+    runs-on: self-hosted
+    needs: pre_ci_checks
     strategy:
       matrix:
         python-version: [3.12]
+    if: needs.pre_ci_checks.outputs.cond_output == 'true'
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -37,6 +65,7 @@ jobs:
           popd
       - name: Install Python dependencies
         run: |
+          source ~/mithril-test-ci/bin/activate
           python3 -m pip install --upgrade pip
           pip install torch==2.4.1
           pip install --upgrade "jax[cpu]"
@@ -52,7 +81,10 @@ jobs:
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}      
+          token: ${{ secrets.CODECOV_TOKEN }}    
+      - name: Deactivate environment
+        run: |
+          deactivate  
 
   on_failure:
     needs: build
