@@ -913,7 +913,7 @@ class BaseModel:
             submodel_dag[local_key] = con_obj
             if tensors := con_obj.metadata.tensors:
                 # assert isinstance(con_obj.metadata._value, Tensor)
-                updates.shape_updates |= tensors
+                updates.shape_updates |= set(tensors)
 
         # Replace shape info keys, which are local keys, with global equivalents.
         shape_info = {

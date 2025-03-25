@@ -106,6 +106,12 @@ def find_dominant_type(lst: Any) -> type[int] | type[float] | type[bool]:
 
     if isinstance(lst, list | tuple):
         curr_val: type[bool] | type[int] | type[float] = bool
+        if not lst:
+            # Interpret empty list as float.
+            # TODO: Backend array methods returns float arrays when
+            # provided empty list as input argument. This is main reason
+            # for this decision. Check if this is correct.
+            return float
         for elem in lst:
             val = find_dominant_type(elem)
             if val is float:

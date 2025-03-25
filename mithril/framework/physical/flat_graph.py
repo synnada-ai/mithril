@@ -286,6 +286,16 @@ class FlatGraph(GenericDataType[DataType]):
             if value_str == output_key:
                 self.output_dict[key_str] = new_reference_key
 
+        # Update the multi_node_keys with the new reference key if it is used.
+        if output_key in self.multi_node_keys:
+            self.multi_node_keys[new_reference_key] = self.multi_node_keys.pop(
+                output_key
+            )
+        else:
+            for _key, _value in self.multi_node_keys.items():
+                if output_key in _value:
+                    _value[_value.index(output_key)] = new_reference_key
+
     def _update_output_keys(self, output_key: str, new_reference_key: str) -> bool:
         if output_key not in self.output_dict:
             return False
@@ -346,7 +356,7 @@ class FlatGraph(GenericDataType[DataType]):
             op = self.get_model(key)
             conn = self.connections[key]
 
-            # The connection is allready calculated
+            # The connection is already calculated
             if key in self.data_store.data_values:
                 # Unlink source connections
                 for source_key in list(conn.source_keys):

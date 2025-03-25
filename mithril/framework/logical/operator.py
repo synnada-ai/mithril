@@ -37,7 +37,7 @@ class Operator(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **keys: ConnectionData | IOHyperEdge,
+        **keys: ConnectionData,
     ) -> None:
         super().__init__(name, formula_key)
 
@@ -54,10 +54,7 @@ class Operator(BaseModel):
         is_diff = False
         output_data: IOHyperEdge | None = None
         for key, conn_data in keys.items():
-            if isinstance(conn_data, ConnectionData):
-                edge = conn_data.metadata
-            else:
-                edge = conn_data
+            edge = conn_data.metadata
             if edge.is_tensor:
                 assert isinstance(edge._value, Tensor)
                 if key in shapes:
@@ -136,9 +133,27 @@ class Operator(BaseModel):
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")
 
-    def infer_differentiability(self, *inputs: bool) -> bool:
-        # Function to infer differentiability of the operator
-        # based on the differentiability of its inputs
+    def infer_differentiability(self, *inputs: bool) -> list[bool] | None:
+        """
+        Infers the differentiability of the operator's output based on the
+        differentiability of its inputs.
 
-        # If any of the inputs are differentiable, the output is differentiable
-        return any(inputs)
+        This method determines whether the output of the operator is
+        differentiable by analyzing the differentiability of its inputs.
+        By default, if any of the inputs are differentiable, the output
+        is considered differentiable. Override this method in a subclass
+        to implement custom logic for specific operators.
+
+        Args:
+            *inputs (bool): A variable number of boolean arguments, where
+                            each boolean indicates whether a corresponding
+                            input is differentiable.
+
+        Returns:
+            list[bool] | None: A list containing a single boolean value
+                               indicating the differentiability of the
+                               operator's output, or None if differentiability
+                               info is not applicable to the output (i.e non-tensor
+                               type data).
+        """
+        return [any(inputs)]

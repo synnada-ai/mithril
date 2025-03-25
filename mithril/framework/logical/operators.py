@@ -50,7 +50,6 @@ from ..constraints import (
     shape_constraints,
     size_constraints,
     slice_constraints,
-    split_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
@@ -106,7 +105,6 @@ __all__ = [
     "CastOp",
     "TransposeOp",
     "SqrtOp",
-    "SplitOp",
     "SliceOp",
     "DtypeOp",
     "SineOp",
@@ -182,6 +180,9 @@ class ToTupleOp(Operator):
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
         self._set_cin()
+
+    def infer_differentiability(self, *inputs: bool) -> list[bool]:
+        return [status for status in inputs]
 
 
 class PowerOp(Operator):
@@ -651,8 +652,8 @@ class FloorDivideOp(Operator):
             dependencies={bcast_constraint},
         )
 
-    def infer_differentiability(self, *inputs: bool) -> bool:
-        return False
+    def infer_differentiability(self, *inputs: bool) -> list[bool]:
+        return [False]
 
 
 class MatrixMultiplyOp(Operator):
@@ -711,6 +712,9 @@ class ShapeOp(Operator):
             ),
         )
         self._add_constraint(fn=shape_constraints, keys=["output", "input"])
+
+    def infer_differentiability(self, *inputs: bool) -> None:
+        return None
 
 
 class ReshapeOp(Operator):
@@ -794,6 +798,9 @@ class DtypeOp(Operator):
             ),
         )
 
+    def infer_differentiability(self, *inputs: bool) -> None:
+        return None
+
 
 class SizeOp(Operator):
     _model_name: str = "Size"
@@ -815,6 +822,9 @@ class SizeOp(Operator):
         )
         self._add_constraint(fn=size_constraints, keys=["output", "input", "dim"])
 
+    def infer_differentiability(self, *inputs: bool) -> None:
+        return None
+
 
 class ItemOp(Operator):
     _model_name: str = "Item"
@@ -834,6 +844,9 @@ class ItemOp(Operator):
         self._add_constraint(fn=item_constraints, keys=[Operator.output_key, "input"])
 
         self._jittable = False
+
+    def infer_differentiability(self, *inputs: bool) -> None:
+        return None
 
 
 class ToTensorOp(Operator):
@@ -890,6 +903,9 @@ class ToListOp(Operator):
         )
         self._set_cin()
 
+    def infer_differentiability(self, *inputs: bool) -> list[bool]:
+        return [status for status in inputs]
+
 
 class TensorToListOp(Operator):
     _model_name: str = "TensorToList"
@@ -916,6 +932,9 @@ class TensorToListOp(Operator):
         )
 
         self._jittable = False
+
+    def infer_differentiability(self, *inputs: bool) -> None:
+        return None
 
 
 class ReduceOp(Operator):
@@ -1717,33 +1736,6 @@ class TransposeOp(Operator):
         )
 
 
-class SplitOp(Operator):
-    _model_name: str = "Split"
-
-    def __init__(
-        self,
-        split_size: int,  # TODO: should we add default for split_size?
-        axis: int = 0,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
-    ):
-        super().__init__(
-            formula_key="split",
-            name=name,
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | float | bool]),
-            input=BaseKey(
-                shape=[("Var1", ...)], type=Tensor[int | float | bool], value=input
-            ),
-            split_size=BaseKey(type=int, value=split_size),
-            axis=BaseKey(type=int, value=axis),
-        )
-
-        self._add_constraint(
-            fn=split_constraints, keys=["output", "input", "split_size", "axis"]
-        )
-
-
 class SliceOp(Operator):
     _model_name: str = "Slice"
 
@@ -1833,6 +1825,14 @@ class IndexerOp(Operator):
             keys=[Operator.output_key, "input", "index"],
             dependencies={indexer_initial_constraints},
         )
+
+    def infer_differentiability(self, *inputs: bool) -> list[bool] | None:
+        val = self.conns.get_data(Operator.output_key)._value
+        if isinstance(val, list | tuple):
+            # No need to transfer differentiability to the output
+            # since output consists of Tensor objects from input.
+            return None
+        return [inputs[0]]
 
 
 class SineOp(SingleInputOperationOp):

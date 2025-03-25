@@ -1218,8 +1218,8 @@ class IOHyperEdge:
         return None
 
     @property
-    def tensors(self) -> set[Tensor[int | float | bool]]:
-        return set(get_specific_types_from_value(self._value, Tensor))
+    def tensors(self) -> list[Tensor[int | float | bool]]:
+        return get_specific_types_from_value(self._value, Tensor)
 
     @property
     def is_polymorphic(self) -> bool:
@@ -1465,17 +1465,27 @@ class IOHyperEdge:
 
         return updates
 
-    def set_differentiability(self, differentiable: bool) -> Updates:
-        if self.is_scalar and differentiable:
+    def set_differentiability(self, differentiable: list[bool] | bool) -> Updates:
+        updates = Updates()
+        if isinstance(differentiable, bool):
+            if differentiable:
+                # Differentiable edges can only be Tensor[float] type.
+                updates |= self.set_type(Tensor[float])
+            differentiable = [differentiable]
+
+        if not (tensors := self.tensors) and any(differentiable):
             raise ValueError("Non-tensor edges cannot be differentiable.")
 
-        updates = Updates()
-        if differentiable:
-            # Differentiable edges can only be Tensor[float] type.
-            updates |= self.set_type(Tensor[float])
-        # Set differentiability of the _value if it is a Tensor.
-        if isinstance(self._value, Tensor):
-            self._value.differentiable = differentiable
+        if tensors:
+            # Set differentiability of the corresponding tensors in _value.
+            # NOTE: the order of tensors and differentiable values should be
+            # matched by index. Flattening any data structure always preserves
+            # the order of Tensor type values. differentiable list must always
+            # match this order.
+            for tensor, diff in zip(tensors, differentiable, strict=True):
+                tensor.differentiable = diff
+                if diff and tensor.type is not float:
+                    updates |= tensor.set_type(float)
         return updates
 
     def add_constraint(self, constraint: Constraint) -> None:
