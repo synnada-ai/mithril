@@ -25,8 +25,8 @@ jobs:
           EVENT_NAME=${{ github.event_name }}
           if [ "${EVENT_NAME}" == "pull_request" ]; then
             USERNAME=${{ github.actor }}
-            TRUSTED_USERS="${{ secrets.TRUSTED_USERS }}"
-            COND=$([[ "$TRUSTED_USERS" =~ "$USERNAME" ]] && echo "true" || echo "false")
+            TRUSTED=$(yq -r '.trusted_contributors[].username' .github/contributors.yml | grep -Fxq "$USERNAME" && echo "true" || echo "false")
+            COND="$TRUSTED"
           else
             COND="true"
           fi
