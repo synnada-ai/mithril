@@ -30,6 +30,8 @@ jobs:
           else
             COND="true"
           fi
+          echo $USERNAME
+          echo $TRUSTED_USERS
           echo "cond=$COND" >> $GITHUB_OUTPUT
   
 
