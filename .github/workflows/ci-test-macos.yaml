@@ -25,13 +25,11 @@ jobs:
           EVENT_NAME=${{ github.event_name }}
           if [ "${EVENT_NAME}" == "pull_request" ]; then
             USERNAME=${{ github.actor }}
-            TRUSTED_USERS="${{ vars.TRUSTED_USERS }}"
+            TRUSTED_USERS="${{ secrets.TRUSTED_USERS }}"
             COND=$([[ "$TRUSTED_USERS" =~ "$USERNAME" ]] && echo "true" || echo "false")
           else
             COND="true"
           fi
-          echo $USERNAME
-          echo $TRUSTED_USERS
           echo "cond=$COND" >> $GITHUB_OUTPUT
   
 
