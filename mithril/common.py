@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Iterator, MutableMapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
 from types import UnionType
 from typing import Any, TypeVar
@@ -28,6 +28,7 @@ class CGenConfig:
     ARRAY_NAME: str = ""
 
     # Function call configs
+    IMPLICIT_BROADCAST_OPS: set[str] = field(default_factory=set)
     USE_OUTPUT_AS_INPUT: bool = False
     RETURN_OUTPUT: bool = False
 
@@ -39,6 +40,9 @@ class CGenConfig:
 class PythonGenConfig:
     # Import configs
     SPECIFY_DEVICE: bool = False
+
+    # Function call configs
+    IMPLICIT_BROADCAST_OPS: set[str] = field(default_factory=set)
 
 
 class PaddingType(IntEnum):

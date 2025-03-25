@@ -261,11 +261,16 @@ class FlatGraph(GenericDataType[DataType]):
     ) -> None:
         output_key = keys[Operator.output_key]
 
-        assert base_op in self.model_table, "Base operator must already be in the graph"
-        assert (
-            inserted_key in keys.values()
-        ), "Inserted key must be in the keys dictionary"
-        assert output_key not in self.all_keys, "Output key must not be in the graph"
+        if base_op not in self.model_table:
+            raise ValueError(f"Base operator {base_op} must already be in the graph")
+
+        if inserted_key not in keys.values():
+            raise ValueError(
+                f"Inserted key {inserted_key} must be in the keys dictionary"
+            )
+
+        if output_key in self.all_keys:
+            raise ValueError(f"Output key {output_key} must not be in the graph")
 
         # Add the new operator to the graph
         self.add_value(new_op, keys)
@@ -362,7 +367,9 @@ class FlatGraph(GenericDataType[DataType]):
                 # Clear connection
                 conn.op = None
                 self.model_table.pop(op)
-                assert len(conn.source_keys) == 0
+
+                if len(conn.source_keys) != 0:
+                    raise RuntimeError(f"Source keys of {key} must be empty")
 
                 if key in self._all_target_keys:
                     self._all_target_keys.remove(key)
@@ -462,7 +469,8 @@ class FlatGraph(GenericDataType[DataType]):
             else:
                 model_id.append(key)
 
-        assert conn.op is not None
+        if conn.op is None:
+            raise RuntimeError(f"Connection {conn.key} must have an operator")
 
         final_model_id = "-".join(model_id) + f"-{conn.op.formula_key}"
 
@@ -634,7 +642,8 @@ class FlatGraph(GenericDataType[DataType]):
                 if model.formula_key in self.backend.array_creation_funcs:
                     kwargs["default_dtype"] = self.backend._dtype.name
                     # TODO: Add support for C backends
-                    assert isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig)
+                    if not isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig):
+                        raise NotImplementedError("C backend is not supported yet!")
                     if self.backend.CODEGEN_CONFIG.SPECIFY_DEVICE:
                         kwargs["device"] = self.backend.get_device()
 
@@ -881,26 +890,22 @@ class FlatGraph(GenericDataType[DataType]):
     def graph_update(self) -> None:
         # Currently only GGML needs graph update!
 
-        if self.backend.backend_type != "ggml":
-            return
-
-        # Implicit broadcast operations
-        implicit_broadcast_ops = {"add", "subtract", "multiplication", "divide"}
-
         for out_conn in list(self.model_table.values()):
             out_key = out_conn.key
             op = self.get_op(out_key)
 
-            if op.formula_key not in implicit_broadcast_ops:
+            if op.formula_key not in self.backend.CODEGEN_CONFIG.IMPLICIT_BROADCAST_OPS:
                 continue
+
+            # NOTE: This broadcasting behaviour only works properly in GGML.
 
             # GGML backend does not support implicit broadcasting when the
             # left shape needs to be broadcasted to the right shape.
             # Therefore, we need to add a broadcast_to operator to the graph.
             source_keys = self.get_source_keys(out_key)
             left_key = source_keys[0]
-            left_shape: list[int] = self._get_key_shape(left_key)
-            output_shape: list[int] = self._get_key_shape(out_key)
+            left_shape: list[int] = self.get_key_shape(left_key)
+            output_shape: list[int] = self.get_key_shape(out_key)
             assert isinstance(
                 left_shape, list
             ), f"`{left_key}` is not specified with shape!"
@@ -937,16 +942,8 @@ class FlatGraph(GenericDataType[DataType]):
                     left_key,
                 )
 
-    def _get_key_shape(self, key: str) -> list[int]:
-        if key not in self.all_data:
-            raise ValueError(f"`{key}` is not in the model!")
-        if not self.all_data[key].is_tensor:
-            raise ValueError(f"`{key}` is not a tensor!")
-
-        shape_node = self.all_data[key].shape
-        assert shape_node is not None, f"`{key}` is not specified with shape!"
-        shape: list[int] = shape_node.get_shapes()  # type: ignore
-        return shape
+    def get_key_shape(self, key: str) -> list[int]:
+        return self.data_store.get_key_shape(key)
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False

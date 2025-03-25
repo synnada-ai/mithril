@@ -201,7 +201,9 @@ class GGMLCodeGen(CGen):
         init_block.append(c_ast.Comment("Create tensors only once"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             shape = self._get_tensor_shape(key)
-            assert shape is not None, f"Shape for tensor '{key}' is not determined"
+
+            if shape is None:
+                raise ValueError(f"Shape for tensor '{key}' is not determined")
 
             # GGML expects the shapes reversed
             shape = tuple(reversed(shape))
