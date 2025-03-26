@@ -2914,6 +2914,8 @@ class Ones(PrimitiveModel):
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 
+        self._add_constraint(randn_constraints, keys=["output", "shape"])
+
     def __call__(  # type: ignore[override]
         self,
         shape: ConnectionType = NOT_GIVEN,

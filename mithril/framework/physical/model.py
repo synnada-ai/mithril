@@ -559,6 +559,9 @@ class PhysicalModel(GenericDataType[DataType]):
         # Set given static keys
         self.flat_graph.set_static_keys(constant_keys)
 
+        # Post process the graph
+        self.flat_graph.graph_update()
+
         # Infer and store all static keys using user provided constant keys and
         # the non-tensor constants defined in logical model.
         self.flat_graph.infer_static_keys()

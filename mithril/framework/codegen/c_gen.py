@@ -16,6 +16,7 @@ import ctypes
 import os
 import subprocess
 import tempfile
+from collections.abc import Sequence
 
 from ...backends.with_manualgrad.c_backend import CBackend, backend
 from ...backends.with_manualgrad.ggml_backend import GGMLBackend
@@ -25,8 +26,10 @@ from ...framework.common import (
     EvaluateAllType,
     EvaluateType,
     FinalCost,
+    Tensor,
 )
 from ...utils.type_utils import is_list_int
+from ..logical.operator import Operator
 from ..physical.model import PhysicalModel
 from . import c_ast
 from .code_gen import CodeGen
@@ -107,7 +110,9 @@ class CGen(CodeGen[PyArray]):
             )
             self.globals.append(grad_struct)
 
-        generated_code = c_ast.FILE(self.imports, self.globals, self.functions).to_str()  # type: ignore
+        generated_code = c_ast.FILE(self.imports, self.globals, self.functions).accept(  # type: ignore
+            c_ast.CStyleCodeGenerator()
+        )
 
         if file_path is None:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".c") as tmp_file:
@@ -314,26 +319,19 @@ class CGen(CodeGen[PyArray]):
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
 
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)
-            outputs = {}
+            gradients = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
                 key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
                 array_ptr = getattr(output_struct, grad_key)
-                outputs[key] = PyArray(
+                gradients[key] = PyArray(
                     array_ptr.contents, shape=self._get_tensor_shape(key)
                 )
 
-            evaluate_gradients_return = {}
-            if (
-                FinalCost in output_gradients
-                and not self.backend.CODEGEN_CONFIG.RETURN_OUTPUT
-            ) or (
-                FinalCost in output_gradients
-                and self.backend.CODEGEN_CONFIG.RETURN_OUTPUT
-            ):
-                evaluate_gradients_return[FinalCost] = forward_pass[FinalCost]
-            else:
-                evaluate_gradients_return = outputs
-            return evaluate_gradients_return, outputs
+            outputs = {}
+            for output_key in self.pm.output_keys:
+                outputs[output_key] = forward_pass[output_key]
+
+            return outputs, gradients
 
         return evaluate_wrapper, evaluate_gradients_wrapper  # type: ignore
 
@@ -342,9 +340,21 @@ class CGen(CodeGen[PyArray]):
         return [c_ast.Include(header_path, system=False)]
 
     def create_primitive_call(
-        self, formula_name: str, args: list[c_ast.Expr], context: str
+        self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> c_ast.Expr:
-        return c_ast.Call(formula_name, args=args)
+        input_vars: list[c_ast.Expr] = [
+            self.create_key_ref(arg, context=context, load=True)
+            if isinstance(arg, str)
+            else c_ast.Constant(arg)
+            for arg in args
+        ]
+
+        formula_key = (
+            op.formula_key
+            if context == "eval"
+            else op.formula_key + self.BACKWARD_FN_SUFFIX
+        )
+        return c_ast.Call(formula_key, input_vars)
 
     def assign_primitive_output(
         self, target: str, source: c_ast.Expr, context: str
@@ -428,21 +438,17 @@ class CGen(CodeGen[PyArray]):
         ]
 
         for output_key in self.pm.flat_graph.topological_order:
-            model = self.pm.flat_graph.get_model(output_key)
+            op = self.pm.flat_graph.get_op(output_key)
             inputs = self.pm.flat_graph.get_source_keys(output_key)
 
             if self.configs.USE_OUTPUT_AS_INPUT:
                 # In raw_c backend we need to pass output array as first argument
                 inputs = [output_key] + inputs
 
-            input_vars: list[c_ast.Expr] = [
-                self.create_key_ref(key, context="eval", load=True) for key in inputs
-            ]
-
             # Create primitive call
             p_call = self.create_primitive_call(
-                model.formula_key,
-                input_vars,
+                op,
+                inputs,
                 context="eval",
             )
 
@@ -485,43 +491,34 @@ class CGen(CodeGen[PyArray]):
             # Staticly infered and unused model will not be added
             if not self._has_grad(output_key):
                 continue
-            model = self.pm.flat_graph.get_model(output_key)
+
+            op = self.pm.flat_graph.get_op(output_key)
+
             inputs = self.pm.flat_graph.get_source_keys(output_key)
 
             # Assume all inputs are Array
             for idx in range(len(inputs)):
                 if not self._has_grad(inputs[idx]):
                     continue
-                if (
-                    self.backend.CODEGEN_CONFIG.RETURN_OUTPUT
-                    and FinalCost in self.pm.flat_graph.output_dict
-                    and self.pm.flat_graph.output_dict[FinalCost] == output_key
-                ):
-                    output_key = FinalCost
-                fn_inputs: list[c_ast.Expr] = [
-                    self.create_key_ref(
-                        output_key + self.BACKWARD_FN_SUFFIX, context="eval_grad"
-                    ),
-                    c_ast.Constant(idx),
-                    self.create_key_ref(output_key, context="eval_grad"),
-                ] + [
-                    self.create_key_ref(input_key, context="eval_grad")
-                    for input_key in inputs
+
+                fn_inputs: list[str | int] = [
+                    output_key + self.BACKWARD_FN_SUFFIX,
+                    idx,
+                    output_key,
+                    *inputs,
                 ]
 
                 if self.configs.USE_OUTPUT_AS_INPUT:
                     fn_inputs += [
-                        self.create_key_ref(
-                            input_key + self.BACKWARD_FN_SUFFIX, context="eval_grad"
-                        )
+                        input_key + self.BACKWARD_FN_SUFFIX
                         if self._has_grad(input_key)
-                        else c_ast.Variable("NULL")
+                        else "NULL"
                         for input_key in inputs
                     ]
 
                 # Create primitive call
                 p_call = self.create_primitive_call(
-                    model.formula_key + self.BACKWARD_FN_SUFFIX,
+                    op,
                     fn_inputs,
                     context="eval_grad",
                 )
@@ -628,7 +625,14 @@ class CGen(CodeGen[PyArray]):
         return struct
 
     def _determine_struct_keys(self) -> dict[str, list[str]]:
-        eval_input_keys = sorted(self.pm.input_keys)
+        eval_input_keys = sorted(
+            {
+                key
+                for key in self.pm.input_keys
+                if key not in self.pm.flat_graph.data_store.data_values
+                or isinstance(self.pm.data[key], Tensor)
+            }
+        )
         if self.configs.USE_OUTPUT_AS_INPUT:
             eval_input_keys = sorted(self.pm.flat_graph.all_keys)
 

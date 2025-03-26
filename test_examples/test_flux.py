@@ -360,10 +360,10 @@ class TestLayers:
         num_heads = 24
         mlp_ratio = 4.0
 
-        img_ref = torch.randn(1, 4080, 3072)
-        txt_ref = torch.randn(1, 256, 3072)
+        img_ref = torch.randn(1, 4096, 3072)
+        txt_ref = torch.randn(1, 512, 3072)
         vec_ref = torch.randn(1, 3072)
-        pe_ref = torch.randn(1, 1, 4336, 64, 2, 2)
+        pe_ref = torch.randn(1, 1, 4608, 64, 2, 2)
         o_model = DoubleStreamBlock(hidden_size, num_heads, mlp_ratio)
 
         backend = backend_type()
@@ -372,10 +372,10 @@ class TestLayers:
             double_stream_block(hidden_size, num_heads, mlp_ratio),
             backend=backend,
             shapes={
-                "img": [1, 4080, 3072],
-                "txt": [1, 256, 3072],
+                "img": [1, 4096, 3072],
+                "txt": [1, 512, 3072],
                 "vec": [1, 3072],
-                "pe": [1, 1, 4336, 64, 2, 2],
+                "pe": [1, 1, 4608, 64, 2, 2],
             },
             data_keys={"img", "txt", "vec", "pe"},
             use_short_namings=False,

@@ -27,6 +27,7 @@ struct ggml_tensor * matrix_multiplication(struct ggml_context * ctx, struct ggm
 struct ggml_tensor * relu(struct ggml_context * ctx, struct ggml_tensor * input);
 struct ggml_tensor * squared_error(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) ;
 struct ggml_tensor * reduce_mean(struct ggml_context * ctx, struct ggml_tensor * input, struct ggml_tensor * axes,struct ggml_tensor * keepdim);
+struct ggml_tensor * broadcast_to(struct ggml_context * ctx, struct ggml_tensor * input, int dim1, int dim2, int dim3, int dim4);
 
 
 struct ggml_tensor * add_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right);
