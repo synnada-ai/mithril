@@ -297,8 +297,7 @@ def test_implicit_broadcast_ops():
             backend,
             shapes={"left": shape[0], "right": shape[1]},
             jit=False,
-            inference=True,
-            file_path="test_implicit_broadcast_ops.c",
+            inference=True
         )
 
         left = np.random.rand(*shape[0]).astype(np.float32)
