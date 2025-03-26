@@ -13,26 +13,64 @@
 // limitations under the License.
 
 #include "ops.h"
+#include <stdio.h>
 
 struct ggml_tensor * add(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
     struct ggml_tensor * res = ggml_add(ctx, left, right);
     return res;
-}
 
+}
 
 struct ggml_tensor * multiplication(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
     struct ggml_tensor * res = ggml_mul(ctx, left, right);
     return res;
 }
 
+struct ggml_tensor * scalar_multiply(struct ggml_context * ctx, struct ggml_tensor * left, float scale) {
+    struct ggml_tensor * res = ggml_scale(ctx, left, scale);
+    return res;
+}
 
+struct ggml_tensor * subtract(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
+    struct ggml_tensor * res = ggml_sub(ctx, left, right);
+    return res;
+}
 
+struct ggml_tensor * transpose(struct ggml_context * ctx, struct ggml_tensor * input, struct ggml_tensor * axes) {
+    struct ggml_tensor * res =  ggml_cont(ctx,ggml_transpose(ctx, ggml_dup(ctx,input)));
+    return res;
+}
+
+struct ggml_tensor * matrix_multiplication(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
+
+    struct ggml_tensor * res = ggml_mul_mat(ctx,transpose(ctx,right,right),left );
+    return res;
+}
+
+struct ggml_tensor * relu(struct ggml_context * ctx, struct ggml_tensor * input) {
+    
+    struct ggml_tensor * res = ggml_relu(ctx, input);
+    return res;
+}
+
+struct ggml_tensor * squared_error(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
+    struct ggml_tensor * res = ggml_sub(ctx, left, right);
+    res = ggml_sqr(ctx, res);
+    return res;
+}
+
+struct ggml_tensor * reduce_mean(struct ggml_context * ctx, struct ggml_tensor * input, struct ggml_tensor * axes,struct ggml_tensor * keepdim) {
+    int64_t num_elements = ggml_nelements(input); 
+    struct ggml_tensor * sum = ggml_sum(ctx, input);
+
+    struct ggml_tensor * mean = ggml_scale(ctx, sum, 1.0f / num_elements);
+    return mean;
+}
 
 struct ggml_tensor * add_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right)
 { 
     return gradient;
 }
-
 
 struct ggml_tensor * multiplication_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right)
 {
@@ -42,4 +80,151 @@ struct ggml_tensor * multiplication_grad(struct ggml_context * ctx, struct ggml_
     else{
         return multiplication(ctx, gradient, left);
     }
+}
+
+struct ggml_tensor * transpose_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left,  struct ggml_tensor * right) {     
+    return transpose(ctx,gradient,gradient); //ggml_transpose(ctx, ggml_dup(ctx,left));
+}
+
+struct ggml_tensor * matrix_multiplication_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left,  struct ggml_tensor * right) {
+    struct ggml_tensor * grad;
+    if (idx == 0) {
+        grad = ggml_mul_mat(ctx, right , gradient);
+        return grad;
+    } else if (idx == 1) {
+        grad = ggml_mul_mat(ctx,transpose(ctx,gradient, gradient),transpose(ctx,left, left));
+       
+        return grad;
+    } else {
+        GGML_ASSERT(false && "Invalid index for matrix multiplication gradient.");
+        return NULL;
+    }
+}
+
+struct ggml_tensor * relu_grad(struct ggml_context * ctx, struct ggml_tensor * output_grad, int idx, struct ggml_tensor * output, struct ggml_tensor * input ) {
+    struct ggml_tensor * mask = ggml_step(ctx, input); // Step function: 1 if input > 0, else 0
+    struct ggml_tensor * grad = ggml_mul(ctx, mask,output_grad);
+    return grad;
+}
+
+struct ggml_tensor * squared_error_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right) {
+    struct ggml_tensor * scaled_diff = ggml_scale(ctx, ggml_sub(ctx, left, right), 2.0f);
+    struct ggml_tensor * grad = ggml_mul(ctx, gradient, scaled_diff);
+
+    if (idx == 1) {
+        grad = ggml_neg(ctx, grad);
+    }
+    return grad;
+}
+
+struct ggml_tensor * reduce_mean_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * left, struct ggml_tensor * right, struct ggml_tensor * axes,struct ggml_tensor * keepdim) {
+    struct ggml_tensor * input = right;
+    const int64_t size = ggml_nelements(input);
+
+    struct ggml_tensor * scaled_grad = ggml_scale(ctx, gradient, 1.0f / (float)size);
+    struct ggml_tensor * grad = ggml_repeat(ctx, scaled_grad, input);
+    return grad;
+}
+
+
+// Function to print data of a tensor (supports up to 4D)
+void print_tensor_data(struct ggml_tensor * tensor) {
+    if (tensor == NULL || tensor->data == NULL) {
+        fprintf(stderr, "Tensor or tensor data is NULL\n");
+        return;
+    }
+
+    // Determine the number of active dimensions
+    int num_dims = 0;
+    for (int i = 0; i < GGML_MAX_DIMS; i++) {
+        if (tensor->ne[i] >= 1) {
+            num_dims++;
+        } else {
+            break;
+        }
+    }
+
+    // Cast the data pointer to float *
+    float * data = (float *)tensor->data;
+
+    // Print tensor shape
+    printf("Tensor shape: [");
+    for (int i = 0; i < num_dims; i++) {
+        printf("%ld", tensor->ne[i]);
+        if (i < num_dims - 1) printf(", ");
+    }
+    printf("]\n");
+
+    // Print data based on number of dimensions
+    switch (num_dims) {
+        case 4: {
+            // 4D tensor: [dim0, dim1, dim2, dim3]
+            const size_t dim0 = tensor->ne[0];
+            const size_t dim1 = tensor->ne[1];
+            const size_t dim2 = tensor->ne[2];
+            const size_t dim3 = tensor->ne[3];
+
+            for (size_t w = 0; w < dim3; w++) {
+                printf("Block %zu:\n", w);
+                for (size_t z = 0; z < dim2; z++) {
+                    printf("  Slice %zu:\n", z);
+                    for (size_t y = 0; y < dim1; y++) {
+                        printf("    ");
+                        for (size_t x = 0; x < dim0; x++) {
+                            // Calculate index for 4D tensor
+                            const size_t index = x + y * dim0 + z * dim0 * dim1 + w * dim0 * dim1 * dim2;
+                            printf("%8.4f ", data[index]);
+                        }
+                        printf("\n");
+                    }
+                }
+            }
+            break;
+        }
+        case 3: {
+            // 3D tensor: [dim0, dim1, dim2]
+            const size_t dim0 = tensor->ne[0];
+            const size_t dim1 = tensor->ne[1];
+            const size_t dim2 = tensor->ne[2];
+
+            for (size_t z = 0; z < dim2; z++) {
+                printf("Slice %zu:\n", z);
+                for (size_t y = 0; y < dim1; y++) {
+                    printf("  ");
+                    for (size_t x = 0; x < dim0; x++) {
+                        const size_t index = x + y * dim0 + z * dim0 * dim1;
+                        printf("%8.4f ", data[index]);
+                    }
+                    printf("\n");
+                }
+            }
+            break;
+        }
+        case 2: {
+            // 2D tensor: [dim0, dim1]
+            const size_t dim0 = tensor->ne[0];
+            const size_t dim1 = tensor->ne[1];
+
+            for (size_t y = 0; y < dim1; y++) {
+                for (size_t x = 0; x < dim0; x++) {
+                    const size_t index = x + y * dim0;
+                    printf("%8.4f ", data[index]);
+                }
+                printf("\n");
+            }
+            break;
+        }
+        case 1: {
+            // 1D tensor: [dim0]
+            const size_t dim0 = tensor->ne[0];
+            for (size_t x = 0; x < dim0; x++) {
+                printf("%8.4f ", data[x]);
+            }
+            printf("\n");
+            break;
+        }
+        default:
+            fprintf(stderr, "Unsupported number of dimensions: %d\n", num_dims);
+    }
+    printf("\n");
 }

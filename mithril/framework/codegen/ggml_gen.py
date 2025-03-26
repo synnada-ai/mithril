@@ -186,7 +186,8 @@ class GGMLCodeGen(CGen):
             if shape is not None:
                 tensor = c_ast.Call(
                     f"ggml_new_tensor_{len(shape)}d",
-                    [ctx_name, "GGML_TYPE_F32"] + [str(size) for size in shape],
+                    [ctx_name, "GGML_TYPE_F32"]
+                    + [str(size) for size in reversed(shape)],
                 )
                 init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))  # type: ignore
 
@@ -195,7 +196,7 @@ class GGMLCodeGen(CGen):
             [
                 c_ast.Comment("Create graph object only once"),  # type: ignore
                 c_ast.Assign(  # type: ignore
-                    c_ast.Variable("eval_static_gf"),
+                    c_ast.Variable(f"{fn_ref_name}_static_gf"),
                     c_ast.Call("ggml_new_graph", [ctx_name]),
                 ),
             ]
@@ -211,7 +212,7 @@ class GGMLCodeGen(CGen):
                     c_ast.Call(
                         "ggml_build_forward_expand",
                         [
-                            "eval_static_gf",
+                            f"{fn_ref_name}_static_gf",
                             self.create_key_ref(out_key, context=fn_ref_name),
                         ],
                     )
@@ -262,7 +263,7 @@ class GGMLCodeGen(CGen):
             c_ast.MakeStmt(
                 c_ast.Call(
                     "ggml_graph_compute_with_ctx",
-                    [ctx_name, "eval_static_gf", c_ast.Constant(1)],
+                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
                 )
             ),
         ]

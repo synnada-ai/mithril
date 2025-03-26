@@ -16,13 +16,26 @@
 #define MITHRIL_GGML_OPS_H
 
 #include "ggml/include/ggml.h"
-
+#include "utils.h"
 
 struct ggml_tensor * add(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right);
 struct ggml_tensor * multiplication(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right);
+struct ggml_tensor * scalar_multiply(struct ggml_context * ctx, struct ggml_tensor * left, float scale);
+struct ggml_tensor * subtract(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right);
+struct ggml_tensor * transpose(struct ggml_context * ctx, struct ggml_tensor * input, struct ggml_tensor * axes);
+struct ggml_tensor * matrix_multiplication(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right);
+struct ggml_tensor * relu(struct ggml_context * ctx, struct ggml_tensor * input);
+struct ggml_tensor * squared_error(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) ;
+struct ggml_tensor * reduce_mean(struct ggml_context * ctx, struct ggml_tensor * input, struct ggml_tensor * axes,struct ggml_tensor * keepdim);
 
 
 struct ggml_tensor * add_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right);
 struct ggml_tensor * multiplication_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right);
+struct ggml_tensor * transpose_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left,  struct ggml_tensor * right);
+struct ggml_tensor * matrix_multiplication_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left,  struct ggml_tensor * right);
+struct ggml_tensor * relu_grad(struct ggml_context * ctx, struct ggml_tensor * output_grad, int idx, struct ggml_tensor * output, struct ggml_tensor * input );
+struct ggml_tensor * squared_error_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right);
+struct ggml_tensor * reduce_mean_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * left, struct ggml_tensor * right, struct ggml_tensor * axes,struct ggml_tensor * keepdim);
 
+void print_tensor_data(struct ggml_tensor * tensor);
 #endif

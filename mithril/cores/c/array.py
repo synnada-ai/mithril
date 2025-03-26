@@ -16,6 +16,7 @@ import ctypes
 from collections.abc import Sequence
 from numbers import Real
 
+from .ggml.ggml_core import ggml_struct
 from .raw_c.raw_c_definitons import Array, lib
 
 
@@ -28,10 +29,12 @@ class PyArray:
             shape = tuple(shape)
         self.shape = shape
         self.ndim = len(shape)
+        self.name = self.arr.__class__.__name__
+        self.lib = lib
 
     # TODO: Implement __del__ method for deleting the struct
     # def __del__(self):
-    #     lib.delete_struct(self.arr)
+    #     self.lib.delete_struct(self.arr)
 
     @property
     def data(self) -> Sequence[int | Sequence[int | Sequence[int]]]:
@@ -62,6 +65,39 @@ class PyArray:
     def __str__(self):
         return f"PyArray(shape={self.shape})\n{self.data}"
 
+    def _create_temp_array(self, pyarray):
+        arr = pyarray.arr
+        ndim = pyarray.ndim
+        shape = pyarray.shape
+        strides = [1] if ndim == 1 else [shape[1], 1]
+        c_shape_array = (ctypes.c_int * ndim)(*shape)
+        c_strides_array = (ctypes.c_int * ndim)(*strides)
+        size = 1
+        for size_ in shape:
+            size *= size_
+        return Array(
+            data=ctypes.cast(arr.data, ctypes.POINTER(ctypes.c_float)),
+            shape=ctypes.cast(c_shape_array, ctypes.POINTER(ctypes.c_int)),
+            strides=ctypes.cast(c_strides_array, ctypes.POINTER(ctypes.c_int)),
+            ndim=ndim,
+            size=size,
+        )
+
+    def _get_array_ptr(self, arr):
+        if arr.name == "Array":
+            ptr = ctypes.cast(ctypes.byref(arr.arr), ctypes.POINTER(Array))
+            return ptr, None
+        else:
+            temp_array = self._create_temp_array(arr)
+            return ctypes.byref(temp_array), temp_array
+
+    def _create_result(self, result_struct, shape):
+        if self.name == "Array":
+            return PyArray(result_struct.contents, shape)
+        else:
+            data_ptr = ctypes.cast(result_struct.contents.data, ctypes.c_void_p)
+            return PyArray(ggml_struct(data=data_ptr), shape)
+
     # Element-wise addition
     def __add__(self, other):
         if isinstance(other, PyArray):
@@ -72,18 +108,18 @@ class PyArray:
                 ndim = other.ndim
                 shape = tuple(other.shape[i] for i in range(ndim))
             c_shape = (ctypes.c_int * len(shape))(*shape)
-            result = lib.create_empty_struct(len(c_shape), c_shape)
-            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
-            other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
-            lib.add(result, self_ptr, other_ptr)
-            return PyArray(result.contents, shape)
+            result = self.lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr, temp_self = self._get_array_ptr(self)
+            other_ptr, temp_other = self._get_array_ptr(other)
+            self.lib.add(result, self_ptr, other_ptr)
+            return self._create_result(result, shape)
         elif isinstance(other, Real):
             # Scalar addition
             c_shape = (ctypes.c_int * len(self.shape))(*self.shape)
-            result = lib.create_empty_struct(len(c_shape), c_shape)
-            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
-            lib.scalar_add(result, self_ptr, ctypes.c_float(float(other)))
-            return PyArray(result.contents, self.shape)
+            result = self.lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr, temp_self = self._get_array_ptr(self)
+            self.lib.scalar_add(result, self_ptr, ctypes.c_float(float(other)))
+            return self._create_result(result, self.shape)
         else:
             return NotImplemented
 
@@ -95,17 +131,17 @@ class PyArray:
         if isinstance(other, PyArray):
             shape = self.shape if self.ndim >= other.ndim else other.shape
             c_shape = (ctypes.c_int * len(shape))(*shape)
-            result = lib.create_empty_struct(len(c_shape), c_shape)
-            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
-            other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
-            lib.multiplication(result, self_ptr, other_ptr)
-            return PyArray(result.contents, shape)
+            result = self.lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr, temp_self = self._get_array_ptr(self)
+            other_ptr, temp_other = self._get_array_ptr(other)
+            self.lib.multiplication(result, self_ptr, other_ptr)
+            return self._create_result(result, shape)
         elif isinstance(other, Real):
             c_shape = (ctypes.c_int * len(self.shape))(*self.shape)
-            result = lib.create_empty_struct(len(c_shape), c_shape)
-            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
-            lib.scalar_multiply(result, self_ptr, ctypes.c_float(float(other)))
-            return PyArray(result.contents, self.shape)
+            result = self.lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr, temp_self = self._get_array_ptr(self)
+            self.lib.scalar_multiply(result, self_ptr, ctypes.c_float(float(other)))
+            return self._create_result(result, self.shape)
         else:
             return NotImplemented
 
@@ -117,23 +153,22 @@ class PyArray:
         if isinstance(other, PyArray):
             shape = self.shape if self.ndim >= other.ndim else other.shape
             c_shape = (ctypes.c_int * len(shape))(*shape)
-            result = lib.create_empty_struct(len(c_shape), c_shape)
-            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
-            other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
-            lib.subtract(result, self_ptr, other_ptr)
-            return PyArray(result.contents, shape)
+            result = self.lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr, temp_self = self._get_array_ptr(self)
+            other_ptr, temp_other = self._get_array_ptr(other)
+            self.lib.subtract(result, self_ptr, other_ptr)
+            return self._create_result(result, shape)
         elif isinstance(other, Real):
             c_shape = (ctypes.c_int * len(self.shape))(*self.shape)
-            result = lib.create_empty_struct(len(c_shape), c_shape)
-            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
-            lib.scalar_subtract(result, self_ptr, ctypes.c_float(float(other)))
-            return PyArray(result.contents, self.shape)
+            result = self.lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr, temp_self = self._get_array_ptr(self)
+            self.lib.scalar_subtract(result, self_ptr, ctypes.c_float(float(other)))
+            return self._create_result(result, self.shape)
         else:
             return NotImplemented
 
     def __rsub__(self, other):
         if isinstance(other, Real):
-            # scalar - array = scalar + (-1 * array)
             return other + (-1 * self)
         else:
             return NotImplemented
