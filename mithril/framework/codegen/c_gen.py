@@ -290,14 +290,19 @@ class CGen(CodeGen[PyArray]):
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
 
-            _, output_struct = lib.evaluate(inputs_struct_ptr, output_gradients=True)
-            outputs = {}
+            output_struct = lib.evaluate_gradients(inputs_struct_ptr)
+
+            gradients = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
                 key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
                 array_ptr = getattr(output_struct, grad_key)
-                outputs[key] = PyArray(
+                gradients[key] = PyArray(
                     array_ptr.contents, shape=self._get_tensor_shape(key)
                 )
+
+            outputs = {}
+            for output_key in self.pm.output_keys:
+                outputs[output_key] = forward_pass[output_key]
 
             return outputs, gradients
 
