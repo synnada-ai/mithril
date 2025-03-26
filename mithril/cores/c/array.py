@@ -15,8 +15,6 @@
 import ctypes
 from collections.abc import Sequence
 
-import numpy as np
-
 
 class PyArray:
     def __init__(self, arr: ctypes.Structure, shape: tuple[int, ...] | list[int]):
@@ -34,7 +32,7 @@ class PyArray:
 
     @property
     def dtype(self) -> type:
-        return np.float32
+        return ctypes.c_float
 
     @property
     def data(self) -> Sequence[int | Sequence[int | Sequence[int]]]:

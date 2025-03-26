@@ -975,16 +975,7 @@ class PhysicalModel(GenericDataType[DataType]):
         return outputs, state_outputs
 
     def contains_invalid_cache_value(self, cache_data: DataEvalType[DataType]) -> bool:
-        # Returns True if the cache contains an invalid value
-        # (Ellipsis, None, or slice).
-        return any(
-            isinstance(value, tuple)
-            and (Ellipsis in value or None in value)
-            or isinstance(value, slice)
-            or value is None
-            or value is Ellipsis
-            for value in cache_data.values()
-        )
+        return any(self.shapes[key] is None for key in cache_data)
 
     @overload
     def evaluate(

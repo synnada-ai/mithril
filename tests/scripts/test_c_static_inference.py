@@ -20,7 +20,7 @@ from mithril.framework.common import Tensor
 from mithril.models import Add, Model, Multiply
 
 
-def test_c_static_inference_1():
+def test_c_static_inference_add():
     """
     Test static inference support for add operation
     in Rawc and GGML backends with all static inputs
@@ -91,7 +91,7 @@ def test_c_static_inference_1():
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
 
-def test_c_static_inference_2():
+def test_c_static_inference_multiply():
     """
     Test static inference support for multiplication operation
     in Rawc and GGML backends with all static inputs
@@ -162,7 +162,7 @@ def test_c_static_inference_2():
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
 
-def test_c_static_inference_3():
+def test_c_static_inference_add_multiply():
     """
     Test static inference support for add and multiplication
     operations in Rawc and GGML backends with all static inputs
@@ -240,7 +240,7 @@ def test_c_static_inference_3():
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
 
-def test_c_static_inference_4():
+def test_c_static_inference_add_multiply_partial_static():
     """
     Test static inference support for add and multiplication
     operations in Rawc and GGML backends with partial static inputs
@@ -292,7 +292,6 @@ def test_c_static_inference_4():
         },
         jit=False,
         inference=True,
-        file_path="out_ggml_4.c",
     )
 
     # Numpy Backend
@@ -327,7 +326,7 @@ def test_c_static_inference_4():
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
 
-def test_c_static_inference_5():
+def test_c_static_inference_cache_input():
     """
     Test static inference support when cached data is used
     as input in RawC and GGML backend with partial static inputs
@@ -414,7 +413,7 @@ def test_c_static_inference_5():
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
 
-def test_c_static_inference_6():
+def test_c_static_inference_connected_output():
     """
     Test static inference support when outputs of
     model are used in other operation with partial static inputs

@@ -19,10 +19,10 @@ from typing import Any
 import numpy as np
 
 from .... import types
-from ....common import BiMap
 from ....cores.c.array import PyArray
 from ....cores.c.ggml import ops
 from ....cores.c.ggml.ggml_core import ggml_struct
+from ....cores.c.ggml.utils import dtype_map
 from ....cores.c.raw_c import array
 from ...backend import Backend
 from ...utils import process_shape
@@ -30,12 +30,6 @@ from ..c_backend.utils import from_numpy
 from . import utils
 
 __all__ = ["GGMLBackend"]
-
-dtype_map: BiMap[str, Any] = BiMap(
-    {
-        "float32": np.float32,
-    }
-)
 
 
 class GGMLBackend(Backend[PyArray]):
