@@ -80,7 +80,6 @@ jobs:
           popd
       - name: Install Python dependencies
         run: |
-          source ~/mithril-test-ci/bin/activate
           python3 -m pip install --upgrade pip
           pip install torch==2.4.1
           pip install --upgrade "jax[cpu]"
