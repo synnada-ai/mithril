@@ -44,6 +44,7 @@ from ..common import (
     Updates,
     UpdateType,
     Variadic,
+    check_used_tensors,
     create_shape_repr,
     find_intersection_type,
     find_type,
@@ -82,6 +83,9 @@ class ConnectionData:
         differentiable: bool | None = None,
         interval: list[float | int] | None = None,
     ) -> None:
+        # Tensor objects that were previously associated with any ConnectionData
+        # cannot be used as the value for a newly created ConnectionData.
+        check_used_tensors(value)
         # If shape is provided, type should be Tensor.
         if shape is not None:
             if type in (Tensor, None):
@@ -590,6 +594,8 @@ class BaseModel:
                         "output values could not be set in extend."
                     )
                 set_value = given_connection
+                # Check if given value contains any used tensors.
+                check_used_tensors(set_value)
                 given_connection = self._create_connection(edge, None)
         assert isinstance(given_connection, ConnectionData)
 
@@ -1575,7 +1581,8 @@ class BaseModel:
         Raises:
             KeyError: If the provided key is not a valid IO key.
         """
-
+        # Used tensors can not be used as a value for another connection.
+        check_used_tensors(value)
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
         if value != TBD:

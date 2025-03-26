@@ -986,6 +986,7 @@ def replace_tensor(
         type of the input `value`.
     """
     if value is current_tensor:
+        new_tensor.is_used = current_tensor.is_used
         value = new_tensor
     elif isinstance(value, list | tuple):
         new_value = [replace_tensor(current_tensor, new_tensor, item) for item in value]
@@ -1055,6 +1056,27 @@ def convert_to_numeric_value(
     return value
 
 
+def check_used_tensors(value: Any) -> None:
+    """
+    Checks if any tensors within the given value are marked as used.
+
+    This function iterates through all tensors extracted from the provided value
+    and raises a ValueError if any of them are marked as used. Used tensors cannot
+    be reused as a value for another connection.
+
+    Args:
+        value (Any): The input value that may contain tensors to be checked.
+
+    Raises:
+        ValueError: If any tensor within the value is marked as used.
+    """
+    for tensor in get_specific_types_from_value(value, Tensor):
+        if tensor.is_used:
+            raise ValueError(
+                "Used tensors can not be used as a value for another connection."
+            )
+
+
 class Tensor(Generic[TypeVarTensorType]):
     def __init__(
         self,
@@ -1080,6 +1102,7 @@ class Tensor(Generic[TypeVarTensorType]):
         self.value: TensorValueType | ToBeDetermined = TBD
         if not isinstance(value, ToBeDetermined):
             self.set_value(value)
+        self.is_used = False
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
@@ -1315,6 +1338,7 @@ class IOHyperEdge:
         updates.add(self, UpdateType.VALUE)
         updates.add(self, UpdateType.SHAPE)
         self._value = tensor
+        tensor.is_used = True
         return updates
 
     def replace_tensor(
@@ -1371,6 +1395,7 @@ class IOHyperEdge:
             assert isinstance(self_value, Tensor)
             # If both values are Tensor, match them.
             updates |= self_value.match(value)
+            value.is_used = True
         elif isinstance(value, list | tuple):
             # TODO: Update below assertion type!!!
             assert isinstance(self_value, list | tuple)
@@ -1398,6 +1423,7 @@ class IOHyperEdge:
         if isinstance(value, Tensor):
             # Add self to referees of value and shape.
             value.referees.add(self)
+            value.is_used = True
             # TODO: When two edges set to the same tensor value using
             # different Tensor objects, we need to merge their nodes into
             # a single node. In order to track this, we need to add all

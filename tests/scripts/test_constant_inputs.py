@@ -15,6 +15,7 @@
 import os
 import platform
 from collections.abc import Iterable
+from copy import deepcopy
 from itertools import product
 
 import numpy as np
@@ -1580,13 +1581,14 @@ def test_composite_4_set_values():
 
 def test_composite_5():
     list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list1_copy = deepcopy(list1)
     list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
     list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model |= add_model_1(left=IOKey(value=list1, name="left1"), right=list1)
+    model |= add_model_1(left=IOKey(value=list1, name="left1"), right=list1_copy)
     model |= add_model_2(left=add_model_1.output, right=list2)
     model |= add_model_3(left=add_model_2.output, right=list3)
 
@@ -1595,6 +1597,7 @@ def test_composite_5():
 
 def test_composite_5_set_values():
     list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list1_copy = deepcopy(list1)
     list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
     list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
@@ -1602,7 +1605,7 @@ def test_composite_5_set_values():
     add_model_2 = Add()
     add_model_3 = Add()
     model |= add_model_1(left=IOKey(name="left1"))
-    model.set_values({add_model_1.left: list1, add_model_1.right: list1})
+    model.set_values({add_model_1.left: list1, add_model_1.right: list1_copy})
     model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
     model |= add_model_3(left=add_model_2.output)
@@ -2667,3 +2670,40 @@ def test_add_constant_iokey():
     backend = JaxBackend()
     pm = ml.compile(model=model, backend=backend, inference=True)
     assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])
+
+
+def test_extend_with_used_tensor():
+    model = Model()
+    tensor: Tensor[float] = Tensor([1.0, 2.0])
+    model |= Buffer()(tensor, IOKey("output"))
+    with pytest.raises(ValueError) as err_info:
+        model |= Add()(tensor, "right", output=IOKey("output2"))
+    assert (
+        str(err_info.value)
+        == "Used tensors can not be used as a value for another connection."
+    )
+
+
+def test_init_model_with_used_tensor():
+    model = Model()
+    tensor: Tensor[float] = Tensor([1.0, 2.0])
+    model |= Buffer()(tensor, IOKey("output"))
+    with pytest.raises(ValueError) as err_info:
+        Add(left=tensor)
+    assert (
+        str(err_info.value)
+        == "Used tensors can not be used as a value for another connection."
+    )
+
+
+def test_set_values_with_used_tensor():
+    model = Model()
+    tensor: Tensor[float] = Tensor([1.0, 2.0])
+    model |= Buffer()(tensor, IOKey("output"))
+    model |= Add()(left="left", right="right", output=IOKey("output2"))
+    with pytest.raises(ValueError) as err_info:
+        model.set_values(left=tensor)
+    assert (
+        str(err_info.value)
+        == "Used tensors can not be used as a value for another connection."
+    )
