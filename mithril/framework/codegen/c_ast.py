@@ -38,12 +38,6 @@ class AST:
         """Accept a visitor and return the result of the visit."""
         return visitor.visit(self)
 
-    def children(self) -> list["AST"]:
-        """Return a list of all child nodes of this node.
-        By default, returns an empty list. Subclasses should override this method.
-        """
-        return []
-
 
 @dataclass
 class Expr(AST):
@@ -59,42 +53,27 @@ class Stmt(AST):
 class MakeStmt(Stmt):
     expr: Expr
 
-    def children(self) -> list[AST]:
-        return [self.expr]
-
 
 @dataclass
 class Call(Expr):
     name: str
     args: TypedSequence[str | Expr]
 
-    def children(self) -> list[AST]:
-        return [arg for arg in self.args if isinstance(arg, Expr)]
-
 
 @dataclass
 class Constant(Expr):
     value: int | float | str
-
-    def children(self) -> list[AST]:
-        return []
 
 
 @dataclass
 class Variable(Expr):
     name: str
 
-    def children(self) -> list[AST]:
-        return []
-
 
 @dataclass
 class Assign(Stmt):
     target: Expr
     source: Expr | Stmt
-
-    def children(self) -> list[AST]:
-        return [self.target, self.source]
 
 
 @dataclass
@@ -110,16 +89,10 @@ class FunctionDef(Stmt):
     params: list[Parameter]
     body: TypedSequence[Stmt | Expr]
 
-    def children(self) -> list[AST]:
-        return list(self.body)
-
 
 @dataclass
 class Return(Stmt):
     value: Expr
-
-    def children(self) -> list[AST]:
-        return [self.value]
 
 
 @dataclass
@@ -127,17 +100,11 @@ class Include(AST):
     header: str
     system: bool = False  # True for system headers, False for user-defined headers
 
-    def children(self) -> list[AST]:
-        return []
-
 
 @dataclass
 class Comment(Stmt):
     text: str
     multiline: bool = False  # True for /* */ comments, False for // comments
-
-    def children(self) -> list[AST]:
-        return []
 
 
 @dataclass
@@ -151,18 +118,12 @@ class StructDef(Stmt):
     name: str
     fields: list[StructField]
 
-    def children(self) -> list[AST]:
-        return []  # StructField is not derived from AST
-
 
 @dataclass
 class FILE(AST):
     includes: list[Include]
     globals: list[Stmt]
     declarations: list[FunctionDef]
-
-    def children(self) -> list[AST]:
-        return self.includes + self.globals + self.declarations  # type: ignore
 
 
 @dataclass
@@ -171,25 +132,12 @@ class StructInit(Expr):
     field_values: Mapping[str, Expr | str]
     static: bool = False
 
-    def children(self) -> list[AST]:
-        return [
-            value for value in self.field_values.values() if isinstance(value, Expr)
-        ]
-
 
 @dataclass
 class StaticVariable(Stmt):
     type: str | Expr
     name: str
     initial_value: Expr | None = None
-
-    def children(self) -> list[AST]:
-        result = []
-        if isinstance(self.type, Expr):
-            result.append(self.type)
-        if self.initial_value is not None:
-            result.append(self.initial_value)
-        return result  # type: ignore
 
 
 @dataclass
@@ -198,20 +146,11 @@ class If(Stmt):
     body: list[Stmt]
     else_body: list[Stmt] | None = None
 
-    def children(self) -> list[AST]:
-        result = [self.condition] + self.body
-        if self.else_body:
-            result.extend(self.else_body)
-        return result  # type: ignore
-
 
 @dataclass
 class Arrow(Expr):
     target: Expr
     field: str
-
-    def children(self) -> list[AST]:
-        return [self.target]
 
 
 @dataclass
@@ -219,16 +158,10 @@ class Dot(Expr):
     target: Variable
     field: str
 
-    def children(self) -> list[AST]:
-        return [self.target]
-
 
 @dataclass
 class Pointer(Expr):
     target: str | Expr
-
-    def children(self) -> list[AST]:
-        return [self.target] if isinstance(self.target, Expr) else []
 
 
 @dataclass
@@ -238,9 +171,6 @@ class BinaryOp(Expr):
     op: str
     left: Expr
     right: Expr
-
-    def children(self) -> list[AST]:
-        return [self.left, self.right]
 
 
 class CStyleCodeGenerator(NodeVisitor):
