@@ -59,9 +59,10 @@ jobs:
 
       - name: Create Conda ennvironment with ${{ matrix.python-version }}
         run: |
-          conda init zsh
+          
           conda create -n mithril-test-ci python=${{ matrix.python-version }} -y
-          conda activate mithril-test-ci
+          source activate base
+          source activate mithril-test-ci
 
       - name: Make compile scripts executable
         run: |
@@ -98,8 +99,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}    
       - name: Deactivate and remove environment
         run: |
-          conda init
-          conda deactivate
+          source activate base
           conda remove -n mithril-test-ci --all -y
 
 
@@ -129,6 +129,5 @@ jobs:
         uses: actions/checkout@v4
       - name: remove conda environment
         run: |
-          conda init zsh
-          conda activate base
+          source activate base
           conda remove -n mithril-test-ci --all -y
