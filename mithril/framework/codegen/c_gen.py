@@ -107,7 +107,9 @@ class CGen(CodeGen[PyArray]):
             )
             self.globals.append(grad_struct)
 
-        generated_code = c_ast.FILE(self.imports, self.globals, self.functions).to_str()  # type: ignore
+        generated_code = c_ast.FILE(self.imports, self.globals, self.functions).accept(  # type: ignore
+            c_ast.CStyleCodeGenerator()
+        )
 
         if file_path is None:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".c") as tmp_file:
