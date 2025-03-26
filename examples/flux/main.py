@@ -200,12 +200,12 @@ def run(
 
     # Warmup
     for _ in tqdm(range(5)):
-        x = denoise_pm(params, inp)["output"]
+        x = denoise_pm.evaluate(params, inp)["output"]
 
     # Actual inference
     s_time = time.perf_counter()
     for _ in tqdm(range(10)):
-        x = denoise_pm(params, inp)["output"]
+        x = denoise_pm.evaluate(params, inp)["output"]
     e_time = time.perf_counter()
     print(f"Time taken: {e_time - s_time} seconds")
 
