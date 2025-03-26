@@ -61,7 +61,7 @@ jobs:
         run: |
           conda init
           conda create -n mithril-test-ci python=${{ matrix.python-version }} -y
-          conda acvtivate mithril-test-ci
+          conda activate mithril-test-ci
 
       - name: Make compile scripts executable
         run: |
