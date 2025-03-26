@@ -167,9 +167,9 @@ class StaticDataStore(Generic[DataType]):
             _data = {k: self.convert_to_physical_value(key, v) for k, v in data.items()}
         elif isinstance(data, Constant):
             if data is Constant.ZEROS:
-                _data = self.backend.zeros(*self._get_key_shape(key))
+                _data = self.backend.zeros(*self.get_key_shape(key))
             elif data is Constant.ONES:
-                _data = self.backend.ones(*self._get_key_shape(key))
+                _data = self.backend.ones(*self.get_key_shape(key))
             else:
                 _data = epsilon_table[self.backend.precision][data]
         elif isinstance(data, Dtype):
@@ -177,7 +177,7 @@ class StaticDataStore(Generic[DataType]):
         assert not isinstance(_data, Tensor)
         return _data
 
-    def _get_key_shape(self, key: str) -> list[int]:
+    def get_key_shape(self, key: str) -> list[int]:
         d_shp = self.all_data[key].shape
         if d_shp is None or not is_list_int(shp := d_shp.get_shapes()):
             raise ValueError(f"Key: '{key}' shape must be fully determined.")

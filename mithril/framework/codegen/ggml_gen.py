@@ -13,9 +13,11 @@
 # limitations under the License.
 
 
+from collections.abc import Sequence
 from typing import override
 
 from ...cores.c.array import PyArray
+from ..logical.operator import Operator
 from ..physical.model import PhysicalModel
 from . import c_ast
 from .c_gen import CGen
@@ -30,6 +32,10 @@ class GGMLCodeGen(CGen):
         super().__init__(pm)
 
         self.defined_tmp_vars: set[str] = set()
+
+        self.pre_processors = {
+            "broadcast_to": self.pre_broadcast_to,
+        }
 
     def generate_code(self, file_path: str | None = None) -> None:
         # Add stdlib.h include for atexit
@@ -123,14 +129,26 @@ class GGMLCodeGen(CGen):
 
     @override
     def create_primitive_call(
-        self, formula_name: str, args: list[c_ast.Expr], context: str
+        self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> c_ast.Expr:
+        formula_name = op.formula_key
+
+        arg_exprs: list[c_ast.Expr] = []
+        if formula_name in self.pre_processors:
+            op, arg_exprs = self.pre_processors[formula_name](op, args, context)
+        else:
+            arg_exprs = [
+                self.create_key_ref(key, context=context, load=True)
+                if isinstance(key, str)
+                else c_ast.Constant(key)
+                for key in args
+            ]
+
         # Add context as input for all primitive calls
-        context_var = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
-        return c_ast.Call(
-            formula_name,
-            [context_var] + args,  # type: ignore
-        )
+        context_txt = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
+        arg_exprs = [c_ast.Variable(context_txt), *arg_exprs]
+
+        return c_ast.Call(formula_name, arg_exprs)
 
     def update_function(
         self,
@@ -186,6 +204,13 @@ class GGMLCodeGen(CGen):
             if key in self.determined_struct_keys[f"{fn_ref_name}_cache_keys"]:
                 continue
             shape = self._get_tensor_shape(key)
+
+            if shape is None:
+                raise ValueError(f"Shape for tensor '{key}' is not determined")
+
+            # GGML expects the shapes reversed
+            shape = tuple(reversed(shape))
+
             if shape is not None:
                 tensor = c_ast.Call(
                     f"ggml_new_tensor_{len(shape)}d",
@@ -350,6 +375,7 @@ class GGMLCodeGen(CGen):
 
         return super().create_key_ref(key, context, load)
 
+
     @override
     def _determine_struct_keys(self) -> dict[str, list[str]]:
         determined_struct_keys = super()._determine_struct_keys()
@@ -358,3 +384,29 @@ class GGMLCodeGen(CGen):
             determined_struct_keys["eval_input_keys"] = static_cache_keys
 
         return determined_struct_keys
+
+    def _create_shape_constant(self, shape: tuple[int, ...]) -> list[c_ast.Expr]:
+        # GGML expects 4 dimensions for shape
+        shape = shape + (1,) * (4 - len(shape))
+
+        return [c_ast.Constant(dim) for dim in shape]
+
+    def pre_broadcast_to(
+        self, op: Operator, args: Sequence[str | int | float], context: str
+    ) -> tuple[Operator, list[c_ast.Expr]]:
+        shape_key = args[1]
+        assert isinstance(shape_key, str), "Shape key must be a string"
+        shape: tuple[int, ...] = self.pm.flat_graph.data_store.data_values[shape_key]  # type: ignore
+        assert isinstance(shape, tuple), "Shape must be a tuple or list"
+
+        args = args[:-1]
+        arg_exprs: list[c_ast.Expr] = [
+            self.create_key_ref(key, context=context, load=True)
+            if isinstance(key, str)
+            else c_ast.Constant(key)
+            for key in args
+        ]
+        shape_constant: list[c_ast.Expr] = self._create_shape_constant(shape)
+
+        return op, arg_exprs + shape_constant
+

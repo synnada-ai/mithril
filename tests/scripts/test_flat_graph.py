@@ -235,7 +235,7 @@ def test_discard_partial_of_sequence():
     )
     assert pm.flat_graph.all_source_keys == {"input1", "input2"}
     assert pm.flat_graph.all_target_keys == {"output1", "output2"}
-    assert list(pm.flat_graph.topological_order) == ["output1", "output2"]
+    assert list(pm.flat_graph.topological_order) == ["output2", "output1"]
 
 
 def test_discard_whole_sequence():

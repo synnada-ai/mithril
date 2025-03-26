@@ -12,26 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ....common import CGenConfig
 
-CODEGEN_CONFIG = CGenConfig()
-
-# File configs
-CODEGEN_CONFIG.HEADER_NAME = "ggml_backend.h"
-
-
-# Array configs
-CODEGEN_CONFIG.ARRAY_NAME = "struct ggml_tensor"
-
-# Function configs
-CODEGEN_CONFIG.IMPLICIT_BROADCAST_OPS = {
-    "add",
-    "subtract",
-    "multiplication",
-    "divide",
-}
-CODEGEN_CONFIG.USE_OUTPUT_AS_INPUT = False
-CODEGEN_CONFIG.RETURN_OUTPUT = True
-
-# Memory management
-CODEGEN_CONFIG.ALLOCATE_INTERNALS = False

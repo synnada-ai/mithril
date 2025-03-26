@@ -39,7 +39,7 @@ dtype_map: BiMap[str, Any] = BiMap(
 
 
 class GGMLBackend(Backend[PyArray]):
-    backend_type = "c"
+    backend_type = "ggml"
     SRC_PATH = os.path.join(
         os.path.dirname(__file__), "..", "..", "..", "cores", "c", "ggml"
     )

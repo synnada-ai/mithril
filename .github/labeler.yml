@@ -2,17 +2,29 @@
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/physical/**/*']
 
+'primitives':
+- changed-files:
+  - any-glob-to-any-file: ['mithril/models/primitives.py']
+
+'operators':
+- changed-files:
+  - any-glob-to-any-file: ['mithril/framework/logical/operators.py']
+
 'models':
 - changed-files:
-  - any-glob-to-any-file: ['mithril/models/**/*', 'mithril/framework/logical/essential_primitives.py']
+  - any-glob-to-any-file: [mithril/models/models.py']
 
 'logical':
 - changed-files:
-  - any-glob-to-any-file: ['mithril/framework/logical/base.py', 'mithril/framework/logical/model.py', 'mithril/framework/logical/primitive.py']
+  - any-glob-to-any-file: ['mithril/framework/logical/base.py', 'mithril/framework/logical/model.py', 'mithril/framework/logical/primitive.py', mithril/framework/logical/operator.py']
 
 'backend':
 - changed-files:
   - any-glob-to-any-file: ['mithril/backends/**/*']
+
+'cores':
+- changed-files:
+  - any-glob-to-any-file: ['mithril/cores/**/*']
 
 'tests':
 - changed-files:
