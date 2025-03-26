@@ -131,7 +131,6 @@ class Operator(BaseModel):
         self,
         model: BaseModel | BaseModel,
         trace: bool = True,
-        update_canonicals: bool = True,
         /,
         **kwargs: ConnectionDataType,
     ) -> None:

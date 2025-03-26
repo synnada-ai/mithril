@@ -568,12 +568,13 @@ def scalar_slice_type_constraint(
 
 
 def scalar_item_type_constraint_forward_helper(
-    input_type: GenericAlias | UnionType | type, index_val: int | slice | ToBeDetermined
+    input_type: GenericAlias | UnionType | type, index: IOHyperEdge
 ) -> type | UnionType | GenericAlias:
     # forward inference of scalar item type constraint:
     # Examples:
     # > scalar_item_type_constraint_forward_helper(list[list[int]], 3) -> list[int]
     # > scalar_item_type_constraint_forward_helper(list[int | float], 3) -> int | float
+    index_val = index.value
 
     new_type = input_type
     if isinstance(input_type, GenericAlias):
@@ -600,8 +601,13 @@ def scalar_item_type_constraint_forward_helper(
                     # take union of all types inside tuple
                     new_type = create_union_type(*input_type.__args__)
 
-            if variadic_required and isinstance(index_val, slice):
-                new_type = tuple[new_type, ...]  # type: ignore
+            # if variadic_required and find_intersection_type(index._type, int) is None:
+            #     new_type = tuple[new_type, ...]  # type: ignore
+            if variadic_required:
+                if isinstance(index_val, slice):
+                    new_type = tuple[new_type, ...]  # type: ignore
+                else:
+                    new_type = new_type | tuple[new_type, ...]  # type: ignore
 
         elif origin is list:
             if isinstance(index_val, slice):
@@ -794,9 +800,7 @@ def indexer_type_constraint(
         )
 
         # Do the forward inference in all types in args, then make Union
-        types = [
-            scalar_item_type_constraint_forward_helper(arg, index_value) for arg in args
-        ]
+        types = [scalar_item_type_constraint_forward_helper(arg, index) for arg in args]
         inferred_out_type = create_union_type(*types)
 
         updates |= output.set_type(inferred_out_type)
@@ -4063,14 +4067,19 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
             # both are not polymorphic
             updates |= output.set_type(input.edge_type)
             updates |= input.set_type(output.edge_type)
-            is_input_valued = input._value is not TBD
-            is_output_valued = output._value is not TBD
-            if is_input_valued ^ is_output_valued:
-                valued, non_valued = (
-                    (input, output) if is_input_valued else (output, input)
-                )
-                updates |= non_valued.set_value(valued._value)
-                status = True
+            if input.is_tensor:
+                if input._value is not output._value:
+                    updates |= input.set_value(output._value)
+                    status = True
+            else:
+                is_input_valued = input._value is not TBD
+                is_output_valued = output._value is not TBD
+                if is_input_valued ^ is_output_valued:
+                    valued, non_valued = (
+                        (input, output) if is_input_valued else (output, input)
+                    )
+                    updates |= non_valued.set_value(valued._value)
+                    status = True
 
     return status, updates
 

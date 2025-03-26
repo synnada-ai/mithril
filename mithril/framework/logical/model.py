@@ -37,8 +37,6 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-
-# from .base import BaseModel, ConnectionDataType
 from .base import BaseModel, ConnectionData
 from .operator import Operator
 from .operators import (
@@ -106,77 +104,76 @@ def create_extracted_model(
     model: type[Operator],
     defaults: dict[str, Any] | None = None,
 ) -> Connection:
-    if defaults is None:
-        defaults = {}
-    code = model.__init__.__code__
-
-    # "self" argument is common for all models, Exclude it by
-    # starting co_varnames from 1st index.
-    default_args = code.co_varnames[1 : code.co_argcount]
-    default_args_dict = {key: TBD for key in default_args} | defaults
-    default_args_dict.pop("name", None)
-
-    op: Operator = model(**default_args_dict)
-
-    # All connections' model field is [None] or [not None but a frozen model] ->
-    #    -> Create a new model with extract = True
-    # The must be maximum 1 connection's model field is not None and also not frozen
-    # (All connections with a model field contains extract=True is okey)
-    #    -> Add new models (both coming from connections and the maion Operation)
-    #       directly into an already existing model.
-    # There exists more than 1 connection's model field is not None and also not frozen
-    #    -> Raise an error.
-
     # Find a main model and all new models to be added to main model
+    provisional_model: BaseModel | None = None
     main_model = None
-    new_models = []
+    new_models: dict[BaseModel, ConnectionData] = {}
     for c in connections:
         if isinstance(c, str):
             raise ValueError("Connection key is not allowed in connections!")
-        # TODO: check if _get_outermost_parent contains c.metadata
         if isinstance(c, ConnectionData) and c.model is not None:
             m = c.model._get_outermost_parent()
-            if not m.is_frozen and not m.extract:
+            if not m.is_frozen and m.provisional_source is False:
                 if main_model is not None and main_model is not m:
                     raise ValueError(
                         "Multiple non-frozen active models found in connections!"
                     )
                 main_model = m
             elif m not in new_models:
-                new_models.append(m)
+                # Add provisional_model no need to create if there exists one.
+                if provisional_model is None and m.provisional_source is not False:
+                    provisional_model = m
+                new_models[m] = c
 
-    # Select a main model from new models if main_model is None
-    if main_model is None:
-        for m in new_models:
-            if not m.is_frozen:
-                main_model = m
-                break
+    if main_model is not None and main_model.provisional_model:
+        # If main_model has provisional, then set it as provisional_model.
+        provisional_model = main_model.provisional_model
+
+    if provisional_model is None:
+        provisional_model = Model()
         if main_model is not None:
-            new_models.remove(main_model)
-
-    # Create a main model if main_model remains None.
-    # Create "ExtractModel" which means a model whose submodels will be
-    # extracted during an extension instead of ExtractModel itself.
-    if main_model is None:
-        main_model = Model()
-        main_model.extract = True
-
-    assert isinstance(main_model, Model)
-    # Extend main model with all the new models to be added.
-    for m in new_models:
-        updates = main_model.constraint_solver.match(m.constraint_solver)
-        main_model.constraint_solver(updates)
-        if m.extract:
-            assert isinstance(m, Model)
-            main_model.extend_extracted_model(m)
+            # If main_model is not None, then set created provisional to main_model.
+            provisional_model.provisional_source = main_model
+            main_model.provisional_model = provisional_model
+            provisional_model.enforce_jit = main_model.enforce_jit
         else:
-            main_model._extend(m, update_canonicals=main_model.extract)
-    keys = {key: con for key, con in zip(op.input_keys, connections, strict=False)}
-    # Extend main_model with given Operator.
-    main_model._extend(op, keys, update_canonicals=main_model.extract)
-    output = main_model.conns.get_extracted_connection(op.cout)
-    assert isinstance(output, Connection)
-    return output
+            provisional_model.provisional_source = True
+
+    assert isinstance(provisional_model, Model)
+    _connections: list[ConnectionType] = []
+    # Iterate over connections, if connection is coming from main model, create
+    # a new connection with same edge, otherwise use connections as is.
+    for c in connections:
+        if (
+            isinstance(c, ConnectionData)
+            and c.model is not None
+            and c.model._get_outermost_parent() is main_model
+        ):
+            c = main_model.conns.get_con_by_metadata(c.metadata)
+            assert isinstance(c, ConnectionData)
+            if (con := provisional_model.conns.get_con_by_metadata(c.metadata)) is None:
+                key = None
+                if not c.is_autogenerated:
+                    key = c.key
+                con = provisional_model._create_connection(c.metadata, key)
+            _connections.append(con)
+        else:
+            _connections.append(c)
+
+    # Add all new models to provisional_model.
+    for m, c in new_models.items():
+        if m is provisional_model:
+            continue
+        updates = provisional_model.constraint_solver.match(m.constraint_solver)
+        provisional_model.constraint_solver(updates)
+        if m.provisional_source:
+            assert isinstance(m, Model)
+            provisional_model.extend_extracted_model(m, c)
+        elif m.provisional_source is False:
+            provisional_model._extend(m)
+        else:
+            raise ValueError("Provisional model must have extract=True!")
+    return provisional_model._extend_op_model(_connections, model, defaults)
 
 
 class Connection(ConnectionData):
@@ -518,6 +515,30 @@ class Model(BaseModel):
         conn = self.conns.get_extracted_connection(connection)
         setattr(self, key, conn)
 
+    def _extend_op_model(
+        self,
+        connections: list[ConnectionType],
+        model: type[Operator],
+        defaults: dict[str, Any] | None = None,
+    ) -> Connection:
+        if defaults is None:
+            defaults = {}
+        code = model.__init__.__code__
+        # "self" argument is common for all models, Exclude it by
+        # starting co_varnames from 1st index.
+        default_args = code.co_varnames[1 : code.co_argcount]
+        default_args_dict = {key: TBD for key in default_args} | defaults
+        default_args_dict.pop("name", None)
+
+        op: Operator = model(**default_args_dict)
+
+        keys = {key: con for key, con in zip(op.input_keys, connections, strict=False)}
+        # Extend main_model with given Operator.
+        self._extend(op, keys)
+        output = self.conns.get_extracted_connection(op.cout)
+        assert isinstance(output, Connection)
+        return output
+
     def _unroll_template(self, template: ConnectionType) -> ConnectionType:
         types = [ConnectionData, Connection, Connection, IOKey, Tensor]
         # Add tuple / list models if template is a tuple / list.
@@ -526,25 +547,46 @@ class Model(BaseModel):
             and find_dominant_type(template, False, constant_fn) in types
         ):
             _model: type[Operator] = (ToListOp, ToTupleOp)[isinstance(template, tuple)]
+
             conns = [self._unroll_template(item) for item in template]
-            template = create_extracted_model(conns, _model, {"n": len(template)})
-        # Extend model with submodels of ExtractModel if connection's model
-        # has extract=True.
-        if (
+            template = self._extend_op_model(conns, _model, {"n": len(template)})
+        # If template is a connection and its model is provisional,
+        # extend self with submodels of provisional model.
+        elif (
             isinstance(template, ConnectionData)
             and template.model is not None
-            and (extract_m := template.model).extract
+            and (extract_m := template.model).provisional_source
+            and extract_m is not self
         ):
             assert isinstance(extract_m, Model)
-            self.extend_extracted_model(extract_m)
+            p_model = extract_m.provisional_source
+            if (
+                isinstance(p_model, BaseModel)
+                and self is not p_model._get_outermost_parent()
+            ):
+                raise ValueError(
+                    "Provisional source model is not the same as the current model!"
+                )
+            self.extend_extracted_model(extract_m, template)
+            if (_tmp := self.conns.get_con_by_metadata(template.metadata)) is not None:
+                template = _tmp
         return template
 
-    def extend_extracted_model(self, model: Model) -> None:
+    def extend_extracted_model(self, model: Model, start_con: ConnectionData) -> None:
         # Extend model with submodels of ExtractModel.
         # Match and update constraint solver of the model.
         updates = self.constraint_solver.match(model.constraint_solver)
         self.constraint_solver(updates)
-        for sub_m in model.get_models_in_topological_order():
+        con = model.conns.get_con_by_metadata(start_con.metadata)
+        assert con is not None
+        start_m = model.dependency_map.local_output_dependency_map.get(con)
+        if start_m is None:
+            con.model = None
+            return
+        else:
+            _start_m = start_m[0]
+
+        for sub_m in model.get_models_in_topological_order(_start_m):
             if sub_m not in self.dag:
                 sub_m.parent = None
                 conns: dict[str, ConnectionData] = {}
@@ -565,13 +607,12 @@ class Model(BaseModel):
                     sub_m.conns.connections_dict[con.metadata] |= (
                         model.conns.connections_dict[con.metadata]
                     )
-
                     sub_m.conns.metadata_dict.setdefault(con.metadata, set())
                     sub_m.conns.metadata_dict[con.metadata] |= (
                         model.conns.metadata_dict[con.metadata]
                     )
                 # Extend the model with submodel.
-                self.extend(sub_m, **conns, update_canonicals=False)
+                self.extend(sub_m, **conns)
 
     @property
     def cout(self) -> Connection:
@@ -590,7 +631,6 @@ class Model(BaseModel):
         model: BaseModel,
         kwargs: dict[str, ConnectionType] | None = None,
         trace: bool = True,
-        update_canonicals: bool = True,
     ) -> Self:
         if kwargs is None:
             kwargs = {}
@@ -614,7 +654,7 @@ class Model(BaseModel):
                     kwargs[key] = _value
             kwargs[key] = self._unroll_template(kwargs[key])
 
-        self.extend(model, trace, update_canonicals, **kwargs)
+        self.extend(model, trace, **kwargs)
         return self
 
     def __add__(self, info: ExtendInfo | Model) -> Self:

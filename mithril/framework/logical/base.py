@@ -398,6 +398,13 @@ class BaseModel:
         self.is_frozen = False
         self.inter_key_count = 0
         self.extract = False
+        # Temporarily created provisional model when needed.
+        self.provisional_model: None | BaseModel = None
+        self.provisional_source: bool | BaseModel = False
+        # NOTE: If model is provisional and it does have a source model
+        # provisional_source keeps the source model.
+        # If model is provisional and it does not have a source model,
+        # provisional_source is True without model information.
         self.state_connections: dict[
             ConnectionData, tuple[ConnectionData, StateValueType]
         ] = {}
@@ -556,7 +563,6 @@ class BaseModel:
         given_connection: ConnectionDataType,
         updates: Updates,
         trace: bool,
-        update_canonicals: bool,
     ) -> tuple[ConnectionData, Updates]:
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
@@ -709,20 +715,15 @@ class BaseModel:
         self.conns.set_connection_type(con_obj, key_type)
         # Update Canonicals
         if (
-            update_canonicals
-            and local_connection in model.conns.cins
+            local_connection in model.conns.cins
             and con_obj in self.conns.input_connections
             and not con_obj.metadata.is_valued
         ):
             self.conns.cins.add(con_obj)
 
-        if (
-            update_canonicals
-            and local_connection in model.conns.couts
-            and (
-                con_obj not in self.dependency_map.local_input_dependency_map
-                or con_obj in self.conns.output_connections
-            )
+        if local_connection in model.conns.couts and (
+            con_obj not in self.dependency_map.local_input_dependency_map
+            or con_obj in self.conns.output_connections
         ):
             self.conns.couts.add(con_obj)
 
@@ -862,7 +863,6 @@ class BaseModel:
         self,
         model: BaseModel | BaseModel,
         trace: bool = True,
-        update_canonicals: bool = True,
         /,
         **kwargs: ConnectionDataType,
     ) -> None:
@@ -915,7 +915,7 @@ class BaseModel:
                     value._expose = True
 
             con_obj, _updates = self._add_connection(
-                model, local_key, value, updates, trace, update_canonicals
+                model, local_key, value, updates, trace
             )
             updates |= _updates
             submodel_dag[local_key] = con_obj
@@ -1164,29 +1164,47 @@ class BaseModel:
     def _reverse_dfs(
         node: BaseModel,
         graph: dict[BaseModel, OrderedSet[BaseModel]],
-        top_order: list[BaseModel],
+        topo_order: list[BaseModel],
         visited: set[BaseModel],
     ) -> None:
         visited.add(node)
-        for m in graph[node]:
-            if m not in visited:
-                BaseModel._reverse_dfs(m, graph, top_order, visited)
-        top_order.append(node)
+        for child in graph.get(node, OrderedSet()):
+            if child not in visited:
+                BaseModel._reverse_dfs(child, graph, topo_order, visited)
+        topo_order.append(node)
 
-    def get_models_in_topological_order(self) -> list[BaseModel]:
-        dependency_map = self.dependency_map.local_output_dependency_map
-        graph = {
-            info[0]: OrderedSet(
-                [dependency_map[spec][0] for spec in info[1] if spec in dependency_map]
-            )
-            for info in dependency_map.values()
-        }
-        top_order: list[BaseModel] = list()
+    def get_models_in_topological_order(
+        self, start: BaseModel | None = None
+    ) -> list[BaseModel]:
+        """
+        Get topological order of submodels based on dependency. If a start model
+        is provided, only the models reachable from it (including itself) are
+        returned. Otherwise, all models in the dependency graph are returned.
+        """
+        # Build graph: each parent model maps to an OrderedSet of its child models.
+        dep_map = self.dependency_map.local_output_dependency_map
+        graph: dict[BaseModel, OrderedSet[BaseModel]] = {}
+        for _, (parent_model, child_conns) in dep_map.items():
+            # Ensure parent_model is in graph even if it has no children.
+            graph.setdefault(parent_model, OrderedSet())
+            for child_conn in child_conns:
+                if child_conn in dep_map:
+                    child_model = dep_map[child_conn][0]
+                    graph.setdefault(parent_model, OrderedSet()).add(child_model)
+
+        topo_order: list[BaseModel] = []
         visited: set[BaseModel] = set()
-        for model in graph:
-            if model not in top_order:
-                BaseModel._reverse_dfs(model, graph, top_order, visited)
-        return top_order
+
+        if start is not None:
+            # Perform DFS starting from the given model.
+            BaseModel._reverse_dfs(start, graph, topo_order, visited)
+        else:
+            # Perform DFS for all models.
+            for model in graph:
+                if model not in visited:
+                    BaseModel._reverse_dfs(model, graph, topo_order, visited)
+        # Reverse the list to get standard topological order.
+        return topo_order
 
     # TODO: Summary should be isolated from the model.
     def extract_connection_info(

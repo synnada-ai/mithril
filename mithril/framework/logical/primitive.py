@@ -44,13 +44,12 @@ class OperatorModel(Model):
         self,
         model: BaseModel,
         trace: bool = True,
-        update_canonicals: bool = True,
         /,
         **kwargs: ConnectionDataType,
     ) -> None:
         if len(self.dag) > 0:
             raise RuntimeError("Primitive models cannot have submodels.")
-        super().extend(model, trace, update_canonicals, **kwargs)
+        super().extend(model, trace, **kwargs)
 
 
 class PrimitiveModel(OperatorModel):

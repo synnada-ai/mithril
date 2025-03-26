@@ -1394,7 +1394,7 @@ def test_cast():
 
     model2 = Model()
     model2 |= Buffer()(input="input")
-    model2 |= (cast := Cast())(input="input", dtype=mithril.float16)
+    model2 |= (cast := Cast(dtype=mithril.float16))(input="input")
     model2 |= Buffer()(input=cast.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1470,7 +1470,6 @@ def test_use_submodel_conn_1():
     modelsub |= Buffer()(input="input1", output=IOKey(name="output"))
     x = (modelsub.input1 + Tensor(3)) / Tensor(2)  # type: ignore
     x += Tensor(3)
-    modelsub.set_cout(x)
 
     model1 = Model()
     model1 |= modelsub(input1="input1")
@@ -1478,12 +1477,12 @@ def test_use_submodel_conn_1():
 
     modelsub2 = Model()
     modelsub2 |= Buffer()(input="input1", output=IOKey(name="output"))
-    modelsub2 |= (add1 := Add())(left="input1", right=Tensor(3))
-    modelsub2 |= (div := Divide())(numerator=add1.output, denominator=Tensor(2))
-    modelsub2 |= (add2 := Add())(left=div.output, right=Tensor(3))
 
     model2 = Model()
     model2 |= modelsub2(input1="input1")
+    model2 |= (add := Add())(left="input1", right=Tensor(3))
+    model2 |= (div := Divide())(numerator=add.output, denominator=Tensor(2))
+    model2 |= (add2 := Add())(left=div.output, right=Tensor(3))
     model2 |= Buffer()(input=add2.output, output=IOKey(name="output"))
 
     compare_models(model1, model2, backend, data, inference=True)
@@ -1793,7 +1792,7 @@ def test_immediate_values_with_extend_template_and_regular_case():
     assert (
         big_model_1.conns.latent_input_keys
         == big_model_1.conns.latent_input_keys
-        == {"$1"}
+        == set()
     )
 
 
@@ -1944,13 +1943,13 @@ def test_tensor_item_with_tuple_of_shape_dependent_slices():
 
     model2 |= shape_model_1(input="input2")
     model2 |= scalar_item_model_1(input=shape_model_1.output, index=1)
+    model2 |= slice_model_1(start=scalar_item_model_1.output, stop=None, step=None)
+
     model2 |= shape_model_2(input="input2")
     model2 |= scalar_item_model_2(input=shape_model_2.output, index=0)
-    model2 |= slice_model_1(start=scalar_item_model_1.output, stop=None, step=None)
     model2 |= slice_model_2(start=None, stop=scalar_item_model_2.output, step=None)
 
     model2 |= to_tuple_model(input1=slice_model_1.output, input2=slice_model_2.output)
-
     model2 |= tensor_item_model(input="input1", index=to_tuple_model.output)
     model2 |= buffer(input=tensor_item_model.output, output=IOKey("output"))
 

@@ -12,10 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
+
 import pytest
 
 from mithril import IOKey
-from mithril.models import Add, Buffer, Linear, Model, Multiply, Transpose
+from mithril.models import (
+    Add,
+    AtLeast1D,
+    Buffer,
+    Concat,
+    Linear,
+    Model,
+    Multiply,
+    Power,
+    ToList,
+    Transpose,
+)
 
 from .helper import assert_models_equal
 
@@ -143,6 +156,9 @@ def test_extend_to_model_connection_nested():
 
     input1 = IOKey()
     output = add.output * input1
+    model = Model()
+    model |= m3
+    model |= Buffer()(output)
 
     _add = Add()
     _m1 = Model()
@@ -152,13 +168,11 @@ def test_extend_to_model_connection_nested():
     _m3 = Model()
     _m3 |= _m2
 
-    model = Model()
-    model |= _m3
-    model |= Multiply()(_add.output)
-    model.set_cout()
-    model.set_cin(_add.left, _add.right)
-    assert output.model is not None
-    assert_models_equal(output.model, model)
+    _model = Model()
+    _model |= _m3
+    _model |= (mult := Multiply())(_add.output)
+    _model |= Buffer()(mult.output)
+    assert_models_equal(model, _model)
 
 
 def test_extend_and_extraction_same_inputs():
@@ -198,15 +212,15 @@ def test_extend_extraction_immediate_values():
     model = Model()
     model |= (add := Add())
     output = add.output + 2
+    model |= Buffer()(output)
 
     model1 = Model()
     model1 |= (add1 := Add())
-    model1 |= Add()(left=add1.output, right=2)
-    model1.set_cout()
-    model1.set_cin(add1.left, add1.right)
+    model1 |= (add2 := Add())(left=add1.output, right=2)
+    model1 |= Buffer()(add2.output)
 
     assert output.model is not None
-    assert_models_equal(model1, output.model)
+    assert_models_equal(model1, model)
 
 
 def test_extend_single_frozen_single_non_frozen_model():
@@ -216,17 +230,19 @@ def test_extend_single_frozen_single_non_frozen_model():
 
     model2 = Model()
     model2 |= (add2 := Add())
-    output = add1.output * add2.output
+    model2 |= Buffer()(add1.output * add2.output)
 
-    model = Model()
-    model |= (_add1 := Add())
-    model |= (_add2 := Add())
-    model |= Multiply()(left=_add1.output, right=_add2.output)
-    model.set_cout()
-    model.set_cin(_add1.left, _add1.right)
+    _model1 = Model()
+    _model1 |= (_add1 := Add())
+    _model1._freeze()
 
-    assert output.model is not None
-    assert_models_equal(model, output.model)
+    _model2 = Model()
+    _model2 |= _model1
+    _model2 |= (_add2 := Add())
+    _model2 |= (mult := Multiply())(left=_add1.output, right=_add2.output)
+    _model2 |= Buffer()(mult.output)
+
+    assert_models_equal(_model2, model2)
 
 
 def test_extend_test_extend_multiple_non_frozen_models_error():
@@ -266,6 +282,7 @@ def test_extend_non_frozen_model_and_frozen_model():
     model2._freeze()
 
     output = out1 + out2
+    model1 |= Buffer()(output)
 
     _out1 = IOKey("out1")
     _out2 = IOKey("out2")
@@ -275,10 +292,9 @@ def test_extend_non_frozen_model_and_frozen_model():
     _model2 |= Add()(output=_out2)
 
     _model1 |= _model2
-    _model1 |= Add()(_out1, _out2)
-    _model1.set_cout()
-    _model1.set_cin(add.left, add.right)
-    assert_models_equal(output.model, _model1)  # type: ignore
+    _model1 |= (add := Add())(_out1, _out2)
+    _model1 |= Buffer()(add.output)
+    assert_models_equal(model1, _model1)  # type: ignore
 
 
 def test_extend_check_metadata():
@@ -312,3 +328,77 @@ def test_extend_metadata_linear():
     model = Model()
     model += lin1(weight=IOKey("w"))
     assert list(lin1.dag.keys())[0].input.metadata is lin1.weight.metadata  # type: ignore
+
+
+def test_extend_provisional_model():
+    model = Model()
+    model |= Add()(left="left", right="right", output="output")
+    _model = deepcopy(model)
+    pow = model.output**2  # type: ignore
+    assert_models_equal(model, _model)
+
+    assert pow.model.provisional_source == model
+    buf_model = Buffer()
+    model |= buf_model(pow)
+
+    model2 = Model()
+    model2 |= Add()(left="left", right="right", output="output")
+    model2 |= Power()(model2.output, 2)  # type: ignore
+    model2 += Buffer()
+    assert_models_equal(model, model2)
+
+
+def test_extend_concat():
+    model = Model()
+    model |= (buff1 := Buffer())
+    model |= (buff2 := Buffer())
+    buff1_1d = buff1.output.atleast_1d()
+    buff2_1d = buff2.output.atleast_1d()
+    model |= Concat()(input=[buff1_1d, buff2_1d])
+
+    _model = Model()
+    _model |= (_buff1 := Buffer())
+    _model |= (_buff2 := Buffer())
+    _model |= (_buff1_1d := AtLeast1D())(_buff1.output)
+    _model |= (_buff2_1d := AtLeast1D())(_buff2.output)
+    _model |= (list_m := ToList(2))(input1=_buff1_1d.output, input2=_buff2_1d.output)
+    _model |= Concat()(input=list_m.output)
+    assert_models_equal(model, _model)
+
+
+def test_extend_only_dependent_submodels():
+    model = Model()
+    model |= (buff1 := Buffer())
+    a = buff1.output**2
+    b = buff1.output / 3
+    c = a + 4
+    model |= Buffer()(c)
+
+    assert a.model is b.model is c.model and a.model is not None
+    dag = a.model.dag
+    assert {m.__class__.__name__ for m in dag} == {"PowerOp", "AddOp", "DivideOp"}
+
+    _model = Model()
+    _model |= (buff := Buffer())
+    _model |= (pow := Power())(buff.output, 2)
+    _model |= (add := Add())(pow.output, 4)
+    _model |= Buffer()(add.output)
+    assert_models_equal(model, _model)
+
+
+def test_extend_merge_while_provisional_model_created():
+    model = Model()
+    model |= (add := Add())
+    a = add.output**2
+    _ = add.output / 3
+    c = a + 4
+    model.merge_connections(add.left, add.right)
+    model |= Buffer()(c)
+
+    con = IOKey()
+    _model = Model()
+    _model |= (add := Add())(con, con)
+    _model |= (pow := Power())(add.output, 2)
+    _model |= (add := Add())(pow.output, 4)
+    _model |= Buffer()(add.output)
+    assert_models_equal(model, _model)
