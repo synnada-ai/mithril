@@ -1247,7 +1247,9 @@ def test_assigned_types_from_outermost_model():
 
 def test_assigned_constant_enum_value():
     model = Model()
-    model |= Sqrt(robust=True)(cutoff=Tensor(Constant.MIN_POSITIVE_SUBNORMAL))
+    model |= Sqrt(robust=True, threshold=TBD)(
+        threshold=Tensor(Constant.MIN_POSITIVE_SUBNORMAL)
+    )
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -1256,8 +1258,8 @@ def test_assigned_constant_enum_value():
     assert model_dict_created == model_dict_recreated
 
     assert (
-        model_dict_created["connections"]["m_0"]["cutoff"]  # type: ignore
-        == model_dict_recreated["connections"]["m_0"]["cutoff"]  # type: ignore
+        model_dict_created["connections"]["m_0"]["threshold"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["threshold"]  # type: ignore
         == {"tensor": "Constant.MIN_POSITIVE_SUBNORMAL"}
     )
 

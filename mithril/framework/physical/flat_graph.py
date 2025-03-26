@@ -31,6 +31,7 @@ from ..common import (
     DataEvalType,
     IOHyperEdge,
     MainValueType,
+    StateKey,
     ToBeDetermined,
     Updates,
     UpdateType,
@@ -85,12 +86,12 @@ class FlatGraph(GenericDataType[DataType]):
         output_keys: set[str],
         backend: ml.Backend[DataType],
         solver: ConstraintSolver,
+        state_keys: list[StateKey],
         memo: dict[int, IOHyperEdge] | None = None,
-        inference: bool = False,
     ) -> None:
         if memo is None:
             memo = {}
-
+        self.state_keys = state_keys
         self.backend: ml.Backend[DataType] = backend
         self.model_table: dict[Operator, GConnection] = {}
         self.connections: dict[
@@ -99,17 +100,20 @@ class FlatGraph(GenericDataType[DataType]):
         self._all_source_keys: set[str] = set()
         self._all_target_keys: set[str] = set(output_keys)
 
-        self._topological_order: OrderedSet[str] = OrderedSet()
         self._input_keys = input_keys
-        self.random_keys: set[str] = set()
 
+        # Output dictionary used for mapping output keys to their corresponding keys
         self.output_dict: dict[str, str] = {key: key for key in sorted(output_keys)}
+
+        # Temporary connection info used for updating connections when
+        # a model is removed
         self._temp_connection_info: dict[GConnection, GConnection] = {}
 
+        # Utility tables used for pruning duplicate connections
         self.unique_model_table: dict[str, GConnection] = {}
         self.value_table: dict[str, DataType | ValueType] = {}
 
-        self.data_store: StaticDataStore[DataType] = StaticDataStore(backend, inference)
+        self.data_store: StaticDataStore[DataType] = StaticDataStore(backend)
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
 
     @property
@@ -165,12 +169,37 @@ class FlatGraph(GenericDataType[DataType]):
         return self.data_store.intermediate_non_differentiables
 
     @property
-    def random_seeds(self) -> dict[str, int]:
-        return self.data_store.random_seeds
-
-    @property
     def topological_order(self) -> OrderedSet[str]:
-        return self._topological_order
+        # Traverse the model table in topological order
+        topological_order: OrderedSet[str] = OrderedSet()
+        keys_to_visit = list(sorted(self.all_source_keys - self.all_target_keys))
+        visited: set[str] = set()
+
+        while keys_to_visit:
+            key = keys_to_visit.pop()
+            if key in visited:
+                continue
+
+            visited.add(key)
+
+            # Visit all target keys of the current key
+            for target_key in self.get_target_keys(key):
+                if target_key in visited:
+                    continue
+
+                # Numpy backend uses cache keys for internal operations.
+                # So, we need to exclude the cache keys from the source keys.
+                source_keys = self.get_source_keys(target_key)
+                if self.backend.is_manualgrad and source_keys[-1].endswith("_cache"):
+                    source_keys = source_keys[:-1]
+
+                # If all source keys of the target key are visited,
+                # then add the target key to the topological order.
+                if set(source_keys).issubset(visited):
+                    keys_to_visit.append(target_key)
+                    topological_order.add(target_key)
+
+        return topological_order
 
     @property
     def all_target_keys(self) -> set[str]:
@@ -182,23 +211,17 @@ class FlatGraph(GenericDataType[DataType]):
 
     @property
     def all_models(self) -> list[Operator]:
-        return [self.get_model(key) for key in self.topological_order]
+        return list(self.model_table.keys())
 
     def is_key_static(self, key: str) -> bool:
         return key in self.runtime_static_keys or key in self.data_store.data_values
 
-    def get_model(self, key: str) -> Operator:
+    def get_op(self, key: str) -> Operator:
         conn = self.connections.get(key, None)
         if conn is None or conn.op is None:
             raise ValueError(f"Model with key {key} not found")
         else:
             return conn.op
-
-    def set_random_seed_keys(self, seed_keys: set[str]) -> None:
-        self.data_store.set_random_seed_keys(seed_keys)
-
-    def set_random_seed_values(self, **seed_mapping: int) -> None:
-        self.data_store.set_random_seed_values(**seed_mapping)
 
     def update_cached_data(self, updates: Updates) -> set[str]:
         return self.data_store.update_cached_data(updates)
@@ -206,14 +229,11 @@ class FlatGraph(GenericDataType[DataType]):
     def add_value(self, model: Operator, keys: dict[str, str]) -> None:
         output_key = keys[Operator.output_key]
 
-        if model.random_keys:
-            self.random_keys |= {keys[key] for key in model.random_keys}
-
         # Create output connection of the new Connection.
         out_conn = GConnection(output_key, model, [], [])
         self.model_table[model] = out_conn
-        self._all_target_keys.add(output_key)
         self.connections[output_key] = out_conn
+        self._all_target_keys.add(output_key)
 
         # Create input connections
         for inner_key, outer_key in keys.items():
@@ -230,7 +250,45 @@ class FlatGraph(GenericDataType[DataType]):
             conn.target_keys.append(out_conn.key)
             self._all_source_keys.add(conn.key)
 
-        self._topological_order.add(out_conn.key)
+    # This method is used to insert an operator into the graph at a specific position
+    # The output of inserted operator will replace the output of the previous operator
+    def insert_operator(
+        self,
+        new_op: Operator,
+        keys: dict[str, str],
+        base_op: Operator,
+        inserted_key: str,
+    ) -> None:
+        output_key = keys[Operator.output_key]
+
+        if base_op not in self.model_table:
+            raise ValueError(f"Base operator {base_op} must already be in the graph")
+
+        if inserted_key not in keys.values():
+            raise ValueError(
+                f"Inserted key {inserted_key} must be in the keys dictionary"
+            )
+
+        if output_key in self.all_keys:
+            raise ValueError(f"Output key {output_key} must not be in the graph")
+
+        # Add the new operator to the graph
+        self.add_value(new_op, keys)
+
+        # Disconnect the inserted key from the base operator
+        base_op_out_conn = self.model_table[base_op]
+        replaced_idxs = [
+            i
+            for i, key in enumerate(base_op_out_conn.source_keys)
+            if key == inserted_key
+        ]
+
+        for idx in replaced_idxs:
+            base_op_out_conn.source_keys[idx] = output_key
+
+        self.connections[inserted_key].target_keys.remove(base_op_out_conn.key)
+        self.connections[output_key].target_keys.append(base_op_out_conn.key)
+        self.all_source_keys.add(output_key)
 
     def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
@@ -249,15 +307,6 @@ class FlatGraph(GenericDataType[DataType]):
 
         self.output_dict[output_key] = new_reference_key
         return True
-
-    def _update_topological_order(self) -> None:
-        unnecessary_keys = set()
-
-        for key in self._topological_order:
-            if key not in self.connections or self.connections[key].op is None:
-                unnecessary_keys.add(key)
-
-        self._topological_order.difference_update(unnecessary_keys)
 
     def get_connection(self, key: str) -> GConnection | None:
         return self.connections.get(key)
@@ -299,9 +348,9 @@ class FlatGraph(GenericDataType[DataType]):
         updates = Updates()
 
         # Traverse the graph connections
-        for key in list(self.topological_order):
-            op = self.get_model(key)
-            conn = self.connections[key]
+        for conn in list(self.model_table.values()):
+            key = conn.key
+            op = self.get_op(key)
 
             # The connection is allready calculated
             if key in self.data_store.data_values:
@@ -317,7 +366,10 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Clear connection
                 conn.op = None
-                assert len(conn.source_keys) == 0
+                self.model_table.pop(op)
+
+                if len(conn.source_keys) != 0:
+                    raise RuntimeError(f"Source keys of {key} must be empty")
 
                 if key in self._all_target_keys:
                     self._all_target_keys.remove(key)
@@ -368,8 +420,6 @@ class FlatGraph(GenericDataType[DataType]):
                 # Finally prune the connection
                 self._prune_connection(conn, source_conn)
 
-        self._update_topological_order()
-
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)
 
@@ -419,7 +469,8 @@ class FlatGraph(GenericDataType[DataType]):
             else:
                 model_id.append(key)
 
-        assert conn.op is not None
+        if conn.op is None:
+            raise RuntimeError(f"Connection {conn.key} must have an operator")
 
         final_model_id = "-".join(model_id) + f"-{conn.op.formula_key}"
 
@@ -481,9 +532,6 @@ class FlatGraph(GenericDataType[DataType]):
         if conn.key in self._all_target_keys:
             self._all_target_keys.remove(conn.key)
 
-        if conn.key in self._topological_order:
-            self._topological_order.remove(conn.key)
-
         if conn.op in self.model_table:
             self.model_table.pop(conn.op)
 
@@ -526,14 +574,24 @@ class FlatGraph(GenericDataType[DataType]):
         static_keys = set(self.data_store.data_values.keys())
         queue = set(static_keys)
         updates = Updates()
+        state_inputs = {_key.in_key for _key in self.state_keys}
+        state_outputs = {_key.out_key for _key in self.state_keys}
         while queue:
             key = queue.pop()
-            if (key not in self.all_source_keys) or key in self.unused_keys:
+            if (
+                (key not in self.all_source_keys)
+                or key in self.unused_keys
+                or key in state_inputs
+            ):
                 continue
 
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
-                if value in static_keys or value in self.unused_keys:
+                if (
+                    value in static_keys
+                    or value in self.unused_keys
+                    or value in state_outputs
+                ):
                     continue
 
                 value_mapping = self.get_source_keys(value)
@@ -542,7 +600,7 @@ class FlatGraph(GenericDataType[DataType]):
                 if not set(value_mapping).issubset(static_keys):
                     continue
 
-                model = self.get_model(value)
+                model = self.get_op(value)
 
                 # TODO: Move this outside of while loop
                 # after CBackend is completely implemented.
@@ -584,7 +642,8 @@ class FlatGraph(GenericDataType[DataType]):
                 if model.formula_key in self.backend.array_creation_funcs:
                     kwargs["default_dtype"] = self.backend._dtype.name
                     # TODO: Add support for C backends
-                    assert isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig)
+                    if not isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig):
+                        raise NotImplementedError("C backend is not supported yet!")
                     if self.backend.CODEGEN_CONFIG.SPECIFY_DEVICE:
                         kwargs["device"] = self.backend.get_device()
 
@@ -796,9 +855,17 @@ class FlatGraph(GenericDataType[DataType]):
         if data.keys() & self.data_store._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self.data_store._all_data |= data
+        state_keys = set()
+        for item in self.state_keys:
+            state_keys.add(item.in_key)
+            state_keys.add(item.out_key)
         for key, value in data.items():
-            if any_differentiable(value._value):
-                continue
+            if key not in state_keys:
+                is_diff = any_differentiable(value._value)
+                if value.initial_valued and not is_diff:
+                    raise ValueError("Initial valued data should be differentiable!")
+                elif is_diff:
+                    continue
 
             # Distribute non-differentiable keys into 3 attributes using
             # type of values. If a key has a definite value, add it into cached_data.
@@ -819,6 +886,64 @@ class FlatGraph(GenericDataType[DataType]):
                     self.data_store._set_data_value(key, value)
                 else:
                     self.data_store.intermediate_non_differentiables[key] = value
+
+    def graph_update(self) -> None:
+        # Currently only GGML needs graph update!
+
+        for out_conn in list(self.model_table.values()):
+            out_key = out_conn.key
+            op = self.get_op(out_key)
+
+            if op.formula_key not in self.backend.CODEGEN_CONFIG.IMPLICIT_BROADCAST_OPS:
+                continue
+
+            # NOTE: This broadcasting behaviour only works properly in GGML.
+
+            # GGML backend does not support implicit broadcasting when the
+            # left shape needs to be broadcasted to the right shape.
+            # Therefore, we need to add a broadcast_to operator to the graph.
+            source_keys = self.get_source_keys(out_key)
+            left_key = source_keys[0]
+            left_shape: list[int] = self.get_key_shape(left_key)
+            output_shape: list[int] = self.get_key_shape(out_key)
+            assert isinstance(
+                left_shape, list
+            ), f"`{left_key}` is not specified with shape!"
+            assert isinstance(
+                output_shape, list
+            ), f"`{out_key}` is not specified with shape!"
+
+            # If left shape is not the same as output shape, we need to add
+            # a broadcast_to operator.
+            if left_shape != output_shape:
+                key = "broadcast_to_shape"
+                shape_out_key = "broadcast_to_shape_output"
+                left_data = self.all_data[left_key]
+                self.update_data(
+                    {
+                        key: IOHyperEdge(tuple[int, ...], tuple(output_shape)),
+                        shape_out_key: IOHyperEdge(left_data._type),
+                    }
+                )
+                _mappings = {
+                    "input": left_key,
+                    "shape": "broadcast_to_shape",
+                    "output": shape_out_key,
+                }
+                kwargs = {
+                    "input": self.all_data[left_key],
+                    "shape": self.all_data[key],
+                    "output": self.all_data[shape_out_key],
+                }
+                self.insert_operator(
+                    Operator("broadcast_to", name="Broadcast_to", **kwargs),
+                    _mappings,
+                    op,
+                    left_key,
+                )
+
+    def get_key_shape(self, key: str) -> list[int]:
+        return self.data_store.get_key_shape(key)
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+import typing
 from collections.abc import Mapping, Sequence
 from types import EllipsisType
 
@@ -324,7 +325,7 @@ def test_physical_model_jit_1():
     compiled_model = compile(model=model, backend=backend, jit=False)
     inputs = compiled_model.randomize_params()
     output_gradients = {"out1": backend.ones_like(inputs["input"])}
-    compiled_model.evaluate_all(inputs, output_gradients=output_gradients)
+    compiled_model.evaluate(inputs, output_gradients=output_gradients)
 
 
 def test_physical_model_jit_2():
@@ -437,6 +438,7 @@ def test_jit_5():
     import jax
 
     @jax.jit
+    @typing.no_type_check
     def evaluate(params):
         input = params["input"]
         keepdim_1 = False

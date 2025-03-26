@@ -36,7 +36,7 @@ def test_tuple_argument_1():
 
     params = {"left": backend.array(3.0)}
     output_gradients = {"output": backend.array([1.0, 2, 3])}
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([6.0, 7, 8])}
     ref_grads = {"left": backend.array(6.0)}
@@ -58,8 +58,8 @@ def test_tuple_argument_2():
     add_model_2 = Add()
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=(add_model.left, add_model.right),
-        right=(add_model.left, add_model.right),
+        left=(add_model.left, add_model.right),  # type: ignore
+        right=(add_model.left, add_model.right),  # type: ignore
         output="output",
     )
 
@@ -85,7 +85,7 @@ def test_tuple_argument_3():
     add_model_2 = Add()
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=(add_model.left.shape, add_model.right.shape),
+        left=(add_model.left.shape, add_model.right.shape),  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -94,7 +94,7 @@ def test_tuple_argument_3():
     params = {"left": backend.array([3.0]), "right": backend.array([2.0])}
     output_gradients = {"output": backend.array([[1.0], [1.0]])}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([[6.0], [6.0]])}
     ref_grads = {"left": backend.array([2.0]), "right": backend.array([2.0])}
@@ -115,7 +115,7 @@ def test_tuple_argument_4():
     add_model_2 = Add()
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=(add_model.left.shape * 2, add_model.right.shape * 2),
+        left=(add_model.left.shape * 2, add_model.right.shape * 2),  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -143,8 +143,8 @@ def test_tuple_argument_5():
     model += add_model(left="left", right="right")
     model += add_model_2(
         left=(
-            (add_model.left.shape[0], add_model.left.shape[0]),
-            (add_model.left.shape[0], add_model.left.shape[0]),
+            (add_model.left.shape[0], add_model.left.shape[0]),  # type: ignore
+            (add_model.left.shape[0], add_model.left.shape[0]),  # type: ignore
         ),
         right=add_model.left + add_model.right,
         output="output",
@@ -173,8 +173,8 @@ def test_list_tuple_mixed_argument_1():
     model += add_model(left="left", right="right")
     model += add_model_2(
         left=(
-            [add_model.left.shape[0], add_model.left.shape[0]],
-            [add_model.left.shape[0], add_model.left.shape[0]],
+            [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
+            [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
         ),
         right=add_model.left + add_model.right,
         output="output",
@@ -208,7 +208,7 @@ def test_list_tuple_mixed_argument_2():
     matmul_left = ([left_first_shape, 0], [2, right_first_shape])
 
     matmul_right = ([1, 1], [1, 1])
-    model += MatrixMultiply()(left=matmul_left, right=matmul_right, output="output")
+    model += MatrixMultiply()(left=matmul_left, right=matmul_right, output="output")  # type: ignore
 
     pm = compile(model=model, backend=backend, jit=False)
     params = {"left": backend.array([3.0]), "right": backend.array([2.0])}
@@ -253,7 +253,7 @@ def test_list_argument_1():
 
     output_gradients = {"output": backend.array([1.0, 2, 3])}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([6.0, 7, 8])}
 
@@ -277,8 +277,8 @@ def test_list_argument_2():
 
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=[add_model.left, add_model.right],
-        right=[add_model.left, add_model.right],
+        left=[add_model.left, add_model.right],  # type: ignore
+        right=[add_model.left, add_model.right],  # type: ignore
         output="output",
     )
 
@@ -305,7 +305,7 @@ def test_list_argument_3():
 
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=[add_model.left.shape, add_model.right.shape],
+        left=[add_model.left.shape, add_model.right.shape],  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -314,7 +314,7 @@ def test_list_argument_3():
     params = {"left": backend.array([3.0]), "right": backend.array([2.0])}
     output_gradients = {"output": backend.array([[1.0], [1.0]])}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([[6.0], [6.0]])}
     ref_grads = {"left": backend.array([2.0]), "right": backend.array([2.0])}
@@ -336,7 +336,7 @@ def test_list_argument_4():
 
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=[add_model.left.shape * 2, add_model.right.shape * 2],
+        left=[add_model.left.shape * 2, add_model.right.shape * 2],  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -365,8 +365,8 @@ def test_list_argument_5():
     model += add_model(left="left", right="right")
     model += add_model_2(
         left=[
-            [add_model.left.shape[0], add_model.left.shape[0]],
-            [add_model.left.shape[0], add_model.left.shape[0]],
+            [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
+            [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
         ],
         right=add_model.left + add_model.right,
         output="output",

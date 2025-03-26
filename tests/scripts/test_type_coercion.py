@@ -392,8 +392,8 @@ def test_tuple_conversion_2():
     eval_1_output = eval_1["output"]
     assert isinstance(eval_1_output, jnp.ndarray)
     output_gradients = {"output": backend.randn(eval_1_output.shape)}
-    grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
-    grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
+    _, grad_1 = pm_1.evaluate(params=params, output_gradients=output_gradients)
+    _, grad_2 = pm_2.evaluate(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
         assert isinstance(value, jnp.ndarray)
@@ -438,8 +438,8 @@ def test_tuple_conversion_3():
     out = eval_1["output"]
     assert isinstance(out, jnp.ndarray)
     output_gradients = {"output": backend.randn(out.shape)}
-    grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
-    grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
+    _, grad_1 = pm_1.evaluate(params=params, output_gradients=output_gradients)
+    _, grad_2 = pm_2.evaluate(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
         assert isinstance(value, jnp.ndarray)
@@ -484,8 +484,8 @@ def test_list_conversion_1():
     out = eval_1["output"]
     assert isinstance(out, jnp.ndarray)
     output_gradients = {"output": backend.randn(out.shape)}
-    grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
-    grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
+    _, grad_1 = pm_1.evaluate(params=params, output_gradients=output_gradients)
+    _, grad_2 = pm_2.evaluate(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
         assert isinstance(value, jnp.ndarray)
@@ -529,8 +529,8 @@ def test_nested_list_conversion_1():
     out = eval_1["output"]
     assert isinstance(out, jnp.ndarray)
     output_gradients = {"output": backend.randn(out.shape)}
-    grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
-    grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
+    _, grad_1 = pm_1.evaluate(params=params, output_gradients=output_gradients)
+    _, grad_2 = pm_2.evaluate(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
         assert isinstance(value, jnp.ndarray)
@@ -575,8 +575,8 @@ def test_nested_list_conversion_2():
     out = eval_1["output"]
     assert isinstance(out, jnp.ndarray)
     output_gradients = {"output": backend.randn(out.shape)}
-    grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
-    grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
+    _, grad_1 = pm_1.evaluate(params=params, output_gradients=output_gradients)
+    _, grad_2 = pm_2.evaluate(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
         assert isinstance(value, jnp.ndarray)
@@ -938,7 +938,7 @@ def test_connect_type_conv_handling_1():
 
 def test_type_initialization_1():
     model = Model()
-    model |= LeakyRelu()(slope=IOKey("slope", Tensor(0.5)))
+    model |= LeakyRelu(slope=TBD)(slope=IOKey("slope", Tensor(0.5)))
 
     assert model.slope.metadata.value_type is float  # type: ignore
 
@@ -1026,7 +1026,8 @@ def test_connect_4():
     concat_model = Concat()
     union_model = PrimitiveUnion(n=1)
     model |= concat_model(
-        input1=["input1", "input2", "input3"], output=IOKey(name="output")
+        input=["input1", "input2", "input3"],
+        output=IOKey(name="output"),
     )
     model |= union_model
     conns = {
@@ -1135,7 +1136,7 @@ def test_connect_7():
         "left1": backend.array([2.0]),
     }
 
-    output, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    output, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     assert_results_equal(output, ref_outputs)
     assert_results_equal(ref_gradients, grads)
@@ -1191,7 +1192,7 @@ def test_connect_7_expose_output():
         "left1": backend.array([4.0]),
     }
     output = pm.evaluate(params=params)
-    output, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    output, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     assert_results_equal(output, ref_outputs)
     assert_results_equal(ref_gradients, grads)
@@ -1239,7 +1240,7 @@ def test_connect_8():
 
     ref_grads = {"left": backend.array(3.0), "right": backend.array(3.0)}
 
-    output, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    output, grads = pm.evaluate(params=params, output_gradients=output_gradients)
     assert_results_equal(output, ref_outputs)
     assert_results_equal(ref_grads, grads)
 
@@ -1312,7 +1313,7 @@ def test_connect_11():
 
     model |= Buffer()(input=union_model.input1, output=IOKey(name="output3"))  # type: ignore
     pm = compile(model=model, backend=backend, jit=False)
-    output = pm()
+    output = pm.evaluate()
 
     ref_outputs = {
         "output1": backend.array([2.0, 2.0]),
@@ -1349,7 +1350,7 @@ def test_connect_12():
     model |= Buffer()(input=union_model.input1, output=IOKey(name="output3"))  # type: ignore
 
     pm = compile(model=model, backend=backend, jit=False)
-    output = pm()
+    output = pm.evaluate()
 
     ref_outputs = {
         "output1": backend.array([2.0, 2.0]),
@@ -1458,7 +1459,7 @@ def test_coercion_1():
 
     data = {"axis1": (3, 4), "axis2": (1, 2)}
     output_gradients = {"output": backend.array(1.0)}
-    outputs, grads = pm.evaluate_all(
+    outputs, grads = pm.evaluate(
         params=params, data=data, output_gradients=output_gradients
     )
 
@@ -1476,7 +1477,7 @@ def test_coercion_2():
     model = Model()
     reduce_model_1 = Sum(axis=TBD)
     reduce_model_2 = Sum(axis=TBD)
-    l_relu = LeakyRelu()
+    l_relu = LeakyRelu(slope=TBD)
     model |= reduce_model_1(input=IOKey("input1", differentiable=True), axis="axis1")
     model |= reduce_model_2(input=IOKey("input2", differentiable=True), axis="axis2")
     axis1 = reduce_model_1.axis.tensor().sum()
@@ -1505,7 +1506,7 @@ def test_coercion_2():
 
     output_gradients = {"output1": backend.array(1.0)}
 
-    outputs, grads = pm.evaluate_all(
+    outputs, grads = pm.evaluate(
         params=params, data=data, output_gradients=output_gradients
     )
 
@@ -1539,7 +1540,7 @@ def test_coercion_3():
 
     output_gradients = {"output": backend.ones(1, 3, 5)}
 
-    outputs, grads = pm.evaluate_all(
+    outputs, grads = pm.evaluate(
         params=params, data=data, output_gradients=output_gradients
     )
 
@@ -1565,7 +1566,7 @@ def test_coercion_4():
 
     params = {"input": backend.ones(1, 2, 3, 4, 5)}
     data = {"left": backend.array([1, 2])}
-    outputs, _ = pm.evaluate_all(
+    outputs, _ = pm.evaluate(
         params=params, data=data, output_gradients={"output": backend.ones(1, 3, 5)}
     )
 
@@ -1650,7 +1651,7 @@ def test_tensor_to_scalar_template_2():
         "input2": backend.array([[1.0, 2, 3], [4, 5, 6], [7, 8, 9]]),
         "input3": backend.array([[1.0, 0, 0], [0, 1, 0], [0, 0, 1]]),
     }
-    outputs, grads = pm.evaluate_all(
+    outputs, grads = pm.evaluate(
         params=ref_inputs, output_gradients={"output": backend.ones(3, 3)}
     )
     ref_outputs = {

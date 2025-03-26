@@ -22,6 +22,7 @@ import pytest
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile, models
 from mithril.backends.utils import DtypeBits
+from mithril.framework.common import any_differentiable
 from mithril.utils.dict_conversions import dict_to_model
 from tests.scripts.test_utils import (
     dict_to_random,
@@ -185,7 +186,7 @@ def test_randomized(case: str) -> None:
 
             trainble_keys: set[str] = set()
             for input_key in model.input_keys:
-                if input_key in ["threshold", "cutoff"]:
+                if input_key in ["threshold", "quantile"]:
                     continue
 
                 if (
@@ -224,12 +225,22 @@ def test_randomized(case: str) -> None:
                 for key, value in inputs[init_key].items()
             }
             outputs[init_key] = compiled_model.evaluate(inputs[init_key])
+            no_grad_output_keys = {
+                key
+                for key in compiled_model.output_keys
+                if not any_differentiable(
+                    compiled_model.data.get(
+                        key,
+                        compiled_model.data[compiled_model.flat_graph.output_dict[key]],
+                    )._value
+                )
+            }
             output_gradients[init_key] = {
                 key: init_backend.array(
                     init_backend.randn(*outputs[init_key][key].shape)
                 )
                 for key in model.conns.output_keys
-                if key not in compiled_model.ignore_grad_keys
+                if key not in no_grad_output_keys
             }
             for backend in avaliable_backends:
                 output_gradients[backend.backend_type] = {
@@ -247,9 +258,9 @@ def test_randomized(case: str) -> None:
                 }
 
             gradients[init_key] = (
-                compiled_model.evaluate_gradients(
+                compiled_model.evaluate(
                     inputs[init_key], output_gradients=output_gradients[init_key]
-                )
+                )[1]
                 if not inference
                 else {}
             )
@@ -266,7 +277,7 @@ def test_randomized(case: str) -> None:
                 )
                 outputs[backend.backend_type], gradients[backend.backend_type] = (
                     (
-                        compiled_model.evaluate_all(
+                        compiled_model.evaluate(
                             inputs[backend.backend_type],
                             output_gradients=output_gradients[backend.backend_type],
                         )

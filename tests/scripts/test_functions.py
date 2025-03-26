@@ -230,9 +230,9 @@ def test_flatten_dag_2():
     ordered_model_list = [
         relu_0,
         sigmoid,
-        softmax,
         sine,
         cosine,
+        softmax,
         softplus,
         relu,
         leakyrelu,
@@ -299,11 +299,11 @@ def test_flatten_dag_3():
         relu_0,
         sigmoid,
         softmax,
+        abs,
         softplus,
+        sine,
         relu,
         leakyrelu,
-        abs,
-        sine,
     ]
 
     comp_model = mithril.compile(
@@ -370,6 +370,7 @@ def test_code_generator_2(file_path: str):
         backend=JaxBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
+        inference=True,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -408,12 +409,12 @@ def test_code_generator_3(file_path: str):
         input = data["input"]
         weight_0 = params["weight_0"]
         weight_1 = params["weight_1"]
+        output_3 = transpose(weight_1, None)
         output_0 = transpose(weight_0, None)
         output_1 = matrix_multiplication(input, output_0)
         del output_0
         output_2 = add(output_1, bias_0)
         del output_1
-        output_3 = transpose(weight_1, None)
         output_4 = matrix_multiplication(output_2, output_3)
         del output_2
         del output_3
@@ -460,12 +461,13 @@ def test_code_generator_4(file_path: str):
         output_cache = cache["output_cache"]
         right = params["right"]
         target = data["target"]
+        threshold = cache["threshold"]
         output = output_cache["output"] = make_array(
             my_adder(left, right, output_cache)
         )
         output_0 = output_0_cache["output"] = make_array(
             binary_cross_entropy_with_logits(
-                output, target, 2.2250738585072014e-308, cache=output_0_cache
+                output, target, threshold, cache=output_0_cache
             )
         )
         output_1 = output_1_cache["output"] = make_array(
@@ -484,6 +486,7 @@ def test_code_generator_4(file_path: str):
         output_cache = cache["output_cache"]
         right = params["right"]
         target = data["target"]
+        threshold = cache["threshold"]
         gradients["output_1"] += gradients["final_cost"]
         gradients["output_0"] += accumulate_grads(
             make_array(
@@ -495,12 +498,7 @@ def test_code_generator_4(file_path: str):
         )
         gradients["output"] += make_array(
             binary_cross_entropy_with_logits_grad(
-                gradients["output_0"],
-                output_0_cache,
-                0,
-                output,
-                target,
-                2.2250738585072014e-308,
+                gradients["output_0"], output_0_cache, 0, output, target, threshold
             )
         )
         gradients["left"] += accumulate_grads(
@@ -560,10 +558,9 @@ def test_code_generator_5(file_path: str):
         right = params["right"]
         right_0 = params["right_0"]
         target = data["target"]
+        threshold = cache["threshold"]
         output = my_adder(left, right)
-        output_0 = binary_cross_entropy_with_logits(
-            output, target, 2.2250738585072014e-308
-        )
+        output_0 = binary_cross_entropy_with_logits(output, target, threshold)
         output_1 = add(output_0, right_0)
         del output_0
         return {"final_cost": output_1, "output": output}
@@ -606,9 +603,9 @@ def test_code_generator_6(file_path: str):
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
         b1 = params["b1"]
-        cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
+        threshold = cache["threshold"]
         w1 = params["w1"]
         output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
@@ -619,7 +616,7 @@ def test_code_generator_6(file_path: str):
         del output_2
         output = add(arange_res, output_3)
         del output_3
-        output_4 = cross_entropy(output, target, False, cutoff)
+        output_4 = cross_entropy(output, target, False, threshold)
         output_5 = reduce_mean(output_4)
         del output_4
         return {"arange_res": arange_res, "final_cost": output_5, "output": output}
@@ -663,9 +660,9 @@ def test_code_generator_7(file_path: str):
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
         b1 = params["b1"]
-        cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
+        threshold = cache["threshold"]
         w1 = params["w1"]
         output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
@@ -676,7 +673,7 @@ def test_code_generator_7(file_path: str):
         del output_2
         output = add(arange_res, output_3)
         del output_3
-        output_5 = cross_entropy(output, target, False, cutoff)
+        output_5 = cross_entropy(output, target, False, threshold)
         output_6 = reduce_mean(output_5)
         del output_5
         return {"arange_res": arange_res, "final_cost": output_6, "output": output}

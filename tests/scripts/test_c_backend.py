@@ -13,20 +13,20 @@
 # limitations under the License.
 
 import os
+from collections.abc import Callable
 from copy import deepcopy
+from itertools import product
 
 import numpy as np
-import pytest
 
-from mithril import CBackend, GGMLBackend, NumpyBackend, compile
+from mithril import Backend, CBackend, GGMLBackend, NumpyBackend, compile
 from mithril.cores.c.array import PyArray
 from mithril.framework.common import Tensor
-from mithril.models import Add, IOKey, Model, Multiply
+from mithril.models import Add, BroadcastTo, IOKey, Model, Multiply
 
 from ..utils import with_temp_file
 
 
-@pytest.mark.skip(reason="Change required on c backend, will be fixed in after merge!")
 def test_cbackend_1():
     model = Model()
 
@@ -68,7 +68,7 @@ def test_cbackend_1():
     # Numpy Backend
 
     np_outputs = np_pm.evaluate({"left": left, "right": right})
-    np_grads = np_pm.evaluate_gradients(
+    _, np_grads = np_pm.evaluate(
         {"left": left, "right": right}, {}, output_gradients={"output": output_grad}
     )
 
@@ -78,7 +78,7 @@ def test_cbackend_1():
     c_output_grad = c_backend.array(output_grad)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right})
-    c_grads = c_pm.evaluate_gradients(
+    _, c_grads = c_pm.evaluate(
         {"left": c_left, "right": c_right},
         {},
         output_gradients={"output": c_output_grad},
@@ -90,7 +90,7 @@ def test_cbackend_1():
     ggml_output_grad = ggml_backend.array(output_grad)
 
     ggml_outputs = ggml_pm.evaluate({"left": ggml_left, "right": ggml_right})
-    ggml_grads = ggml_pm.evaluate_gradients(
+    _, ggml_grads = ggml_pm.evaluate(
         {"left": ggml_left, "right": ggml_right},
         {},
         output_gradients={"output": ggml_output_grad},
@@ -112,7 +112,6 @@ def test_cbackend_1():
         assert np.allclose(ggml_backend.to_numpy(ggml_grads[key]), np_grads[key])
 
 
-@pytest.mark.skip(reason="Change required on c backend, will be fixed in after merge!")
 @with_temp_file(suffix=".c")
 def test_cbackend_2(file_path: str):
     model = Model()
@@ -148,7 +147,7 @@ def test_cbackend_2(file_path: str):
 
     # Numpy
     np_outputs = np_pm.evaluate({"left": left, "right": right, "left2": left2})
-    np_grads = np_pm.evaluate_gradients(
+    _, np_grads = np_pm.evaluate(
         {"left": left, "right": right, "left2": left2},
         {},
         output_gradients={
@@ -164,7 +163,7 @@ def test_cbackend_2(file_path: str):
     c_output_grad = c_backend.array(output_grad)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "left2": c_left2})
-    c_grads = c_pm.evaluate_gradients(
+    _, c_grads = c_pm.evaluate(
         {"left": c_left, "right": c_right, "left2": c_left2},
         {},
         output_gradients={"output": c_output_grad, "output2": c_output_grad},
@@ -183,7 +182,6 @@ def test_cbackend_2(file_path: str):
     os.remove(file_path.replace(".c", ".so"))
 
 
-@pytest.mark.skip(reason="Change required on c backend, will be fixed in after merge!")
 def test_cbackend_3():
     model = Model()
     add = Add()
@@ -217,7 +215,7 @@ def test_cbackend_3():
     output_grad = np_backend.rand(5, 5)
 
     np_outputs = np_pm.evaluate({"left": left, "right": right, "mul": mul})
-    np_grads = np_pm.evaluate_gradients(
+    _, np_grads = np_pm.evaluate(
         {"left": left, "right": right, "mul": mul},
         {},
         output_gradients={
@@ -232,7 +230,7 @@ def test_cbackend_3():
     c_output_grad = c_backend.array(output_grad)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "mul": c_mul})
-    c_grads = c_pm.evaluate_gradients(
+    _, c_grads = c_pm.evaluate(
         {"left": c_left, "right": c_right, "mul": c_mul},
         {},
         output_gradients={"output": c_output_grad, "output2": c_output_grad},
@@ -249,69 +247,64 @@ def test_cbackend_3():
         assert np.allclose(c_backend.to_numpy(c_grads[key]), np_grads[key])
 
 
-def test_broadcast_1():
-    model = Model()
-    add = Add()
+def test_broadcast_to_ggml():
+    input_shapes = [(1, 5), (5, 1), (5, 5)]
+    target_shapes = [(5, 5), (5, 5), (5, 5)]
 
-    model |= add(left="left", right="right")
-    model |= Multiply()(left=add.output, right="mul", output="output")
-    model.set_types(left=Tensor, mul=Tensor, right=Tensor)
+    for input_shape, target_shape in zip(input_shapes, target_shapes, strict=False):
+        model = Model()
+        model |= BroadcastTo()(input="left", shape=target_shape, output="output1")
+        model.set_types(left=Tensor)
 
-    c_backend = CBackend()
+        ggml_backend = GGMLBackend()
 
-    c_pm = compile(
-        model,
-        c_backend,
-        shapes={"left": [5, 1], "mul": [5, 5], "right": [1, 5]},
-        jit=False,
-        inference=True,
-    )
+        ggml_pm = compile(
+            model, ggml_backend, shapes={"left": input_shape}, jit=False, inference=True
+        )
 
-    left = np.random.rand(5, 1).astype(np.float32)
-    right = np.random.rand(1, 5).astype(np.float32)
-    mul = np.random.rand(5, 5).astype(np.float32)
+        left = np.random.rand(*input_shape).astype(np.float32)
+        ggml_left = ggml_backend.array(left)
+        ggml_outputs = ggml_pm.evaluate({"left": ggml_left})
+        out = ggml_outputs["output1"]
 
-    c_left = c_backend.array(left)
-    c_mul = c_backend.array(mul)
-    c_right = c_backend.array(right)
+        assert isinstance(out, PyArray)
+        assert out.shape == target_shape
 
-    c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "mul": c_mul})
-    out = c_outputs["output"]
-    assert isinstance(out, PyArray)
-
-    assert out.shape == (5, 5)
-    np.testing.assert_allclose(c_backend.to_numpy(out), (left + right) * mul)
+        np.testing.assert_allclose(
+            ggml_backend.to_numpy(out), np.broadcast_to(left, target_shape)
+        )
 
 
-def test_broadcast_2():
-    model = Model()
-    add = Add()
+def test_implicit_broadcast_ops():
+    ops: list[tuple[Model, Callable]] = [
+        (Add(), lambda x, y: x + y),
+        (Multiply(), lambda x, y: x * y),
+    ]  # Subtract(), Divide()
+    backends: list[Backend] = [GGMLBackend(), CBackend()]
+    shapes = [[(1, 5), (5, 1)], [(1, 5), (5, 5)], [(5, 1), (5, 5)], [(5, 5), (5, 5)]]
 
-    model |= add(left="left", right="right")
-    model |= Multiply()(left=add.output, right="mul", output="output")
-    model.set_types(left=Tensor, mul=Tensor, right=Tensor)
+    for op, shape, backend in product(ops, shapes, backends):
+        model = Model()
+        model |= deepcopy(op[0])(left="left", right="right", output="output")
+        model.set_types(left=Tensor, right=Tensor)
 
-    c_backend = CBackend()
+        ggml_pm = compile(
+            model,
+            backend,
+            shapes={"left": shape[0], "right": shape[1]},
+            jit=False,
+            inference=True,
+        )
 
-    c_pm = compile(
-        model,
-        c_backend,
-        shapes={"left": [5, 1], "mul": [1], "right": [1, 5]},
-        jit=False,
-        inference=True,
-    )
+        left = np.random.rand(*shape[0]).astype(np.float32)
+        right = np.random.rand(*shape[1]).astype(np.float32)
 
-    left = np.random.rand(5, 1).astype(np.float32)
-    right = np.random.rand(1, 5).astype(np.float32)
-    mul = np.random.rand(1).astype(np.float32)
+        ggml_left = backend.array(left)
+        ggml_right = backend.array(right)
 
-    c_left = c_backend.array(left)
-    c_mul = c_backend.array(mul)
-    c_right = c_backend.array(right)
+        ggml_outputs = ggml_pm.evaluate({"left": ggml_left, "right": ggml_right})
+        out = ggml_outputs["output"]
+        assert isinstance(out, PyArray)
 
-    c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "mul": c_mul})
-    out = c_outputs["output"]
-    assert isinstance(out, PyArray)
-
-    assert out.shape == (5, 5)
-    np.testing.assert_allclose(c_backend.to_numpy(out), (left + right) * mul)
+        assert out.shape == (5, 5)
+        np.testing.assert_allclose(backend.to_numpy(out), op[1](left, right))

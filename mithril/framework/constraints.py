@@ -18,7 +18,7 @@ from functools import reduce
 from itertools import combinations_with_replacement, permutations, product, zip_longest
 from operator import or_
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, get_args, get_origin
+from typing import Any, Literal, get_args, get_origin
 
 from ..common import PaddingType
 from ..types import Constant
@@ -26,7 +26,6 @@ from ..utils.type_utils import (
     is_axis_reduce_type,
     is_axis_reverse_type,
     is_generic_alias_type,
-    is_index_type,
     is_list_int,
     is_list_int_or_none,
     is_padding_type,
@@ -50,9 +49,12 @@ from .common import (
     Uniadic,
     Updates,
     UpdateType,
+    VariableSequenceType,
     Variadic,
     _TensorTypes,
     find_intersection_type,
+    find_type,
+    is_index_type,
     is_tensor_type,
     process_value,
     squash_tensor_types,
@@ -60,7 +62,6 @@ from .common import (
 from .utils import find_list_base_type, is_union
 
 __all__ = [
-    "general_tensor_type_constraint",
     "scalar_slice_type_constraint",
     "indexer_initial_type_constraint",
     "indexer_type_constraint",
@@ -106,6 +107,8 @@ __all__ = [
     "polynomial_kernel_constraint",
     "general_forward_constraint",
     "general_type_constraint",
+    "sum_fn",
+    "distance_matrix_const",
 ]
 
 
@@ -142,6 +145,14 @@ def is_repr_known(repr: ShapeRepr) -> bool:
     return repr.root is None and all([uni.value is not None for uni in repr.prefix])
 
 
+def sum_fn(*inputs: Any) -> Any:
+    return sum(inputs)
+
+
+def distance_matrix_const(input1: Any, input2: Any, input3: Any) -> Any:
+    return (input1 - input2) ** input3
+
+
 def create_union_type(
     *types: type | UnionType | GenericAlias,
 ) -> type | UnionType | GenericAlias:
@@ -152,27 +163,6 @@ def create_union_type(
         return result
     else:
         raise TypeError("At least one type should be given!")
-
-
-def _reduce_union_type(
-    output_type: type | UnionType | GenericAlias,
-    arg_type: UnionType,
-) -> None | set[type]:
-    eliminated: set[type[int] | type[float] | type[bool]] | None = {float}
-    if output_type is float:
-        eliminated = None
-    if output_type is bool:
-        eliminated = {float, int}
-    if not eliminated:
-        return None
-    new_type: set[type] = set(arg_type.__args__) - eliminated
-    if not new_type:
-        # Means arg can not take any bool value which is an error.
-        raise TypeError(
-            f"One of arguments is of type {arg_type} which is not possible for {type} "
-            "type output!"
-        )
-    return new_type
 
 
 def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
@@ -198,135 +188,6 @@ def general_forward_constraint(
             updates |= output.set_value(output_value)
         else:
             status = False
-    return status, updates
-
-
-def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
-    # NOTE: Assumes first argument is always output as other constraints.
-    # Also requires all types of args consists of any combination of
-    # float, int and bool. For instance, int | float is an acceptable type
-    # but tuple or list[int] are not.
-    status = False
-    updates = Updates()
-    output, *inputs = args
-    arg_types: set[type | UnionType] = set()
-    all_possible_types: set[type | UnionType] = set()
-    union_types: set[tuple[IOHyperEdge, UnionType]] = set()
-    # Set all different types and also Union types in input args.
-    for arg in inputs:
-        typ = arg.value_type
-        assert isinstance(typ, type(int) | type(float) | type(bool) | UnionType)
-        arg_types.add(typ)
-        if isinstance(typ, UnionType):
-            union_types.add((arg, typ))
-            all_possible_types.update(set(typ.__args__))
-        else:
-            all_possible_types.add(typ)
-
-    # Check existance of any possible unsupported types
-    if all_possible_types - {int, float, bool}:
-        return status, updates
-
-    # assert isinstance(output._value, Tensor)
-    # Try reverse type inference first.
-    if output.value_type is not TBD and not isinstance(output.value_type, UnionType):
-        # Means output has a definite type (int, float or bool).
-        assert isinstance(
-            output.value_type, type(int) | type(float) | type(bool) | UnionType
-        )
-        out_exists = output.value_type in arg_types
-        related_unions = {
-            pair for pair in union_types if output.value_type in pair[1].__args__
-        }
-        if not (out_exists or related_unions):
-            # At least one of arg_types or UnionTypes must contain
-            # output type.
-            raise TypeError(
-                f"None of arguments consist of type {output.value_type} which is the "
-                "exact output type!"
-            )
-        elif not out_exists and len(related_unions) == 1:
-            # If only one of them contains output type, enforce this union
-            # type to be same as output type.
-            arg = related_unions.pop()[0]
-            # updates |= arg.set_type(Tensor[output.value_type])
-            updates |= set_edge_type(arg, output.value_type)
-            status = True
-        # Update Union type arguments.
-        for pair in related_unions:
-            arg, arg_type = pair
-            new_type = _reduce_union_type(output.value_type, arg_type)
-            if new_type is not None:
-                uni_type = create_union_type(*new_type)
-                assert not isinstance(uni_type, GenericAlias)
-                # updates |= arg.set_type(Tensor[uni_type])
-                updates |= set_edge_type(arg, uni_type)
-        if not out_exists:
-            # If any one of inputs became same type as output, set
-            # status True.
-            for pair in related_unions:
-                if pair[0].value_type == output.value_type:
-                    status = True
-                    break
-    elif output.value_type == int | bool:
-        if float in arg_types:
-            raise TypeError(
-                "One of arguments value is float which is not possible when output "
-                "type is int | bool"
-            )
-        else:
-            # assert isinstance(output.value_type, type(float))
-            # We can eliminate any float possibility from Union type args.
-            for pair in union_types:
-                arg, arg_type = pair
-                new_type = _reduce_union_type(output.value_type, arg_type)
-                if new_type is not None:
-                    uni_type = create_union_type(*new_type)
-                    assert not isinstance(uni_type, GenericAlias)
-                    # updates |= arg.set_type(Tensor[uni_type])
-                    updates |= set_edge_type(arg, uni_type)
-    # Try forward type inference.
-    out_type = None
-    if not status:
-        if len(arg_types) == 1:
-            # All arguments are of same type, so is the output.
-            out_type = arg_types.pop()
-        elif float in arg_types:
-            # Float type is dominant in type coercion for tensors.
-            out_type = float
-        elif int in arg_types:
-            # If there is no union float type, output type is simply int.
-
-            out_type = int
-            if float in all_possible_types:
-                # Means there are some union types which can be float.
-                out_type = int | float
-
-        elif bool in arg_types:
-            # If there is no union type, output type is simply bool.
-            if not union_types:
-                out_type = bool
-            elif all_possible_types.issuperset({float, int}):
-                if output.value_type != float | int | bool:
-                    out_type = float | int | bool
-            elif all_possible_types.issuperset({float}):
-                if output.value_type != float | bool:
-                    out_type = float | bool
-            elif (
-                all_possible_types.issuperset({int}) and output.value_type != int | bool
-            ):
-                out_type = int | bool
-        elif int | float in arg_types:
-            out_type = int | float
-
-    # Set output type if inferred.
-    if out_type is not None:
-        # updates |= output.set_type(Tensor[out_type])
-        updates |= set_edge_type(output, out_type)
-        # If out_type became non-union type, set status to True.
-        if not isinstance(out_type, UnionType | ToBeDetermined):
-            status = True
-
     return status, updates
 
 
@@ -462,15 +323,17 @@ def general_type_constraint(
 
     all_output_types |= process_tensor_op_types(fn, is_bitwise, *args)
 
+    max_possible_results = 1
     for result, key in zip(zip(*all_output_types, strict=False), keys, strict=False):
         res_type = reduce(or_, result)
+        max_possible_results *= len(set(result))
         res_type = squash_tensor_types(res_type)
         updates |= key.set_type(res_type)
 
     if is_edge:
         status = not any(io.is_polymorphic for io in keys)
     else:
-        status = len(all_output_types) == 1
+        status = not len(all_output_types) < max_possible_results
 
     return status, updates
 
@@ -724,11 +587,18 @@ def scalar_item_reduce_input_type(  # type: ignore
 
 
 def indexer_initial_type_constraint(
-    output: IOHyperEdge, input: IOHyperEdge
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
     if input.is_scalar or output.is_scalar:
+        updates |= index.set_type(
+            int
+            | EllipsisType
+            | None
+            | slice
+            | tuple[int | EllipsisType | None | slice, ...]
+        )
         if input.edge_type is not ToBeDetermined:
             # For this constraint, the content of sequence is not important. So
             # we set output type to the most general case which includes Tensor
@@ -805,7 +675,7 @@ def indexer_type_constraint(
 
         updates |= output.set_type(inferred_out_type)
 
-        status = not is_union(output.value_type)
+        status = not is_union(output.edge_type)
     elif input.is_tensor:
         status = True
     return status, updates
@@ -1946,7 +1816,7 @@ def concat_constraints(
     keys: list[ShapeRepr] = []
     assert isinstance(output._value, Tensor)
     input_val = [] if input._value is TBD else input._value
-    assert isinstance(input_val, list)
+    assert isinstance(input_val, list | tuple)
     for arg in input_val:
         assert isinstance(arg, Tensor)
         assert arg._temp_shape is not None, "Input shape of concat is not set!"
@@ -2857,8 +2727,10 @@ def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResul
     output_shape: ShapeRepr = output._temp_shape
     shape_val = shape.value
 
-    assert is_tuple_int(shape_val) or isinstance(
-        shape_val, ToBeDetermined
+    assert (
+        is_tuple_int(shape_val)
+        or is_list_int(shape_val)
+        or isinstance(shape_val, ToBeDetermined)
     ), "Invalid shape value!"
 
     if not isinstance(shape_val, ToBeDetermined):
@@ -3514,7 +3386,9 @@ def to_tensor_constraints(
     if not isinstance(input_val, ToBeDetermined):
         shape: list[int] = []
         if isinstance(input_val, list | tuple):
-            shape, _, typ = process_value(input_val)
+            _shape, _, typ = process_value(input_val)
+            assert _shape is not None
+            shape = _shape
             updates |= output.set_type(Tensor[typ])  # type: ignore
             updates.add(output, update_type=UpdateType.TYPE)
         elif isinstance(input_val, float | int):
@@ -3560,6 +3434,7 @@ def tensor_to_list_constraints(
         shape: list[Uniadic] = []
         if isinstance(output_value, list | tuple):
             shp, *_ = process_value(output_val)
+            assert shp is not None
             shape = [Uniadic(idx) for idx in shp]
 
         updates |= input_shape.inner_match(prefix=shape)
@@ -3599,6 +3474,7 @@ def scalar_item_constraints(
         or type(output._value) is float
         or type(output._value) is tuple
         or type(output._value) is list
+        or type(output._value) is Tensor
     )
 
     assert (
@@ -3622,7 +3498,7 @@ def scalar_item_constraints(
         updates |= output.set_value(input._value[index._value])
         status = True
     elif not isinstance(input._value, ToBeDetermined) and isinstance(
-        output._value, int | float | bool
+        output._value, int | float | bool | Tensor
     ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
@@ -3681,14 +3557,7 @@ def tensor_item_constraints(
     assert input._temp_shape is not None, "Input shape of Item is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
-    index_val = index.value
-
-    if (
-        isinstance(index._value, tuple)
-        and any(isinstance(val, Tensor) for val in index._value)
-    ) or isinstance(index._value, Tensor):
-        # TODO: Implement Tensor slicing with Tensor index
-        return True, Updates()
+    index_val = index._value
 
     assert (
         isinstance(index_val, ToBeDetermined)
@@ -3696,102 +3565,177 @@ def tensor_item_constraints(
         or type(index_val) is slice
         or type(index_val) is NoneType
         or type(index_val) is EllipsisType
+        or type(index_val) is Tensor
+        or find_intersection_type(find_type(index_val), VariableSequenceType[int])  # type: ignore
         or is_index_type(index_val)
     )
 
     status = False
     updated_symbols = Updates()
     if not isinstance(index_val, ToBeDetermined):
-        index_prefix: tuple[int | slice | EllipsisType | None, ...]
-        index_suffix: tuple[int | slice | EllipsisType | None, ...]
+        # Initially set all status to True,
+        # Final status will be intersection of all status
+
+        # slice_status determines if all slice operation inferences are made
+        slice_status = True
+
+        # match_status determines if input and
+        # output shapes are matched without a problem
+        match_status = True
+
+        # bcast status determines if all broadcast operations are made
+        bcast_status = True
+
         if not isinstance(index_val, tuple):
             index_val = (index_val,)
 
         assert is_index_type(index_val)
 
-        if ... in index_val:
-            # Firstly, find if there is an ellipsis in,
-            # index, then find the loaction of index and,
-            # seperate the index to two tuples.
-            assert (
-                index_val.count(...) == 1
-            ), "an index can only have one ellipsis (...)"
-            ellipsis_idx = index_val.index(...)
-            index_prefix, index_suffix = (
-                index_val[:ellipsis_idx],
-                index_val[ellipsis_idx + 1 :],
-            )
+        # keeps all tensor shapes in the index
+        tensor_reprs: list[ShapeRepr] = []
+
+        # successive_status:
+        # 0: init,
+        # 1: successive tensor indices found,
+        # 2: tensor indices stopped,
+        # 3: non-successive tensor indices found
+        successive_status: Literal[0, 1, 2, 3] = 0
+        slice_process_list: list[tuple[Uniadic, Uniadic, slice]] = []
+
+        # input shapes inferred from index values
+        index_input_prefix: list[Uniadic] = []
+        index_input_suffix: list[Uniadic] = []
+
+        # output shapes inferred from index values
+        inferred_output_prefix: list[Uniadic] = []
+        inferred_output_suffix: list[Uniadic] = []
+
+        # reduce_result_dim:
+        # 0: int - keeps where will the result be reduced to
+        # 1: list[Uniadic] - inferred_output_prefix or inferred_output_suffix
+        reduce_result_dim: tuple[int, list[Uniadic]] = (0, inferred_output_prefix)
+
+        current_index_unis = index_input_prefix
+        current_inferred_unis = inferred_output_prefix
+
+        for value in index_val:
+            if isinstance(value, int | Tensor | Sequence):
+                if successive_status == 0:
+                    reduce_result_dim = (
+                        len(current_inferred_unis),
+                        current_inferred_unis,
+                    )
+                    successive_status = 1
+
+                if successive_status == 2:
+                    reduce_result_dim = (0, inferred_output_prefix)
+                    successive_status = 3
+
+                if isinstance(value, Tensor):
+                    tensor_reprs.append(value.shape.reprs[0])
+
+                if isinstance(value, Sequence):
+                    shp, *_ = process_value(value)
+                    assert shp is not None
+                    tensor_reprs.append(ShapeRepr(prefix=[Uniadic(idx) for idx in shp]))
+
+                current_index_unis.append(Uniadic())
+
+            else:
+                if successive_status == 1:
+                    successive_status = 2
+
+                if value is Ellipsis:
+                    # if value is ellipsis, change current lists
+                    current_index_unis = index_input_suffix
+                    current_inferred_unis = inferred_output_suffix
+
+                elif value is None:
+                    # add newaxis to output if value is None
+                    current_inferred_unis.append(Uniadic(1))
+
+                elif isinstance(value, slice):
+                    # if value is slice, add new uniadic to both input and output
+                    # also add it to slice process list to infer it later
+                    current_inferred_unis.append(output_uni := Uniadic())
+                    current_index_unis.append(input_uni := Uniadic())
+                    slice_process_list.append((output_uni, input_uni, value))
+
+        if not tensor_reprs:
+            # if no tensor found, bcast_result is empty
+            reduced_output_shapes = []
+
+        elif all(repr.root is None for repr in tensor_reprs):
+            # if all tensors are non-variadic, broadcast them
+            all_reprs = (repr for repr in tensor_reprs)
+            prev_repr = next(all_reprs)
+            for repr in all_reprs:
+                next_repr = ShapeRepr(root=Variadic())
+                _status, _updates = bcast_helper(next_repr, prev_repr, repr, 0)
+                bcast_status &= _status
+                updated_symbols |= _updates
+                prev_repr = next_repr
+            reduced_output_shapes = prev_repr.prefix
+
         else:
-            # if there is no index in model, treat
-            # the ellipsis placed in the last dimension,
-            # (e.g output[3,2:4, None] = output[3, 2:4, None, ...])
-            index_prefix, index_suffix = index_val, tuple()
+            # TODO: Index tensors could be variadic in some cases
+            # handle the case where tensors are variadic
+            return False, Updates()
 
-        input_prefix, output_prefix, prefix_status, idx_pref = (
-            tensor_item_constraint_helper(index_prefix, input_shape.prefix)
-        )
-        input_suffix, output_suffix, suffix_status, idx_suf = (
-            tensor_item_constraint_helper(index_suffix[::-1], input_shape.reverse)
-        )
-        status = prefix_status and suffix_status
+        idx, tensor_affix = reduce_result_dim
+        tensor_affix[idx:idx] = reduced_output_shapes
 
+        # finally, match the inferred shapes from index to input shaeps
         updated_symbols |= input_shape.inner_match(
-            input_prefix, Variadic(), input_suffix[::-1]
+            prefix=index_input_prefix, root=Variadic(), suffix=index_input_suffix
         )
+
+        for output_uni, input_uni, slc in slice_process_list:
+            # find values of sliced outputs if possible
+            if slc == slice(None, None, None):
+                updated_symbols |= output_uni.match(input_uni)
+            else:
+                if input_uni.value is not None:
+                    output_value = len(list(range(input_uni.value))[slc])
+                    if output_uni.set_value(output_value):
+                        updated_symbols.add(output_uni)
+                else:
+                    slice_status = False
 
         if input_shape.root is None:
-            remained_unis = input_shape.prefix[
-                len(input_prefix) : len(input_shape.prefix) - len(input_suffix)
-            ]
-            output_unis = output_prefix + remained_unis + output_suffix[::-1]
-            updated_symbols |= output_shape.inner_match(prefix=output_unis)
+            out_result_shape = input_shape.prefix[:]
+
+            out_result_shape[: len(index_input_prefix)] = inferred_output_prefix
+            out_result_shape[len(out_result_shape) - len(index_input_suffix) :] = (
+                inferred_output_suffix
+            )
+
+            updated_symbols |= output_shape.inner_match(prefix=out_result_shape)
         else:
-            if len(input_prefix) > len(input_shape.prefix) or len(input_suffix) > len(
-                input_shape.reverse
-            ):
-                status = False
+            if len(index_input_prefix) > len(input_shape.prefix) or len(
+                index_input_suffix
+            ) > len(input_shape.reverse):
+                # case where inferred inputs with index could not match properly with
+                # current input shape
+                match_status = False
                 updated_symbols |= output_shape.inner_match(
-                    output_prefix, Variadic(), output_suffix[::-1]
+                    inferred_output_prefix, Variadic(), inferred_output_suffix
                 )
             else:
-                updated_symbols |= output_shape.inner_match(
-                    output_prefix + input_shape.prefix[idx_pref:],
-                    input_shape.root,
-                    (output_suffix + input_shape.reverse[idx_suf:])[::-1],
+                output_prefix = input_shape.prefix[:]
+                output_suffix = input_shape.suffix[:]
+
+                output_prefix[: len(index_input_prefix)] = inferred_output_prefix
+                output_suffix[len(output_suffix) - len(index_input_suffix) :] = (
+                    inferred_output_suffix
                 )
+
+                updated_symbols |= output_shape.inner_match(
+                    output_prefix, input_shape.root, output_suffix
+                )
+
+        status = bcast_status and slice_status and match_status
     return status, updated_symbols
-
-
-def tensor_item_constraint_helper(
-    item_values: tuple[slice | int | EllipsisType | None, ...]
-    | list[slice | int | None | EllipsisType],
-    input_shape_unis: list[Uniadic],
-) -> tuple[list[Uniadic], list[Uniadic], bool, int]:
-    input_unis: list[Uniadic] = []
-    output_unis: list[Uniadic] = []
-    current_index = 0
-    status = True
-    for item in item_values:
-        match item:
-            case slice():
-                if (current_index < len(input_shape_unis)) and (
-                    uni := input_shape_unis[current_index]
-                ).value is not None:
-                    output_unis.append(Uniadic(len(list(range(uni.value))[item])))
-                    input_unis.append(uni)
-                else:
-                    input_unis.append(Uniadic())
-                    output_unis.append(Uniadic())
-                    status = False
-                current_index += 1
-
-            case int():
-                input_unis.append(Uniadic())
-                current_index += 1
-
-            case None:
-                output_unis.append(Uniadic(1))
-    return input_unis, output_unis, status, current_index
 
 
 def indexer_constraints(
@@ -4123,7 +4067,6 @@ def polynomial_kernel_constraint(
 constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 
 constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
-    general_tensor_type_constraint: [UpdateType.TYPE],
     scalar_slice_type_constraint: [UpdateType.TYPE],
     indexer_initial_type_constraint: [UpdateType.TYPE],
     indexer_type_constraint: [UpdateType.TYPE],

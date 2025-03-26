@@ -45,9 +45,10 @@ from ..common_primitives import (
     logical_and,
     logical_not,
     logical_or,
+    logical_xor,
     matrix_multiplication,
-    minus,
     multiplication,
+    negate,
     not_equal,
     padding_converter_1d,
     padding_converter_2d,
@@ -56,7 +57,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    sequence_slice,
     shift_left,
     shift_right,
     square,
@@ -186,7 +186,7 @@ __all__ = [
     "shift_right",
     "power",
     "squared_error",
-    "minus",
+    "negate",
     "transpose",
     "swapaxes",
     "square",
@@ -196,7 +196,6 @@ __all__ = [
     "item",
     "indexer",
     "primitive_slice",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -215,6 +214,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
@@ -246,10 +246,9 @@ def sign(input: jax.Array) -> jax.Array:
     return jnp.sign(input)
 
 
-def robust_sqrt(input: jax.Array, cutoff: jax.Array) -> jax.Array:
-    # v_mapped_func= jax.vmap(partial(robust_log_helper, threshold = cutoff))
+def robust_sqrt(input: jax.Array, threshold: jax.Array) -> jax.Array:
     v_mapped_func = vmapper(
-        partial(robust_sqrt_helper, threshold=cutoff), len(input.shape) - 1
+        partial(robust_sqrt_helper, threshold=threshold), len(input.shape) - 1
     )
     # It is required to have 2D arrays for doubled vmap operations.
     # So first make input array as 2D and finally convert it to its
@@ -260,10 +259,9 @@ def robust_sqrt(input: jax.Array, cutoff: jax.Array) -> jax.Array:
 # NOTE: We wrote the stabilized log in order to handle
 # undefined points (log(0) = -inf in this case),
 # further testing should be done about performance.
-def robust_log(input: jax.Array, cutoff: jax.Array) -> jax.Array:
-    # v_mapped_func= jax.vmap(partial(robust_log_helper, threshold = cutoff))
+def robust_log(input: jax.Array, threshold: jax.Array) -> jax.Array:
     v_mapped_func = vmapper(
-        partial(robust_log_helper, threshold=cutoff), len(input.shape) - 1
+        partial(robust_log_helper, threshold=threshold), len(input.shape) - 1
     )
     # It is required to have 2D arrays for doubled vmap operations.
     # So first make input array as 2D and finally convert it to its
@@ -291,9 +289,9 @@ def robust_power(
 # NOTE: We wrote stable reciprocal in order to handle
 # undefined points (f(0) = inf in this case),
 # futher testing should be done.
-def stable_reciprocal(input: jax.Array, cutoff: jax.Array) -> jax.Array:
+def stable_reciprocal(input: jax.Array, threshold: jax.Array) -> jax.Array:
     v_mapped_func = vmapper(
-        partial(stable_reciprocal_helper, threshold=cutoff),
+        partial(stable_reciprocal_helper, threshold=threshold),
         len(input.shape) - 1,
     )
     return v_mapped_func(jnp.atleast_1d(input)).reshape(input.shape)
@@ -668,13 +666,13 @@ def cross_entropy(
     input: jax.Array,
     target: jax.Array,
     weights: list[float] | bool,
-    cutoff: jax.Array,
+    threshold: jax.Array,
     *,
     categorical: bool = True,
     robust: bool = False,
 ) -> jax.Array:
     log: partial[jax.Array] | Callable[..., jax.Array] = (
-        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+        partial(robust_log, threshold=threshold) if robust else jnp.log
     )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -697,13 +695,13 @@ def cross_entropy_with_logits(
     input: jax.Array,
     target: jax.Array,
     weights: list[float] | bool,
-    cutoff: jax.Array,
+    threshold: jax.Array,
     *,
     categorical: bool = True,
     robust: bool = False,
 ) -> jax.Array:
     log: partial[jax.Array] | Callable[..., jax.Array] = (
-        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+        partial(robust_log, threshold=threshold) if robust else jnp.log
     )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -747,13 +745,13 @@ def cross_entropy_with_log_probs(
 def binary_cross_entropy(
     input: jax.Array,
     target: jax.Array,
-    cutoff: jax.Array,
+    threshold: jax.Array,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> jax.Array:
     log: partial[jax.Array] | Callable[..., jax.Array] = (
-        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+        partial(robust_log, threshold=threshold) if robust else jnp.log
     )
 
     _pos_weight: jax.Array | float
@@ -768,13 +766,13 @@ def binary_cross_entropy(
 def binary_cross_entropy_with_logits(
     input: jax.Array,
     target: jax.Array,
-    cutoff: jax.Array,
+    threshold: jax.Array,
     *,
     pos_weight: float | bool = 1.0,
     robust: bool = False,
 ) -> jax.Array:
     log: partial[jax.Array] | Callable[..., jax.Array] = (
-        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+        partial(robust_log, threshold=threshold) if robust else jnp.log
     )
 
     _pos_weight: jax.Array | float
@@ -812,8 +810,10 @@ def quad_hinge_loss(input: jax.Array, target: jax.Array) -> jax.Array:
     return hinge_loss(input, target) ** 2
 
 
-def kl_divergence(input: jax.Array, target: jax.Array, cutoff: jax.Array) -> jax.Array:
-    return target * (robust_log(target, cutoff) - robust_log(input, cutoff))
+def kl_divergence(
+    input: jax.Array, target: jax.Array, threshold: jax.Array
+) -> jax.Array:
+    return target * (robust_log(target, threshold) - robust_log(input, threshold))
 
 
 def transposed_diag(input: jax.Array) -> jax.Array:
@@ -856,7 +856,7 @@ def shape(input: jax.Array) -> tuple[int, ...]:
     return input.shape
 
 
-def size(input: jax.Array, dim: int | tuple[int, ...] | None) -> int | tuple[int, ...]:
+def size(input: jax.Array, dim: int | Sequence[int] | None) -> int | tuple[int, ...]:
     if dim is None:
         return input.size
     if isinstance(dim, int):
@@ -883,7 +883,9 @@ def flatten(input: jax.Array, *, start_dim: int = 0, end_dim: int = -1) -> jax.A
     return jnp.reshape(input, shape)
 
 
-def concat(input: list[jax.Array], axis: int | None = 0) -> jax.Array:
+def concat(
+    input: list[jax.Array] | tuple[jax.Array, ...], axis: int | None = 0
+) -> jax.Array:
     return jnp.concatenate(input, axis=axis)
 
 
@@ -1106,10 +1108,6 @@ def dtype(input: jax.Array) -> jnp.dtype[Any]:
     return input.dtype.type  # type: ignore
 
 
-def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:
-    return left ^ right
-
-
 def split(input: jax.Array, split_size: int | list[int], axis: int = 0) -> jax.Array:
     return jnp.stack(jnp.split(input, split_size, axis=axis))
 
@@ -1132,6 +1130,24 @@ def randn(
 
     with jax.default_device(get_device(device)):
         return jax.random.normal(_key, shape, dtype=dtype_map[dtype])
+
+
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> jax.Array:
+    _key = jax.random.PRNGKey(key)
+    if dtype is None:
+        dtype = "int32"
+
+    with jax.default_device(get_device(device)):
+        return jax.random.randint(_key, shape, low, high, dtype=dtype_map[dtype])
 
 
 def zeros_like(input: jax.Array) -> jax.Array:
@@ -1157,6 +1173,7 @@ def atleast_1d(input: jax.Array) -> jax.Array:
 array_creation_funcs = [
     "arange",
     "randn",
+    "randint",
     "ones",
     "to_tensor",
     "eye",

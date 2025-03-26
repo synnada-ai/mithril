@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Iterator, MutableMapping
-from dataclasses import dataclass
+from collections.abc import Iterator, MutableMapping
+from dataclasses import dataclass, field
 from enum import IntEnum
+from types import UnionType
 from typing import Any, TypeVar
 
 
@@ -27,6 +28,7 @@ class CGenConfig:
     ARRAY_NAME: str = ""
 
     # Function call configs
+    IMPLICIT_BROADCAST_OPS: set[str] = field(default_factory=set)
     USE_OUTPUT_AS_INPUT: bool = False
     RETURN_OUTPUT: bool = False
 
@@ -38,6 +40,9 @@ class CGenConfig:
 class PythonGenConfig:
     # Import configs
     SPECIFY_DEVICE: bool = False
+
+    # Function call configs
+    IMPLICIT_BROADCAST_OPS: set[str] = field(default_factory=set)
 
 
 class PaddingType(IntEnum):
@@ -91,13 +96,7 @@ class BiMap(MutableMapping[K, V]):
 
 
 # Other utils
-def find_dominant_type(
-    lst: Any,
-    raise_error: bool = True,
-    special_fn: Callable[[Any], type[bool] | type[int] | type[float] | None]
-    | None = None,
-    ignore_types: set[type] | None = None,
-) -> type[int] | type[float] | type[bool]:
+def find_dominant_type(lst: Any) -> type[int] | type[float] | type[bool]:
     # return dominant type of parameters in the list.
     # dominant type is referenced from numpy and in folloing order: bool -> int -> float
     # if any of the parameters are different from these three types, returns ValueError
@@ -109,16 +108,10 @@ def find_dominant_type(
     # list contains only bools -> return bool
     # list contains all three of types -> return float
 
-    if ignore_types is None:
-        ignore_types = set()
-
     if isinstance(lst, list | tuple):
         curr_val: type[bool] | type[int] | type[float] = bool
         for elem in lst:
-            val = find_dominant_type(elem, raise_error, special_fn)
-            if val in ignore_types:
-                continue
-
+            val = find_dominant_type(elem)
             if val is float:
                 curr_val = float
             elif val is int:
@@ -130,14 +123,11 @@ def find_dominant_type(
         return curr_val
     elif isinstance(lst, bool | float | int):
         return type(lst)
-    elif special_fn and (res := special_fn(lst)):
-        return res
-    elif raise_error:
-        raise ValueError(
-            f"given input contains {type(lst)} type. Allowed types are: list, tuple, "
-            "float, int, bool"
-        )
-    return type(lst)
+
+    raise ValueError(
+        f"given input contains {type(lst)} type. Allowed types are: list, tuple, "
+        "float, int, bool"
+    )
 
 
 def get_specific_types_from_value[T](value: Any, typ: type[T]) -> list[T]:
@@ -166,3 +156,33 @@ def get_specific_types_from_value[T](value: Any, typ: type[T]) -> list[T]:
         for val in value.values():
             items += get_specific_types_from_value(val, typ)
     return items
+
+
+def contains_given_type(value: Any, typ: type | UnionType) -> bool:
+    """
+    Check if the given value or any nested value within it is of the specified type.
+
+    This function traverses through the given value, which can be a single value,
+    a list, a tuple, or a dictionary, and checks if any element within it matches
+    the specified type.
+
+    Args:
+        value (Any): The value to be checked. It can be a single value, a list,
+                     a tuple, or a dictionary.
+        typ (type | UnionType): The type to check against.
+
+    Returns:
+        bool: True if any element within the value is of the specified type,
+              False otherwise.
+    """
+    stack = [value]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, typ):
+            # If any item is of the specified type, return True
+            return True
+        if isinstance(current, list | tuple):
+            stack.extend(current)
+        elif isinstance(current, dict):
+            stack.extend(current.values())
+    return False

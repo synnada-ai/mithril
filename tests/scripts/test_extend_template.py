@@ -47,9 +47,9 @@ from mithril.models import (
     Max,
     Mean,
     Min,
-    Minus,
     Model,
     Multiply,
+    Negate,
     NotEqual,
     Power,
     Prod,
@@ -1356,7 +1356,7 @@ def test_rshift_3():
     np.testing.assert_allclose(backend.array([1, 0, 0, 0, 0, 2]), out, 1e-6)
 
 
-def test_minus():
+def test_negate():
     backend = JaxBackend()
     data = {
         "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
@@ -1369,8 +1369,8 @@ def test_minus():
 
     model2 = Model()
     model2 |= Buffer()(input="input")
-    model2 |= (minus := Minus())(input="input")
-    model2 |= Buffer()(input=minus.output, output=IOKey(name="output"))
+    model2 |= (negate := Negate())(input="input")
+    model2 |= Buffer()(input=negate.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(

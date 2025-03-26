@@ -22,7 +22,7 @@ import pytest
 import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
-    NOT_GIVEN,
+    TBD,
     ShapeTemplateType,
     Table,
     Tensor,
@@ -875,7 +875,7 @@ def test_physical_summary_1():
     model += Linear(dimension=5)(input="input")
     model += LeakyRelu()
     model += (lin1 := Linear(dimension=3))
-    model += (l_relu := LeakyRelu())(slope=NOT_GIVEN)
+    model += (l_relu := LeakyRelu(slope=TBD))(slope=IOKey("slope"))
     l_relu.set_values(slope=Tensor(1e-1))
     model += Relu()
     lin1.set_shapes(input=[3, 5])

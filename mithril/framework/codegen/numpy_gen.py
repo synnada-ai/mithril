@@ -16,23 +16,21 @@ import ast
 import keyword
 from collections.abc import Callable
 from functools import partial
-from typing import Any, Literal, overload
+from typing import Any
 
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
+from ...cores.python.numpy.utils import fill_zeros_like
 from ...framework.physical.model import PhysicalModel
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
     DataEvalType,
     EvaluateAllType,
-    EvaluateGradientsType,
     EvaluateType,
     FinalCost,
     IOHyperEdge,
-    LossKey,
     ParamsEvalType,
-    find_intersection_type,
     is_type_adjustment_required,
 )
 from ..logical import Operator
@@ -53,7 +51,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         functions: list[ast.FunctionDef] = []
         functions.append(self.generate_evaluate())
         if not self.pm.inference:
-            functions.append(self.generate_evaluate_gradients(self.pm.ignore_grad_keys))
+            functions.append(self.generate_evaluate_gradients())
         return functions
 
     def generate_imports(self) -> list[ast.stmt]:
@@ -91,36 +89,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
     def compile_code(
         self, jit: bool = False
     ) -> tuple[
-        EvaluateType[np.ndarray[Any, Any]],
-        EvaluateGradientsType[np.ndarray[Any, Any]] | None,
-        EvaluateAllType[np.ndarray[Any, Any]] | None,
+        EvaluateType[np.ndarray[Any, Any]], EvaluateAllType[np.ndarray[Any, Any]] | None
     ]:
         eval_fn, grad_fn = self.exec_generated_code()
-
-        # TODO: Not looks good, and looks over complicated!
-
-        @overload
-        def evaluate_gradients_wrapper_manualgrad(
-            params: ParamsEvalType[np.ndarray[Any, Any]] | None,
-            data: DataEvalType[np.ndarray[Any, Any]] | None,
-            output_gradients: ParamsEvalType[np.ndarray[Any, Any]] | None,
-            *,
-            grad_fn: RawGradientType[np.ndarray[Any, Any]],
-            include_output: Literal[False],
-        ) -> DataEvalType[np.ndarray[Any, Any]]: ...
-
-        @overload
-        def evaluate_gradients_wrapper_manualgrad(
-            params: ParamsEvalType[np.ndarray[Any, Any]] | None,
-            data: DataEvalType[np.ndarray[Any, Any]] | None,
-            output_gradients: ParamsEvalType[np.ndarray[Any, Any]] | None,
-            *,
-            grad_fn: RawGradientType[np.ndarray[Any, Any]],
-            include_output: Literal[True],
-        ) -> tuple[
-            DataEvalType[np.ndarray[Any, Any]],
-            ParamsEvalType[np.ndarray[Any, Any]],
-        ]: ...
 
         def evaluate_gradients_wrapper_manualgrad(
             params: ParamsEvalType[np.ndarray[Any, Any]] | None = None,
@@ -128,7 +99,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             output_gradients: ParamsEvalType[np.ndarray[Any, Any]] | None = None,
             *,
             grad_fn: RawGradientType[np.ndarray[Any, Any]],
-            include_output: bool = False,
         ) -> (
             DataEvalType[np.ndarray[Any, Any]]
             | tuple[
@@ -149,12 +119,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             )
             # Initialize gradients as zero with corresponding shapes.
             gradients: dict[str, np.ndarray[Any, Any]] = {}
-            for key in (
-                self.pm.flat_graph.all_keys
-                - self.pm.flat_graph.all_static_keys
-                - self.pm.flat_graph.unused_keys
-                - self.pm.ignore_grad_keys
-            ):
+            for key in self.pm.flat_graph.all_keys - self.pm.flat_graph.unused_keys:
+                if not self._has_grad(key):
+                    continue
                 key_cache = cached_data.get(key + "_cache", {})
                 assert isinstance(key_cache, dict)
                 out_data: np.ndarray[Any, Any] | None = None
@@ -164,9 +131,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     out_data = key_cache["output"]
                 else:
                     # Removed primitives, to take shape of output take input shape
-                    _key = self.pm.flat_graph.get_source_keys(
-                        key, include_outputs=True
-                    )[0]
+                    _key = self.pm.flat_graph.get_source_keys(key, True)[0]
                     _key_cache = cached_data.get(_key + "_cache", {})
                     assert isinstance(_key_cache, dict)
                     if _key in self.pm.input_keys:
@@ -175,17 +140,23 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         out_data = _key_cache["output"]
 
                 # Create same data structure filled with zeros.
-                gradients[key] = self.fill_zeros(out_data)
+                gradients[key] = fill_zeros_like(out_data)
 
+            # TODO: This operation is duplicated in PythonCodeGen, consider refactoring
             if output_gradients is None:
-                if FinalCost not in self.pm._output_keys:
-                    raise ValueError(
-                        "Requires output gradients if final loss is not attached!"
-                    )
-                else:
+                if FinalCost in self.pm._output_keys:
                     # Set "1.0" to output gradient if loss is attached
                     # and output_gradients is not given.
                     gradients |= {FinalCost: np.array(1.0)}
+                elif len(self.pm._output_keys) == 1:
+                    (out_key,) = self.pm._output_keys
+                    out_edge = self.pm.data[self.pm.flat_graph.output_dict[out_key]]
+                    if not out_edge.is_tensor or out_edge.shape.get_shapes() == []:  # type: ignore
+                        gradients |= {out_key: np.array(1.0)}
+                else:
+                    raise ValueError(
+                        "Requires output gradients if final loss is not attached!"
+                    )
             else:
                 gradients |= output_gradients
                 if (FinalCost in self.pm._output_keys) and (
@@ -197,33 +168,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             grad_fn(params=params, gradients=gradients, data=data, cache=cached_data)
 
             # Return only gradient values of trainable input keys.
-            if include_output:
-                return output, {key: gradients[key] for key in params}
-
-            return {key: gradients[key] for key in params}
+            return output, {key: gradients[key] for key in params}
 
         if grad_fn is not None:
             grad_fn = partial(evaluate_gradients_wrapper_manualgrad, grad_fn=grad_fn)
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
 
-    def fill_zeros(self, data: Any) -> Any:
-        if isinstance(data, np.ndarray):
-            return self.backend.zeros_like(data, dtype=self.backend._dtype)
-        elif isinstance(data, dict):
-            return {key: self.fill_zeros(value) for key, value in data.items()}
-        elif isinstance(data, list | tuple):
-            result: list[Any] | tuple[Any] = [self.fill_zeros(value) for value in data]
-            if isinstance(data, tuple):
-                result = tuple(result)
-            return result
-        # Return 0.0 for scalar values.
-        return 0.0
-
     def get_primitive_details(
         self, output_key: str
     ) -> tuple[Operator, list[str], list[str]]:
-        model = self.pm.flat_graph.get_model(output_key)
+        model = self.pm.flat_graph.get_op(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
         local_input_keys = list(model.input_keys) + ["cache"]
@@ -307,55 +262,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             {cache_name: IOHyperEdge(dict | None, cache_value)}
         )
 
-    def generate_evaluate_gradients(
-        self, ignore_grad_keys: set[str]
-    ) -> ast.FunctionDef:
+    def generate_evaluate_gradients(self) -> ast.FunctionDef:
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
         used_keys: set[str] = set()
         is_recursive_fn_imported: bool = False
 
-        all_ignored_keys = ignore_grad_keys | self.pm.flat_graph.all_static_keys
-
-        # TODO: Is this should be here?
-        # Seperate ignored keys into two types of weak and strict ignored keys.
-        weak_ignored_keys = {
-            key
-            for key in all_ignored_keys
-            if key in self.pm.data
-            and self.pm.data[key].is_tensor
-            and find_intersection_type(self.pm.data[key].value_type, float)
-        }
-
-        strict_ignored_keys = all_ignored_keys - weak_ignored_keys
-
-        ignore_grad_keys, _ = self.pm.flat_graph.infer_ignore(
-            weak_ignored_keys,
-            self.pm._output_keys,
-            strict_ignored_keys,
-            update_graph=False,
-        )
-
-        possible_loss_keys = {FinalCost, LossKey}
-        if possible_loss_keys & self.pm._output_keys:
-            ignore_grad_keys.update(
-                self.pm._output_keys
-                - possible_loss_keys
-                - (
-                    self.pm.flat_graph.all_source_keys
-                    | {
-                        value
-                        for key, value in self.pm.flat_graph.output_dict.items()
-                        if key != value
-                    }
-                )
-            )
-
         # Move gradients back for keys in alias_map(pruned or optimized out keys)
         for target_key, source_key in self.pm.flat_graph.output_dict.items():
             if target_key == source_key:
                 continue
-            if target_key not in ignore_grad_keys:
+            if target_key in self.pm.cotangent_keys:
                 source = ast.Subscript(
                     value=ast.Name(id="gradients", ctx=ast.Load()),
                     slice=ast.Constant(
@@ -382,11 +299,11 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 function_body.append(assign)
 
         for output_key in reversed(list(self.pm.flat_graph.topological_order)):
-            if output_key in ignore_grad_keys:
+            if not self._has_grad(output_key):
                 continue
 
             # Iterate over Primitive models in topological order to add their formula.
-            model = self.pm.flat_graph.get_model(output_key)
+            model = self.pm.flat_graph.get_op(output_key)
 
             output_key = self.pm.flat_graph.connections[output_key].key
             inputs = list(self.pm.flat_graph.get_source_keys(output_key))
@@ -444,12 +361,8 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             local_input_keys = [*primitive_local_inputs, "output_gradient", "idx"]
             global_input_keys = _inputs + ["output_gradient", "idx"]
 
-            # TODO: Handle ignore gradient keys (models) and
             for idx, global_input_key in enumerate(global_input_keys[:-2]):
-                if (
-                    global_input_key
-                    in ignore_grad_keys | self.pm.flat_graph.runtime_static_keys
-                ):
+                if not self._has_grad(global_input_key):
                     continue
 
                 grad_fn = self.backend.primitive_grad_function_dict.get(

@@ -107,7 +107,7 @@ for epoch in range(num_epochs):
     for inputs, targets in dataloader:
         # Forward pass
         data = {"input": inputs, "target": targets}
-        outputs, gradients = pm.evaluate_all(params, data)
+        outputs, gradients = pm.evaluate(params, data, output_gradients=True)
         params, opt_state = optimizer.update_params(params, gradients, opt_state)
         total_loss += outputs["final_cost"]  # type: ignore
 
