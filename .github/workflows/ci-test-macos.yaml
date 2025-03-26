@@ -58,7 +58,7 @@ jobs:
           submodules: 'recursive'
 
       - name: Create Conda ennvironment with ${{ matrix.python-version }}
-        run:
+        run: |
           conda init
           conda create -n mithril-test-ci python=${{ matrix.python-version }} -y
           conda acvtivate mithril-test-ci
@@ -98,6 +98,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}    
       - name: Deactivate and remove environment
         run: |
+          conda init
           conda deactivate
           conda remove -n mithril-test-ci --all -y
 
@@ -129,5 +130,5 @@ jobs:
       - name: remove conda environment
         run: |
           conda init
-          conda deactivate
+          conda activate base
           conda remove -n mithril-test-ci --all -y
