@@ -36,6 +36,7 @@ struct ggml_tensor * scalar_multiply(struct ggml_context * ctx, struct ggml_tens
 struct ggml_tensor * subtract(struct ggml_context * ctx, struct ggml_tensor * left, struct ggml_tensor * right) {
     struct ggml_tensor * res = ggml_sub(ctx, left, right);
     return res;
+}
 
 struct ggml_tensor * broadcast_to(struct ggml_context * ctx, struct ggml_tensor * input, int dim1, int dim2, int dim3, int dim4) {
     // If the target shape is not 4D, the empty dimensions are need to be set to 1
