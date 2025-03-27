@@ -19,8 +19,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Make compile script executable
-        run: chmod +x ./mithril/backends/with_manualgrad/c_backend/src/compile.sh
       - name: Make compile scripts executable
         run: |
           chmod +x ./mithril/cores/c/raw_c/compile.sh
