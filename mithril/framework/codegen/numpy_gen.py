@@ -16,7 +16,6 @@ import ast
 import keyword
 from collections.abc import Callable
 from functools import partial
-from types import EllipsisType
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -48,6 +47,8 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         assert isinstance(self.pm.backend, NumpyBackend)
         self.backend: NumpyBackend = self.pm.backend
+        self._flatten_fn_imported = False
+        self._numpy_imported = False
 
     def generate_functions(self) -> list[ast.FunctionDef]:
         functions: list[ast.FunctionDef] = []
@@ -296,13 +297,45 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         self,
         key: str,
         value: ast.expr,
-        sub_keys: list[str | EllipsisType],
+        sub_keys: list[str],
         function_body: list[ast.stmt],
     ) -> None:
+        """
+        Distributes gradients across sub-keys and accumulates them in the
+        `gradients` dictionary.
+
+        This method handles the distribution of gradients for both tensor and
+        non-tensor data. For tensor data, gradients are directly accumulated.
+        For non-tensor data, gradients are flattened before being distributed.
+
+        Args:
+            key (str): The key representing the gradient in the data dictionary.
+            value (ast.expr): The AST expression representing the gradient value.
+            sub_keys (list[str]): A list of sub-keys to which the gradients will
+                be distributed.
+            function_body (list[ast.stmt]): The list of AST statements representing
+                the function body where the gradient distribution logic will be
+                appended.
+
+        Returns:
+            None
+        """
+        # Extract real key presented in data dict.
         key = key if key in self.pm.data else self.pm.flat_graph.output_dict[key]
-        if len(sub_keys) == 1 and self.pm.data[key].is_tensor:
+        tensor_data = self.pm.data[key].is_tensor
+        # If key is not a tensor data, flatten grads and then distribute them.
+        # If not,  directly accumulate gradients.
+        if not tensor_data:
+            if not self._flatten_fn_imported:
+                self._import_flatten_fn()
+            value = ast.Call(
+                func=ast.Name(id="_flatten_grads", ctx=ast.Load()),
+                args=[value],
+                keywords=[],
+            )
+        if len(sub_keys) == 1 and tensor_data:
             (sub_key,) = sub_keys
-            if isinstance(sub_key, EllipsisType) or not self._has_grad(sub_key):
+            if not self._has_grad(sub_key):
                 return
             # Directly accumulate gradients for tensor data.
             function_body.append(
@@ -317,10 +350,12 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 )
             )
         else:
+            # Assign flattened grads to a variable and then distribute them
+            # using indexes.
             grad_variable = ast.Name(id=key + "_gradient", ctx=ast.Store())
             function_body.append(ast.Assign(targets=[grad_variable], value=value))
             for idx, sub_key in enumerate(sub_keys):
-                if isinstance(sub_key, EllipsisType) or not self._has_grad(sub_key):
+                if not self._has_grad(sub_key):
                     continue
                 target = ast.Subscript(
                     value=ast.Name(id="gradients", ctx=ast.Load()),
@@ -339,6 +374,79 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     )
                 )
 
+    def _import_flatten_fn(self) -> None:
+        """
+        Imports necessary modules and defines a helper function `_flatten_grads`.
+
+        This method performs the following actions:
+        1. Ensures that `numpy` is imported and aliased as `np` if it hasn't been
+           imported already.
+        2. Imports the `get_specific_types_from_value` function from the
+           `mithril.common` module.
+        3. Defines a global function `_flatten_grads` that wraps the
+           `get_specific_types_from_value` function, specifically filtering values of
+           type `np.ndarray`.
+
+        The `_flatten_grads` function takes a single argument `value` and returns the
+        result of calling `get_specific_types_from_value` with `value` and `np.ndarray`
+        as arguments.
+
+        This method also sets the `_flatten_fn_imported` flag to `True` to indicate
+        that the imports and function definition have been completed.
+        """
+        if not self._numpy_imported:
+            # Import numpy.
+            self.imports.append(
+                ast.Import(names=[ast.alias(name="numpy", asname="np")])
+            )
+            self._numpy_imported = True
+        # Import get_specific_types_from_value from mithril.common.
+        self.imports.append(
+            ast.ImportFrom(
+                module="mithril.common",
+                names=[
+                    ast.alias(
+                        name="get_specific_types_from_value",
+                        asname=None,
+                    )
+                ],
+                level=0,
+            )
+        )
+        # Define _flatten_grads function which wraps
+        # get_specific_types_from_value with typ = np.ndarray.
+        self.globals.append(
+            ast.FunctionDef(
+                name="_flatten_grads",
+                args=ast.arguments(
+                    posonlyargs=[],
+                    args=[ast.arg(arg="value")],
+                    kwonlyargs=[],
+                    kw_defaults=[],
+                    defaults=[],
+                ),
+                body=[
+                    ast.Return(
+                        value=ast.Call(
+                            func=ast.Name(
+                                id="get_specific_types_from_value", ctx=ast.Load()
+                            ),
+                            args=[
+                                ast.Name(id="value", ctx=ast.Load()),
+                                ast.Name(id="np.ndarray", ctx=ast.Load()),
+                            ],
+                            keywords=[],
+                        )
+                    )
+                ],
+                decorator_list=[],
+                returns=None,
+                type_comment=None,
+                type_params=[],
+            )
+        )
+        self._flatten_fn_imported = True
+
     def generate_evaluate_gradients(self) -> ast.FunctionDef:
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
@@ -350,7 +458,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 if (
                     subkeys := self.pm.flat_graph.multi_node_keys.get(target_key)
                 ) is not None:
-                    source = ast.Subscript(
+                    source: ast.Subscript | ast.Call = ast.Subscript(
                         value=ast.Name(id="gradients", ctx=ast.Load()),
                         slice=ast.Constant(
                             "_" + target_key

@@ -16,12 +16,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
-from types import EllipsisType
 from typing import Any
 
 import mithril as ml
 
-from ...common import BiMap, PythonGenConfig, get_specific_types_from_value
+from ...common import BiMap, PythonGenConfig
 from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import OrderedSet
@@ -32,7 +31,6 @@ from ..common import (
     DataEvalType,
     IOHyperEdge,
     MainValueType,
-    Tensor,
     ToBeDetermined,
     Updates,
     UpdateType,
@@ -113,7 +111,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         self.data_store: StaticDataStore[DataType] = StaticDataStore(backend, inference)
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
-        self.multi_node_keys: dict[str, list[str | EllipsisType]] = {}
+        self.multi_node_keys: dict[str, list[str]] = {}
 
     @property
     def hanging_keys(self) -> set[str]:
@@ -211,43 +209,35 @@ class FlatGraph(GenericDataType[DataType]):
         # If output/input is of list, tuple or dict type, find indexes of
         # corresponding inputs/outputs when it is flattened to a list.
         # These indices will be used for gradient calculations.
-        if not self.data_store.inference:
+        if not self.data_store.inference and self.backend.is_manualgrad:
             all_conns = model.conns.all
             out = all_conns[Operator.output_key]
-            out_tensors = get_specific_types_from_value(out.metadata._value, Tensor)
-            if out_tensors:
-                # Check if any tensor in output also is an input to the operator
-                # model.
-                for tensor in out_tensors:
-                    key_added = False
-                    for key, outer_key in keys.items():
-                        if key in (Operator.output_key, "cache"):
-                            continue
-                        # Get the index of the tensor in the output.
-                        key_conn = all_conns[key]
-                        if (
-                            key_tensors := get_specific_types_from_value(
-                                key_conn.metadata._value, Tensor
+            out_tensors = out.metadata.tensors
+            # Check if any tensor in output also is an input to the operator
+            # model.
+            for tensor in out_tensors:
+                for key, outer_key in keys.items():
+                    # Skip output key and cache key.
+                    if key in (Operator.output_key, "cache"):
+                        continue
+                    # Get the index of the tensor in the output.
+                    key_conn = all_conns[key]
+                    if (
+                        key_tensors := key_conn.metadata.tensors
+                    ) and tensor in key_tensors:
+                        if outer_key in self.multi_node_keys:
+                            # If outer_key already exists in multi_node_keys,
+                            # then find the index of the tensor in the outer_key and
+                            # find corresponding sub_key in corresponding list.
+                            sub_index = key_tensors.index(tensor)
+                            sub_key = self.multi_node_keys[outer_key][sub_index]
+                            self.multi_node_keys.setdefault(output_key, []).append(
+                                sub_key
                             )
-                        ) and tensor in key_tensors:
-                            if outer_key in self.multi_node_keys:
-                                sub_index = key_tensors.index(tensor)
-                                sub_key = self.multi_node_keys[outer_key][sub_index]
-                                self.multi_node_keys.setdefault(output_key, []).append(
-                                    sub_key
-                                )
-                            else:
-                                self.multi_node_keys.setdefault(output_key, []).append(
-                                    outer_key
-                                )
-                            key_added = True
-                    if not key_added:
-                        self.multi_node_keys.setdefault(output_key, []).append(...)
-                if (
-                    len(multi_keys := self.multi_node_keys[output_key]) == 1
-                    and multi_keys[0] == ...
-                ):
-                    self.multi_node_keys.pop(output_key)
+                        else:
+                            self.multi_node_keys.setdefault(output_key, []).append(
+                                outer_key
+                            )
 
         if model.random_keys:
             self.random_keys |= {keys[key] for key in model.random_keys}

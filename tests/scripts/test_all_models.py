@@ -4700,6 +4700,70 @@ def test_split_with_concat():
     )
 
 
+def test_split_with_2_concat():
+    model = Model()
+    input = IOKey("input", differentiable=True, shape=(4, 2))
+    model |= (split := Split(split_size=2, axis=0))(input=input, output="split_output")
+    model |= Concat(axis=1)(input=split.output[0:1], output=IOKey("output_1"))
+    model |= Concat(axis=1)(input=split.output[1:2], output=IOKey("output_2"))
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
+    ref_out = {
+        "output_1": [[1.0, 2.0], [3.0, 4.0]],
+        "output_2": [[5.0, 6.0], [7.0, 8.0]],
+    }
+    out_grad = {
+        "output_1": [[1.0, 0.0], [3.0, 4.0]],
+        "output_2": [[5.0, 6.0], [0.0, 8.0]],
+    }
+    ref_grad = {"input": [[1.0, 0.0], [3.0, 4.0], [5.0, 6.0], [0.0, 8.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_with_2_concat_4_split():
+    model = Model()
+    input = IOKey("input", differentiable=True, shape=(4, 2))
+    model |= (split := Split(split_size=4, axis=0))(input=input, output="split_output")
+    model |= Concat(axis=1)(input=split.output[0:2], output=IOKey("output_1"))
+    model |= Concat(axis=1)(input=split.output[2:4], output=IOKey("output_2"))
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
+    ref_out = {"output_1": [[1.0, 2.0, 3.0, 4.0]], "output_2": [[5.0, 6.0, 7.0, 8.0]]}
+    out_grad = {"output_1": [[1.0, 0.0, 3.0, 4.0]], "output_2": [[5.0, 6.0, 0.0, 8.0]]}
+    ref_grad = {"input": [[1.0, 0.0], [3.0, 4.0], [5.0, 6.0], [0.0, 8.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
 def test_split_2():
     model = Model()
     input = IOKey("input", differentiable=True)
@@ -4802,6 +4866,37 @@ def test_split_5():
     ref_out = {"output": lambda fn: [fn(item) for item in output]}
     out_grad = {"output": lambda fn: [fn(item) for item in output_grad]}
     ref_grad = {"input": [[0.1, 0.4], [0.2, 0.5], [0.3, 0.6]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_6():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= (split := Split(split_size=2, axis=-1))(input=input, output="output")
+    model |= Concat(axis=0)(input=split.output[0:1], output="output_concat")
+
+    output = [[1.0], [3.0], [5.0]]
+    output_grad = [[0.1], [0.2], [0.3]]
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]}
+    ref_out = {"output_concat": output}
+    out_grad = {"output_concat": output_grad}
+    ref_grad = {"input": [[0.1, 0.0], [0.2, 0.0], [0.3, 0.0]]}
 
     compile_and_compare(
         model=model,
