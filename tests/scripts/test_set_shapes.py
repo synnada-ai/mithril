@@ -203,3 +203,61 @@ def test_set_shapes_8():
         "output": ["(V1, ...)"],
     }
     check_shapes_semantically(ref_shapes, model.shapes)
+
+
+def test_comparison_connection_set_shape():
+    model1 = Model()
+    model2 = Model()
+    model3 = Model()
+    model4 = Model()
+
+    model1 += (add1 := Add())(left="left", right="right", output=IOKey("output"))
+    model2 += model1(left="left", right="right", output=IOKey("output"))
+    model3 += model2(left="left", right="right", output=IOKey("output"))
+    model4 += model3(left="left", right="right", output=IOKey("output"))
+    model4 += (add2 := Add())(right="final_right", output=IOKey("final_output"))
+
+    add1.left.set_shapes([3, 4])
+    add1.right.set_shapes([3, 4])
+    add2.right.set_shapes([3, 4])
+
+    ref_shapes = {
+        "left": [3, 4],
+        "right": [3, 4],
+        "final_right": [3, 4],
+        "output": [3, 4],
+        "final_output": [3, 4],
+    }
+
+    check_shapes_semantically(ref_shapes, model4.shapes)
+
+
+def test_comparison_connection__without_model_set_shape():
+    model1 = Model()
+    model2 = Model()
+    model3 = Model()
+    model4 = Model()
+
+    model1 += Add()(left="left", right="right", output=IOKey("output"))
+    model2 += model1(left="left", right="right", output=IOKey("output"))
+    model3 += model2(left="left", right="right", output=IOKey("output"))
+
+    left = IOKey("left")
+    left.set_shapes([3, 4])
+    right = IOKey("right")
+    right.set_shapes([3, 4])
+    final_right = IOKey("final_right")
+    final_right.set_shapes([3, 4])
+
+    model4 += model3(left=left, right=right, output=IOKey("output"))
+    model4 += Add()(right=final_right, output=IOKey("final_output"))
+
+    ref_shapes = {
+        "left": [3, 4],
+        "right": [3, 4],
+        "final_right": [3, 4],
+        "output": [3, 4],
+        "final_output": [3, 4],
+    }
+
+    check_shapes_semantically(ref_shapes, model4.shapes)

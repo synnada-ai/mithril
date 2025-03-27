@@ -670,7 +670,7 @@ def indexer_type_constraint(
 
         updates |= output.set_type(inferred_out_type)
 
-        status = not is_union(output.value_type)
+        status = not is_union(output.edge_type)
     elif input.is_tensor:
         status = True
     return status, updates
@@ -2722,8 +2722,10 @@ def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResul
     output_shape: ShapeRepr = output._temp_shape
     shape_val = shape.value
 
-    assert is_tuple_int(shape_val) or isinstance(
-        shape_val, ToBeDetermined
+    assert (
+        is_tuple_int(shape_val)
+        or is_list_int(shape_val)
+        or isinstance(shape_val, ToBeDetermined)
     ), "Invalid shape value!"
 
     if not isinstance(shape_val, ToBeDetermined):
@@ -3379,7 +3381,9 @@ def to_tensor_constraints(
     if not isinstance(input_val, ToBeDetermined):
         shape: list[int] = []
         if isinstance(input_val, list | tuple):
-            shape, _, typ = process_value(input_val)
+            _shape, _, typ = process_value(input_val)
+            assert _shape is not None
+            shape = _shape
             updates |= output.set_type(Tensor[typ])  # type: ignore
             updates.add(output, update_type=UpdateType.TYPE)
         elif isinstance(input_val, float | int):
@@ -3425,6 +3429,7 @@ def tensor_to_list_constraints(
         shape: list[Uniadic] = []
         if isinstance(output_value, list | tuple):
             shp, *_ = process_value(output_val)
+            assert shp is not None
             shape = [Uniadic(idx) for idx in shp]
 
         updates |= input_shape.inner_match(prefix=shape)
@@ -3464,6 +3469,7 @@ def scalar_item_constraints(
         or type(output._value) is float
         or type(output._value) is tuple
         or type(output._value) is list
+        or type(output._value) is Tensor
     )
 
     assert (
@@ -3487,7 +3493,7 @@ def scalar_item_constraints(
         updates |= output.set_value(input._value[index._value])
         status = True
     elif not isinstance(input._value, ToBeDetermined) and isinstance(
-        output._value, int | float | bool
+        output._value, int | float | bool | Tensor
     ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
@@ -3625,6 +3631,7 @@ def tensor_item_constraints(
 
                 if isinstance(value, Sequence):
                     shp, *_ = process_value(value)
+                    assert shp is not None
                     tensor_reprs.append(ShapeRepr(prefix=[Uniadic(idx) for idx in shp]))
 
                 current_index_unis.append(Uniadic())

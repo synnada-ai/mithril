@@ -15,7 +15,7 @@
 import pytest
 
 from mithril.framework import IOKey, Tensor
-from mithril.models import Buffer, Indexer, Model, Sigmoid
+from mithril.models import Buffer, Connection, Indexer, Model, Sigmoid
 
 
 def test_set_types_1():
@@ -226,3 +226,26 @@ def test_types_iokey_3():
 
     assert buffer3_input.value_type is float
     assert buffer3_output.value_type is float
+
+
+def test_set_types_connection():
+    model = Model()
+    buf_model = Buffer()
+    model += buf_model(input="input", output=IOKey("output"))
+    buf_model.input.set_type(Tensor[int])
+
+    assert model.input.metadata.value_type is int  # type: ignore
+    assert model.output.metadata.value_type is int  # type: ignore
+
+
+def test_set_types_connection_without_model():
+    in_con = Connection()
+    in_con.set_type(Tensor[int])
+
+    model = Model()
+    buf_model = Buffer()
+    model += buf_model(input=in_con, output=IOKey("output"))
+    model.expose_keys(input=in_con)
+
+    assert model.input.metadata.value_type is int  # type: ignore
+    assert model.output.metadata.value_type is int  # type: ignore

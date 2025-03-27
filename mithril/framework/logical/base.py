@@ -19,6 +19,7 @@ from itertools import chain
 from types import UnionType
 from typing import Any, get_origin
 
+from ...types import Constant
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_GIVEN,
@@ -37,7 +38,6 @@ from ..common import (
     ShapeNode,
     ShapeTemplateType,
     ShapeType,
-    StateValue,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
@@ -53,9 +53,6 @@ from ..common import (
 from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel", "BaseKey", "ConnectionData", "ConnectionDataType"]
-
-
-StateValueType = StateValue | MainValueInstance | NullConnection
 
 
 class ConnectionData:
@@ -112,6 +109,8 @@ class ConnectionData:
                 raise ValueError(
                     "Differentiable connection value should be Tensor type!"
                 )
+        if isinstance(value, Constant):
+            value = Tensor(value)
 
         self._name = name
         self._expose = expose
@@ -173,8 +172,45 @@ class ConnectionData:
     def __hash__(self) -> int:
         return hash(id(self))
 
-    def set_differentiability(self, differentiable: bool = True) -> Updates:
-        return self.metadata.set_differentiability(differentiable)
+    def set_differentiability(self, differentiable: bool = True) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_differentiability({self: differentiable})
+        else:
+            self.metadata.set_differentiability(differentiable)
+
+    def set_value(self, value: ScalarValueType | Tensor[int | float | bool]) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_values({self: value})
+        else:
+            self.metadata.set_value(value)
+
+    def set_type(
+        self, value: type | UnionType | ScalarType | type[Tensor[int | float | bool]]
+    ) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_types({self: value})
+        else:
+            self.metadata.set_type(value)
+
+    def set_shapes(self, value: ShapeTemplateType) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.set_shapes({self: value})
+        else:
+            self.metadata.set_type(Tensor[int | float | bool])
+            assert self.metadata.shape is not None
+            repr = create_shape_repr(value)
+            self.metadata.shape.merge(repr.node)
+
+    def expose(self) -> None:
+        if self.model is not None:
+            m = self.model._get_outermost_parent()
+            m.expose_keys(self)
+        else:
+            self._expose = True
 
 
 BaseKey = ConnectionData
@@ -401,9 +437,7 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
-        self.state_connections: dict[
-            ConnectionData, tuple[ConnectionData, StateValueType]
-        ] = {}
+        self.state_connections: dict[ConnectionData, ConnectionData] = {}
 
     @property
     def formula_key(self) -> str | None:
@@ -454,7 +488,9 @@ class BaseModel:
         self,
         input: ConnectionData | str,
         output: ConnectionData | str,
-        initial_value: StateValueType = NOT_GIVEN,
+        initial_value: Tensor[int | float | bool]
+        | MainValueInstance
+        | NullConnection = NOT_GIVEN,
     ) -> None:
         if self.is_frozen:
             raise AttributeError("Frozen model's bind_state_keys is not allowed!")
@@ -465,7 +501,7 @@ class BaseModel:
             raise KeyError("Input connection should be an input key!")
         if self.conns.get_type(out_con) in {KeyType.INPUT, KeyType.LATENT_INPUT}:
             raise KeyError("Output connection should be an output key!")
-        for _out, (_in, _) in self.state_connections.items():
+        for _out, _in in self.state_connections.items():
             if _in.metadata is in_con.metadata or _out.metadata is out_con.metadata:
                 raise KeyError("Binded connections could not be binded again!")
 
@@ -476,8 +512,15 @@ class BaseModel:
             self.conns.set_connection_type(out_con, KeyType.LATENT_OUTPUT)
 
         updates = Updates()
+
+        # Set initial value if given.
+        if not isinstance(initial_value, NullConnection):
+            if isinstance(initial_value, Constant):
+                initial_value = Tensor(initial_value)
+            updates |= in_con.metadata.set_value(initial_value, initial=True)
+
         # Set differentiability of input connection to False.
-        updates |= in_con.set_differentiability(False)
+        updates = in_con.metadata.set_differentiability(False)
         # Merge types.
         updates |= in_con.metadata.set_type(out_con.metadata._type)
         updates |= out_con.metadata.set_type(in_con.metadata._type)
@@ -491,7 +534,7 @@ class BaseModel:
         self.constraint_solver(updates)
 
         # Save state connections.
-        self.state_connections[out_con] = (in_con, initial_value)
+        self.state_connections[out_con] = in_con
 
     def _check_multi_write(
         self,
@@ -1451,12 +1494,13 @@ class BaseModel:
                     raise KeyError(f"Connection {key} is not found in the model.")
 
                 conn_data = self.conns.all[key]
-                updates |= conn_data.set_differentiability(value)
+                updates |= conn_data.metadata.set_differentiability(value)
             elif isinstance(key, ConnectionData):
-                if key not in self.conns.all.values():
+                conn = self.conns.get_con_by_metadata(key.metadata)
+                if conn is None:
                     raise KeyError(f"Connection {key} is not found in the model.")
                 conn_data = key
-                updates |= conn_data.set_differentiability(value)
+                updates |= conn_data.metadata.set_differentiability(value)
 
             if trace:
                 self.assigned_differentiabilities[conn_data] = value
@@ -1570,6 +1614,7 @@ class BaseModel:
         self,
         key: ConnectionData,
         value: MainValueType | Tensor[int | float | bool] | str,
+        initial: bool = False,
     ) -> Updates:
         """
         Set value for the given connection.
@@ -1588,7 +1633,10 @@ class BaseModel:
         if value != TBD:
             self.conns.cins.discard(key)
         # Data is scalar, set the value directly.
-        return key.metadata.set_value(value)
+        updates = key.metadata.set_value(value, initial=initial)
+        if initial is True and not key.metadata._is_valued:
+            raise ValueError("Initial flag can only be set with value.")
+        return updates
 
     def set_values(
         self,
@@ -1597,6 +1645,7 @@ class BaseModel:
         ]
         | None = None,
         /,
+        initial: bool = False,
         **kwargs: Tensor[int | float | bool] | MainValueType | str,
     ) -> None:
         """
@@ -1629,7 +1678,7 @@ class BaseModel:
             # Perform validity check and updates on model.
             if (conn_data := model.conns.get_con_by_metadata(metadata)) is None:
                 raise KeyError("Requires valid key or Connection to set values!")
-            updates |= model._set_value(conn_data, value)
+            updates |= model._set_value(conn_data, value, initial=initial)
 
         # Solve constraints with the updated values.
         model.constraint_solver(updates)

@@ -80,8 +80,8 @@ def check_evaluations(
     # Check gradients.
     if not inference:
         out_grads = {key: backend.ones_like(value) for key, value in outs_1.items()}
-        grads_1 = pm_1.evaluate_gradients(params_1, output_gradients=out_grads)
-        grads_2 = pm_2.evaluate_gradients(params_2, output_gradients=out_grads)
+        _, grads_1 = pm_1.evaluate(params_1, output_gradients=out_grads)
+        _, grads_2 = pm_2.evaluate(params_2, output_gradients=out_grads)
         assert grads_1.keys() == grads_2.keys(), "Gradient keys are not same!"
         for key, grad in grads_1.items():
             assert (

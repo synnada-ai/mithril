@@ -36,7 +36,7 @@ def test_tuple_argument_1():
 
     params = {"left": backend.array(3.0)}
     output_gradients = {"output": backend.array([1.0, 2, 3])}
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([6.0, 7, 8])}
     ref_grads = {"left": backend.array(6.0)}
@@ -94,7 +94,7 @@ def test_tuple_argument_3():
     params = {"left": backend.array([3.0]), "right": backend.array([2.0])}
     output_gradients = {"output": backend.array([[1.0], [1.0]])}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([[6.0], [6.0]])}
     ref_grads = {"left": backend.array([2.0]), "right": backend.array([2.0])}
@@ -253,7 +253,7 @@ def test_list_argument_1():
 
     output_gradients = {"output": backend.array([1.0, 2, 3])}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([6.0, 7, 8])}
 
@@ -314,7 +314,7 @@ def test_list_argument_3():
     params = {"left": backend.array([3.0]), "right": backend.array([2.0])}
     output_gradients = {"output": backend.array([[1.0], [1.0]])}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate(params=params, output_gradients=output_gradients)
 
     ref_outputs = {"output": backend.array([[6.0], [6.0]])}
     ref_grads = {"left": backend.array([2.0]), "right": backend.array([2.0])}

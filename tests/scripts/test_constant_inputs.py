@@ -171,7 +171,7 @@ def assert_all_backends_device_dtype(model: Model, inference: bool = False):
             assert get_array_precision(output, _type) == DtypeBits[dtype.name].value
 
         if not inference:
-            grads = comp_model.evaluate_gradients(
+            _, grads = comp_model.evaluate(
                 output_gradients=outputs,  # type: ignore
                 params=randomized_inputs,
             )
@@ -185,10 +185,10 @@ def assert_all_backends_device_dtype(model: Model, inference: bool = False):
                 assert get_array_precision(grad, _type) == DtypeBits[dtype.name].value
 
         # In final step. we compare used inputs (used inputs are given as input to the
-        # either to comp_model.evaluate() or comp_model.evaluate_gradients()) with their
-        # non-used copies. It is expected that their values are exactly the same. Aim
-        # of this check is to make sure that no in-place changes are occurred in given
-        # inputs.
+        # either to comp_model.evaluate() or comp_model.evaluate(output_gradients=...))
+        #  with their non-used copies. It is expected that their values are exactly the
+        # same. Aim of this check is to make sure that no in-place changes are occurred
+        # in given inputs.
         if device == "cpu" and dtype != ml.bfloat16:  # Numpy does not support bfloat16
             for val1, val2 in zip(
                 randomized_inputs.values(),
@@ -484,9 +484,7 @@ def test_axis():
     expected_result = expected_result ** input["exponent"]
 
     compiled_model.evaluate(input)
-    compiled_model.evaluate_gradients(
-        input, output_gradients={"output": np.random.rand(4, 5, 8)}
-    )
+    compiled_model.evaluate(input, output_gradients={"output": np.random.rand(4, 5, 8)})
     assert (
         backend.array(2.3) == compiled_model.flat_graph.data_store.cached_data["slope"]
     )
@@ -515,9 +513,7 @@ def test_axis_1():
     )
     input = {"base": np.random.rand(4, 5, 8), "exponent": np.random.rand(4, 5, 8)}
     compiled_model.evaluate(input)
-    compiled_model.evaluate_gradients(
-        input, output_gradients={"output": np.random.rand(4, 5, 8)}
-    )
+    compiled_model.evaluate(input, output_gradients={"output": np.random.rand(4, 5, 8)})
     assert type(backend.array(2.3)), type(
         compiled_model.flat_graph.data_store.cached_data["threshold_1"].value  # type: ignore
     )
@@ -807,7 +803,7 @@ def test_static_2():
     output_grads = {"output": np.array([1.0, 1.0])}
     ref_output = {"output": np.array([3.0, 4.0])}
     ref_grads = {"right": np.array(2.0)}
-    outputs, grads = comp_model.evaluate_all(params, output_gradients=output_grads)
+    outputs, grads = comp_model.evaluate(params, output_gradients=output_grads)
     assert_results_equal(ref_output, outputs)
     assert_results_equal(ref_grads, grads)
 
@@ -835,7 +831,7 @@ def test_static_2_set_values():
     output_grads = {"output": np.array([1.0, 1.0])}
     ref_output = {"output": np.array([3.0, 4.0])}
     ref_grads = {"right": np.array(2.0)}
-    outputs, grads = comp_model.evaluate_all(params, output_gradients=output_grads)
+    outputs, grads = comp_model.evaluate(params, output_gradients=output_grads)
     assert_results_equal(ref_output, outputs)
     assert_results_equal(ref_grads, grads)
 
@@ -2110,7 +2106,9 @@ def test_nontensor_gradient():
 
     input = backend.array([[1.0, 2.0, 3.0], [1.0, 4.0, 2.0], [3.0, 2.0, 1.0]])
     in1 = backend.array(1.0)
-    outputs, grads = comp_model.evaluate_all({"input": input, "in1": in1})
+    outputs, grads = comp_model.evaluate(
+        {"input": input, "in1": in1}, output_gradients=True
+    )
     np.testing.assert_allclose(np.array(outputs["final_cost"]), np.array(34.0))
     np.testing.assert_allclose(np.array(outputs["out1"]), np.array([3, 3]))
     np.testing.assert_allclose(
@@ -2160,7 +2158,7 @@ def test_nontensor_gradient_2():
 
     trainable_keys = comp_model.randomize_params() | trainable_keys
     output_grads = {"output": backend.array([1.0, 1.0])}
-    outputs, grads = comp_model.evaluate_all(
+    outputs, grads = comp_model.evaluate(
         params=trainable_keys, output_gradients=output_grads
     )
     np.testing.assert_allclose(np.array(outputs["output"]), np.array([4.0, 4.0]))
@@ -2200,7 +2198,7 @@ def test_numpy_without_shape():
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
     inputs = {"left": backend.array(1.2), "right": backend.array(1.0)}
     comp_model = ml.compile(model=ctx, backend=backend)
-    outputs, grads = comp_model.evaluate_all(inputs)
+    outputs, grads = comp_model.evaluate(inputs, output_gradients=True)
     np.testing.assert_allclose(np.array(outputs["output"]), np.array(2.2))
     np.testing.assert_allclose(np.array(grads["left"]), np.array(1.0))
     np.testing.assert_allclose(np.array(grads["right"]), np.array(1.0))

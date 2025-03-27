@@ -22,7 +22,7 @@ from mithril.models import Add, Buffer, ConstraintSolver, Model, Relu, Sigmoid, 
 
 def test_flatgraph_1():
     graph = FlatGraph(
-        {"input1", "input2"}, {"output"}, ml.JaxBackend(), ConstraintSolver()
+        {"input1", "input2"}, {"output"}, ml.JaxBackend(), ConstraintSolver(), []
     )
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "buffer_output"})
@@ -41,6 +41,7 @@ def test_flatgraph_2():
         {"output1", "output2", "output3", "output4"},
         ml.JaxBackend(),
         ConstraintSolver(),
+        [],
     )
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "output1"})
@@ -64,6 +65,7 @@ def test_flatgraph_3():
         {"output1", "output2", "output3", "output4"},
         ml.JaxBackend(),
         ConstraintSolver(),
+        [],
     )
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Relu().submodel, {"input": "relu_out", "output": "output1"})
@@ -233,7 +235,7 @@ def test_discard_partial_of_sequence():
     )
     assert pm.flat_graph.all_source_keys == {"input1", "input2"}
     assert pm.flat_graph.all_target_keys == {"output1", "output2"}
-    assert list(pm.flat_graph.topological_order) == ["output1", "output2"]
+    assert list(pm.flat_graph.topological_order) == ["output2", "output1"]
 
 
 def test_discard_whole_sequence():

@@ -97,7 +97,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -121,7 +121,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -145,7 +145,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -169,7 +169,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -201,7 +201,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 5e-5, 5e-5)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -235,7 +235,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-4, 1e-4)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -259,7 +259,7 @@ class TestLayers:
         expected_result = o_model(input_ref)
 
         inp = backend.array(input_ref.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-6, 1e-6)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -286,7 +286,7 @@ class TestLayers:
 
         q_in = backend.array(q_ref.numpy())
         k_in = backend.array(k_ref.numpy())
-        res = pm(params, {"q_in": q_in, "k_in": k_in})
+        res = pm.evaluate(params, {"q_in": q_in, "k_in": k_in})
 
         np.testing.assert_allclose(res["q_out"], q_out_ref.detach(), 1e-6, 1e-6)  # type: ignore
         np.testing.assert_allclose(res["k_out"], k_out_ref.detach(), 1e-6, 1e-6)  # type: ignore
@@ -312,7 +312,7 @@ class TestLayers:
         out = o_model(input_ref)
 
         inp = backend.array(input_ref.numpy())
-        res = pm(params, {"input": inp})
+        res = pm.evaluate(params, {"input": inp})
 
         np.testing.assert_allclose(res["mod_1"][0], out[0].shift.detach(), 1e-5, 1e-5)  # type: ignore
         np.testing.assert_allclose(res["mod_1"][1], out[0].scale.detach(), 1e-5, 1e-5)  # type: ignore
@@ -350,7 +350,7 @@ class TestLayers:
         inp = backend.array(input_ref.numpy())
         vec = backend.array(vec_ref.numpy())
         pe = backend.array(pe_ref.numpy())
-        res = pm(params, {"input": inp, "vec": vec, "pe": pe})
+        res = pm.evaluate(params, {"input": inp, "vec": vec, "pe": pe})
 
         np.testing.assert_allclose(res["output"], expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
@@ -360,10 +360,10 @@ class TestLayers:
         num_heads = 24
         mlp_ratio = 4.0
 
-        img_ref = torch.randn(1, 4080, 3072)
-        txt_ref = torch.randn(1, 256, 3072)
+        img_ref = torch.randn(1, 4096, 3072)
+        txt_ref = torch.randn(1, 512, 3072)
         vec_ref = torch.randn(1, 3072)
-        pe_ref = torch.randn(1, 1, 4336, 64, 2, 2)
+        pe_ref = torch.randn(1, 1, 4608, 64, 2, 2)
         o_model = DoubleStreamBlock(hidden_size, num_heads, mlp_ratio)
 
         backend = backend_type()
@@ -372,10 +372,10 @@ class TestLayers:
             double_stream_block(hidden_size, num_heads, mlp_ratio),
             backend=backend,
             shapes={
-                "img": [1, 4080, 3072],
-                "txt": [1, 256, 3072],
+                "img": [1, 4096, 3072],
+                "txt": [1, 512, 3072],
                 "vec": [1, 3072],
-                "pe": [1, 1, 4336, 64, 2, 2],
+                "pe": [1, 1, 4608, 64, 2, 2],
             },
             data_keys={"img", "txt", "vec", "pe"},
             use_short_namings=False,
@@ -389,7 +389,7 @@ class TestLayers:
         txt = backend.array(txt_ref.numpy())
         vec = backend.array(vec_ref.numpy())
         pe = backend.array(pe_ref.numpy())
-        res = pm(params, {"img": img, "txt": txt, "vec": vec, "pe": pe})
+        res = pm.evaluate(params, {"img": img, "txt": txt, "vec": vec, "pe": pe})
 
         np.testing.assert_allclose(res["img_out"], img_out_ref.detach(), 1e-5, 1e-5)  # type: ignore
         np.testing.assert_allclose(res["txt_out"], txt_out_ref.detach(), 1e-5, 1e-5)  # type: ignore
@@ -421,7 +421,7 @@ class TestLayers:
         q = backend.array(q_ref.numpy())
         k = backend.array(k_ref.numpy())
         pe = backend.array(pe_ref.numpy())
-        res = pm({}, {"xq": q, "xk": k, "freqs_cis": pe})
+        res = pm.evaluate({}, {"xq": q, "xk": k, "freqs_cis": pe})
 
         np.testing.assert_allclose(res["xq_out"], expected_res[0].detach(), 1e-6, 1e-6)  # type: ignore
         np.testing.assert_allclose(res["xk_out"], expected_res[1].detach(), 1e-6, 1e-6)  # type: ignore
@@ -443,7 +443,7 @@ class TestLayers:
         )
 
         input = backend.array(input_ref.numpy())
-        res = pm({}, {"input": input})
+        res = pm.evaluate({}, {"input": input})
 
         np.testing.assert_allclose(res["output"], expected_res, 1e-4, 1e-4)  # type: ignore
 
@@ -468,7 +468,7 @@ class TestLayers:
         expected_result = o_model(torch_inp)
 
         inp = backend.array(torch_inp.numpy())
-        res = pm(params, {"input": inp})["output"]
+        res = pm.evaluate(params, {"input": inp})["output"]
         np.testing.assert_allclose(res, expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
     @pytest.mark.parametrize("backend_type", installed_backends)
@@ -497,7 +497,7 @@ class TestLayers:
 
         input = backend.array(input_ref.numpy())
         vec = backend.array(vec_ref.numpy())
-        res = pm(params, {"input": input, "vec": vec})
+        res = pm.evaluate(params, {"input": input, "vec": vec})
 
         np.testing.assert_allclose(res["output"], expected_result.detach(), 1e-5, 1e-5)  # type: ignore
 
@@ -522,7 +522,7 @@ class TestLayers:
         expected_result = torch_rope(pos_ref, dim, theta)
 
         pos = backend.array(pos_ref.numpy())
-        res = pm({}, {"input": pos})
+        res = pm.evaluate({}, {"input": pos})
 
         np.testing.assert_allclose(res["output"], expected_result, rtol=1e-5, atol=1e-5)  # type: ignore
 
@@ -548,7 +548,7 @@ class TestLayers:
         expected_result = o_model(input_ref)
 
         input = backend.array(input_ref.numpy())
-        res = pm({}, {"input": input})
+        res = pm.evaluate({}, {"input": input})
 
         np.testing.assert_allclose(res["output"], expected_result, rtol=1e-5, atol=1e-5)  # type: ignore
 
@@ -582,7 +582,7 @@ class TestLayers:
         k = backend.array(k_ref.numpy())
         v = backend.array(v_ref.numpy())
         pe = backend.array(pe_ref.numpy())
-        res = pm({}, {"q": q, "k": k, "v": v, "pe": pe})
+        res = pm.evaluate({}, {"q": q, "k": k, "v": v, "pe": pe})
 
         np.testing.assert_allclose(res["output"], expected_res.detach(), 1e-5, 1e-5)  # type: ignore
 

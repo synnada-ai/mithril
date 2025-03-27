@@ -37,11 +37,10 @@ class Operator(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **keys: ConnectionData,
+        **keys: ConnectionData | IOHyperEdge,
     ) -> None:
         super().__init__(name, formula_key)
 
-        self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.value_shape
@@ -54,7 +53,10 @@ class Operator(BaseModel):
         is_diff = False
         output_data: IOHyperEdge | None = None
         for key, conn_data in keys.items():
-            edge = conn_data.metadata
+            if isinstance(conn_data, IOHyperEdge):
+                edge = conn_data
+            else:
+                edge = conn_data.metadata
             if edge.is_tensor:
                 assert isinstance(edge._value, Tensor)
                 if key in shapes:
@@ -71,7 +73,7 @@ class Operator(BaseModel):
                 output_data = edge
             else:
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
-                is_diff |= not edge.is_non_diff
+                is_diff |= edge.differentiable is not False
         if isinstance(output_data, IOHyperEdge) and isinstance(
             output_data.edge_type, Tensor
         ):
