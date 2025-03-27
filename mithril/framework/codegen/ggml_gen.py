@@ -134,6 +134,7 @@ class GGMLCodeGen(CGen):
         formula_name = op.formula_key
         if context == "eval_grad":
             formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
+
         arg_exprs: list[c_ast.Expr] = []
         if formula_name in self.pre_processors:
             op, arg_exprs = self.pre_processors[formula_name](op, args, context)
