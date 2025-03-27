@@ -36,7 +36,7 @@ int *broadcastStride(const Array *t1, const int *shape, const int ndim)
     if (t1->ndim == 1) 
     {
         // Handle 1D arrays
-        int target_dim = ndim - 1; // Target the last dimension of the output
+        int target_dim = ndim - 1; 
         int input_size = t1->shape[0];
         int output_size = shape[target_dim];
 
@@ -85,14 +85,6 @@ void binary_array_iterator(const Array *left, const Array *right, Array *out, fl
         // TODO: Use loc only when the Tensor is not contiguous
         size_t left_idx = loc(i, out->shape, left_b_strides, out->ndim);
         size_t right_idx = loc(i, out->shape, right_b_strides, out->ndim);
-        if (left_idx >= left->size) {
-            printf("Left index out of bounds: %zu >= %d\n", left_idx, left->size);
-            exit(1);
-        }
-        if (right_idx >= right->size) {
-            printf("Right index out of bounds: %zu >= %d\n", right_idx, right->size);
-            exit(1);
-        }
         out->data[i] = op(left_data[left_idx], right_data[right_idx]);
     }
 

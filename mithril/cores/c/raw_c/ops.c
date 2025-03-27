@@ -208,25 +208,36 @@ void reduce_sum(const Array *input, Array *output, const int *axes, int num_axes
 
 void relu(Array *output, const Array *input) 
 {
-    // Compute the broadcasted strides for input relative to the output's shape
-    int *input_b_strides = broadcastStride(input, output->shape, output->ndim);
     const float *input_data = input->data;
     float *output_data = output->data;
 
-    // Iterate over each element in the output array
     for (size_t i = 0; i < output->size; i++) {
-        // Find the corresponding index in the input array considering broadcasting
-        size_t input_idx = loc(i, output->shape, input_b_strides, output->ndim);
-        output_data[i] = MAX(0.0f, input_data[input_idx]);
+        output_data[i] = MAX(0.0f, input_data[i]);
     }
 
-    free(input_b_strides);
 }
 
 void squared_error(Array *output, Array *input, Array *target) 
 {
     binary_array_iterator(input, target, output, squared_diff);
 }
+
+void reduce_mean(Array *output, Array *input, const int *axes, int num_axes) 
+{
+    size_t N = 1;
+    if (axes == NULL) {
+        N = input->size;
+    } else {
+        for (int i=0; i<num_axes; i++) {
+            N *= input->shape[axes[i]];
+        }
+    }
+    reduce_sum(input, output, axes, num_axes);
+    for (size_t i=0; i<output->size; i++) {
+        output->data[i] /= N;
+    }
+}
+
 
 void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right, Array *leftGradient, Array *rightGradient) 
 {
@@ -264,22 +275,6 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
             free(reduce_axes);
         }
         
-    }
-}
-
-void reduce_mean(Array *output, Array *input, const int *axes, int num_axes) 
-{
-    size_t N = 1;
-    if (axes == NULL) {
-        N = input->size;
-    } else {
-        for (int i=0; i<num_axes; i++) {
-            N *= input->shape[axes[i]];
-        }
-    }
-    reduce_sum(input, output, axes, num_axes);
-    for (size_t i=0; i<output->size; i++) {
-        output->data[i] /= N;
     }
 }
 
@@ -329,6 +324,7 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
     free(temp->strides);
     free(temp);
 }
+
 void transpose_grad(const Array *gradient, int idx, Array *output , const Array *left, const Array *right, Array *leftGradient, void * axes)
 {
     if (axes == NULL) {
@@ -409,7 +405,7 @@ void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input
     free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, const int *axes, Array * keepdim, Array *input_grad, int num_axes, void * a) 
+void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, const int *axes, bool keepdim, Array *input_grad, int num_axes, bool keepdim_grad) 
 {
     // Target is not differentiable
     if (idx != 0) 

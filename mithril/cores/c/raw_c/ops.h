@@ -16,6 +16,7 @@
 #define OPS_H
 #include "array.h"
 #include <assert.h>
+#include <stdbool.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -37,6 +38,6 @@ void relu_grad(const Array *output_grad, int idx, Array *output, Array *input, A
 void squared_error(Array *output, Array *input, Array *target) ;
 void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input, Array *target, Array *input_grad, Array *target_grad) ;
 void reduce_mean(Array *output, Array *input, const int *axes, int num_axes);
-void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, const int *axes, Array * keepdim, Array *input_grad, int num_axes, void * a);
+void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, const int *axes, bool keepdim, Array *input_grad, int num_axes, bool keepdim_grad);
 
 #endif
