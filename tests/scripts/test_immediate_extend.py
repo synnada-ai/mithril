@@ -402,3 +402,30 @@ def test_extend_merge_while_provisional_model_created():
     _model |= (add := Add())(pow.output, 4)
     _model |= Buffer()(add.output)
     assert_models_equal(model, _model)
+
+
+def test_extend_error_by_constraint_solver():
+    model = Model()
+    buff = Buffer()
+    model |= buff(input="input1")
+    model |= Add()(buff.output, IOKey(shape=[4, 4]))
+    with pytest.raises(ValueError) as err:
+        t = buff.input.T
+        t.set_shapes([3, 4, 5])
+    assert str(err.value) == "Possible values mismatch!"
+
+
+def test_extend_error_by_constraint_solver_nested_model():
+    model = Model()
+    buff = Buffer()
+    model |= buff(input="input1")
+    model |= Add()(buff.output, IOKey(shape=[4, 4]))
+    parent_m = Model()
+    parent_m |= model
+    grand_parent_m = Model()
+    grand_parent_m |= parent_m
+
+    with pytest.raises(ValueError) as err:
+        t = buff.input.T
+        t.set_shapes([3, 4, 5])
+    assert str(err.value) == "Possible values mismatch!"

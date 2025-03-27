@@ -112,7 +112,11 @@ def create_extracted_model(
         if isinstance(c, str):
             raise ValueError("Connection key is not allowed in connections!")
         if isinstance(c, ConnectionData) and c.model is not None:
-            m = c.model._get_outermost_parent()
+            m = c.model
+            if isinstance(m.provisional_source, BaseModel):
+                m = m.provisional_source
+            m = m._get_outermost_parent()
+
             if not m.is_frozen and m.provisional_source is False:
                 if main_model is not None and main_model is not m:
                     raise ValueError(
@@ -120,7 +124,6 @@ def create_extracted_model(
                     )
                 main_model = m
             elif m not in new_models:
-                # Add provisional_model no need to create if there exists one.
                 if provisional_model is None and m.provisional_source is not False:
                     provisional_model = m
                 new_models[m] = c
@@ -136,6 +139,7 @@ def create_extracted_model(
             provisional_model.provisional_source = main_model
             main_model.provisional_model = provisional_model
             provisional_model.enforce_jit = main_model.enforce_jit
+            provisional_model.constraint_solver = main_model.constraint_solver
         else:
             provisional_model.provisional_source = True
 
