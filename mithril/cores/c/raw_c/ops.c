@@ -137,8 +137,8 @@ void matrix_multiplication(Array *output, const Array *left, const Array *right)
 
     #pragma omp parallel for
     for (size_t b = 0; b < batch_size; b++) {
-        size_t l_offset = get_broadcast_offset(b, lshape, lstrides, max_ndim-2);
-        size_t r_offset = get_broadcast_offset(b, rshape, rstrides, max_ndim-2);
+        size_t l_offset = loc(b, lshape, lstrides, max_ndim-2);
+        size_t r_offset = loc(b, rshape, rstrides, max_ndim-2);
 
         for (int i = 0; i < M; i++) {
             for (int j = 0; j < N; j++) {
@@ -233,23 +233,36 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
     if (idx == 0) {
         // Determine broadcasted dimensions for left
         int ndim_diff = gradient->ndim - left->ndim;
-        int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
-        for (int i = 0; i < ndim_diff; i++) {
-            reduce_axes[i] = i;
+        if (ndim_diff == 0 )
+        {
+            add(leftGradient, gradient, leftGradient);
+        }
+        else{
+            int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
+            for (int i = 0; i < ndim_diff; i++) {
+                reduce_axes[i] = i;
+            }
+            
+            reduce_sum(gradient, leftGradient, reduce_axes, ndim_diff);
+            free(reduce_axes);
         }
         
-        reduce_sum(gradient, leftGradient, reduce_axes, ndim_diff);
-        free(reduce_axes);
     } else {
         // Determine broadcasted dimensions for right
         int ndim_diff = gradient->ndim - right->ndim;
-        int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
-        for (int i = 0; i < ndim_diff; i++) {
-            reduce_axes[i] = i;
+        if (ndim_diff == 0 )
+        {
+            add(rightGradient, gradient, rightGradient);
         }
-        
-        reduce_sum(gradient, rightGradient, reduce_axes, ndim_diff);
-        free(reduce_axes);
+        else{
+            int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
+            for (int i = 0; i < ndim_diff; i++) {
+                reduce_axes[i] = i;
+            }
+            
+            reduce_sum(gradient, rightGradient, reduce_axes, ndim_diff);
+            free(reduce_axes);
+        }
         
     }
 }
@@ -269,32 +282,47 @@ void reduce_mean(Array *output, Array *input, const int *axes, int num_axes)
         output->data[i] /= N;
     }
 }
+
 void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, Array *right, Array *leftGradient, Array *rightGradient)
 {
     Array *temp;
     if (idx == 0) {
         temp = create_full_struct(0.0f, gradient->ndim, gradient->shape);
-        binary_array_iterator(gradient, right, temp, multiply_lambda);
         // Determine broadcasted dimensions for left
         int ndim_diff = gradient->ndim - left->ndim;
-        int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
-        for (int i = 0; i < ndim_diff; i++) 
-            reduce_axes[i] = i;
-        
-        reduce_sum(temp, leftGradient, reduce_axes, ndim_diff);
-        free(reduce_axes);
-        //add(leftGradient, temp, leftGradient);
+        if (ndim_diff == 0)
+        {
+            multiplication(temp, gradient, right);
+            add(leftGradient, temp, leftGradient);
+        }
+        else{
+            binary_array_iterator(gradient, right, temp, multiply_lambda);
+            int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
+            for (int i = 0; i < ndim_diff; i++) 
+                reduce_axes[i] = i;
+            
+            reduce_sum(temp, leftGradient, reduce_axes, ndim_diff);
+            free(reduce_axes);
+            //add(leftGradient, temp, leftGradient);
+        }
     } else {
         temp = create_full_struct(0.0f, gradient->ndim, gradient->shape);
-        binary_array_iterator(gradient, left, temp, multiply_lambda);
-        // Determine broadcasted dimensions for right
         int ndim_diff = gradient->ndim - right->ndim;
-        int *reduce_axes = malloc(ndim_diff * sizeof(int));
-        for (int i = 0; i < ndim_diff; i++) 
-            reduce_axes[i] = i;
-        
-        reduce_sum(temp, rightGradient, reduce_axes, ndim_diff);
-        free(reduce_axes);
+        if (ndim_diff == 0)
+        {
+            multiplication(temp, gradient, left);
+            add(rightGradient, temp, rightGradient);
+        }
+        else{
+            binary_array_iterator(gradient, left, temp, multiply_lambda);
+            // Determine broadcasted dimensions for right
+            int *reduce_axes = malloc(ndim_diff * sizeof(int));
+            for (int i = 0; i < ndim_diff; i++) 
+                reduce_axes[i] = i;
+            
+            reduce_sum(temp, rightGradient, reduce_axes, ndim_diff);
+            free(reduce_axes);
+        }
     }
     free(temp->data);
     free(temp->shape);
@@ -439,9 +467,9 @@ void matrix_multiplication_grad(const Array *gradient, int idx, Array *output ,c
     #pragma omp parallel for
     // Iterate over each broadcasted batch.
     for (int b = 0; b < batch_size; b++) {
-        size_t left_base_offset = get_broadcast_offset(b, left->shape, left->strides, left_batch_ndim);
-        size_t right_base_offset = get_broadcast_offset(b, right->shape, right->strides, right_batch_ndim);
-        size_t gradient_base_offset = get_broadcast_offset(b, gradient->shape, gradient->strides, gradient_batch_ndim);
+        size_t left_base_offset = loc(b, left->shape, left->strides, left_batch_ndim);
+        size_t right_base_offset = loc(b, right->shape, right->strides, right_batch_ndim);
+        size_t gradient_base_offset = loc(b, gradient->shape, gradient->strides, gradient_batch_ndim);
 
         if (idx == 0) {
             // --- Compute gradient for Left ---

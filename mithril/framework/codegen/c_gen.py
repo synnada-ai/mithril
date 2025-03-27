@@ -133,7 +133,7 @@ class CGen(CodeGen[PyArray]):
 
         so_file_path = self.file_path.replace(".c", ".so")
 
-        default_compile_flags = ["cc", self.file_path, "-shared", "-fPIC"]
+        default_compile_flags = ["cc", self.file_path, "-shared", "-fPIC", "-g"]
         if compile_flags:
             default_compile_flags = compile_flags
 
@@ -312,10 +312,11 @@ class CGen(CodeGen[PyArray]):
                         ctypes.POINTER(self.backend.get_struct_cls()),
                     )
                     for key in self.determined_struct_keys["eval_grad_input_keys"]
-                    if key != self.pm.flat_graph.output_dict[FinalCost]
+                    if (FinalCost not in self.pm._output_keys or key != self.pm.flat_graph.output_dict[FinalCost])
                     if self._get_tensor_shape(key) is not None
                 }
             )
+            
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
 
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)

@@ -27,10 +27,14 @@ typedef void (*Op)(float *output, float input);
 
 int *broadcastStride(const Array *t1, const int *shape, const int ndim) 
 {
+    int diff = ndim - t1->ndim;
+    int *oldStrides = t1->strides;
     int *newStrides = (int *)malloc(ndim * sizeof(int));
-    memset(newStrides, 0, ndim * sizeof(int));
 
-    if (t1->ndim == 1) {
+    for (size_t i = 0; i < ndim; i++)
+        newStrides[i] = 0;
+    if (t1->ndim == 1) 
+    {
         // Handle 1D arrays
         int target_dim = ndim - 1; // Target the last dimension of the output
         int input_size = t1->shape[0];
@@ -41,25 +45,17 @@ int *broadcastStride(const Array *t1, const int *shape, const int ndim)
         } else {
             newStrides[target_dim] = t1->strides[0];
         }
-    } else {
-        int diff = ndim - t1->ndim;
-        for (int j = 0; j < t1->ndim; j++) {
-            int target_dim = j + diff;
-            int input_dim_size = t1->shape[j];
-            int output_dim_size = shape[target_dim];
-
-            if (input_dim_size == output_dim_size) {
-                newStrides[target_dim] = t1->strides[j];
-            } else if (input_dim_size == 1) {
-                newStrides[target_dim] = (output_dim_size > 1) ? 0 : t1->strides[j];
-            } else {
-                fprintf(stderr, "Invalid broadcast from shape %d to %d\n", input_dim_size, output_dim_size);
-                free(newStrides);
-                exit(EXIT_FAILURE);
-            }
-
+    } 
+    else 
+    {
+        for (size_t i = diff; i < t1->ndim; i++)
+        {
+            if (shape[i] == 1 || t1->shape[i - diff] == 1)
+                newStrides[i] = 0;
+            else
+                newStrides[i] = oldStrides[i - diff];
         }
-}
+    }
     return newStrides;
 }
 
@@ -211,19 +207,6 @@ int* compute_strides(const int *shape, int ndim)
         strides[i] = strides[i + 1] * shape[i + 1];
     }
     return strides;
-}
-
-size_t get_broadcast_offset(size_t b_idx, const int *shape, const int *strides, int num_dims) 
-{
-    size_t offset = 0;
-    size_t temp_idx = b_idx;
-    for (int i = 0; i < num_dims; i++) {
-        int dim_size = shape[i];
-        size_t coord = temp_idx % dim_size;
-        offset += coord * strides[i]; // stride=0 for broadcasted dims
-        temp_idx /= dim_size;
-    }
-    return offset;
 }
 
 static int prod(const int *arr, int len) 
