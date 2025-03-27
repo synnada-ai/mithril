@@ -15,10 +15,13 @@
 #ifndef MITHRIL_GGML_UTILS_H
 #define MITHRIL_GGML_UTILS_H
 
+int accumulate_grads_helper(struct ggml_tensor * gradient, struct ggml_tensor * input);
+struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_tensor * gradient, struct ggml_tensor * input);
+
 #include "ggml/include/ggml.h"
 #include "ops.h"
 
-struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_tensor * gradient, struct ggml_tensor * input, struct ggml_tensor * cache)
+struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_tensor * gradient, struct ggml_tensor * input)
 {
     struct ggml_tensor * res;
     //printf("%d, %d", ggml_n_dims(gradient), ggml_n_dims(input));
@@ -72,16 +75,6 @@ int accumulate_grads_helper(struct ggml_tensor * gradient, struct ggml_tensor * 
     }
 
     return axes;
-}
-
-
-int ggml_n_dims_(const struct ggml_tensor * tensor) {
-    for (int i = GGML_MAX_DIMS - 1; i >= 1; --i) {
-        if (tensor->ne[i] > 1) {
-            return i + 1;
-        }
-    }
-    return 1;
 }
 
 #endif

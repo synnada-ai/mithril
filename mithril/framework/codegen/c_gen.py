@@ -312,11 +312,14 @@ class CGen(CodeGen[PyArray]):
                         ctypes.POINTER(self.backend.get_struct_cls()),
                     )
                     for key in self.determined_struct_keys["eval_grad_input_keys"]
-                    if (FinalCost not in self.pm._output_keys or key != self.pm.flat_graph.output_dict[FinalCost])
+                    if (
+                        FinalCost not in self.pm._output_keys
+                        or key != self.pm.flat_graph.output_dict[FinalCost]
+                    )
                     if self._get_tensor_shape(key) is not None
                 }
             )
-            
+
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
 
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)
@@ -501,7 +504,11 @@ class CGen(CodeGen[PyArray]):
             for idx in range(len(inputs)):
                 if not self._has_grad(inputs[idx]):
                     continue
-
+                if (
+                    FinalCost in self.pm.flat_graph.output_dict
+                    and output_key == self.pm.flat_graph.output_dict[FinalCost]
+                ):
+                    output_key = FinalCost
                 fn_inputs: list[str | int] = [
                     output_key + self.BACKWARD_FN_SUFFIX,
                     idx,
@@ -536,16 +543,14 @@ class CGen(CodeGen[PyArray]):
                     and check_repr_inequality(in_shape, out_shape)
                     and not self.configs.USE_OUTPUT_AS_INPUT
                 ):
-                    p_call = self.create_primitive_call(
+                    p_call = c_ast.Call(
                         "accumulate_grads",
                         [
+                            "eval_grad_static_ctx",
                             p_call,
                             self.create_key_ref(inputs[idx], context="eval_grad"),
-                            self.create_key_ref(inputs[idx], context="eval_grad"),
                         ],
-                        context="eval_grad",
                     )
-
                 p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
                     inputs[idx] + self.BACKWARD_FN_SUFFIX, p_call, context="eval_grad"
                 )

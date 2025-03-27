@@ -131,10 +131,9 @@ class GGMLCodeGen(CGen):
     def create_primitive_call(
         self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> c_ast.Expr:
-        formula_name = op.formula_key
+        formula_name = op.formula_key if isinstance(op, Operator) else op
         if context == "eval_grad":
             formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
-
         arg_exprs: list[c_ast.Expr] = []
         if formula_name in self.pre_processors:
             op, arg_exprs = self.pre_processors[formula_name](op, args, context)
@@ -213,8 +212,7 @@ class GGMLCodeGen(CGen):
             if shape is not None:
                 tensor = c_ast.Call(
                     f"ggml_new_tensor_{len(shape)}d",
-                    [ctx_name, "GGML_TYPE_F32"]
-                    + [str(size) for size in shape],
+                    [ctx_name, "GGML_TYPE_F32"] + [str(size) for size in shape],
                 )
                 init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))  # type: ignore
 

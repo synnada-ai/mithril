@@ -173,7 +173,7 @@ int* pad_shape(const Array *arr, int target_ndim)
         exit(EXIT_FAILURE);
     }
     int offset = target_ndim - arr->ndim;
-    
+
     // Initialize leading dimensions to 1 for broadcasting
     for(int i=0; i<offset; i++) {
         shape[i] = 1;

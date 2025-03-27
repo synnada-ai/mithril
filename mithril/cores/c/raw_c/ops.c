@@ -71,10 +71,11 @@ void scalar_subtract(Array *output, Array *input, float scalar)
     }
 }
 
-void transpose(Array *output, const Array *input, void *axes) 
+void transpose(Array *output, const Array *input, void *axes)
 {
     if (!axes) {
         // Default 2D transpose
+        // TODO: Currently only support 2D, ND support should be added.
         int m = input->shape[0], n = input->shape[1];
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
@@ -88,10 +89,10 @@ void transpose(Array *output, const Array *input, void *axes)
         int *axes_arr = (int *)axes;
         int *inv_axes = malloc(input->ndim * sizeof(int));
         invert_permutation(axes_arr, inv_axes, input->ndim);
-        
+
         // Recompute output strides based on transposed axes
         output->strides = compute_strides(output->shape, output->ndim);
-        
+
         // Copy data using inverse axes
         for (size_t i=0; i<input->size; i++) {
             size_t out_idx = 0;
@@ -192,13 +193,11 @@ void reduce_sum(const Array *input, Array *output, const int *axes, int num_axes
             int dim_size = input->shape[d];
             int idx = temp % dim_size;
             temp /= dim_size;
-            
             if (!reduce_mask[d]) {
                 out_idx += idx * out_stride;
                 out_stride *= output->shape[d];
             }
         }
-        
         output->data[out_idx] += input->data[i];
     }
 
@@ -253,11 +252,9 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
             for (int i = 0; i < ndim_diff; i++) {
                 reduce_axes[i] = i;
             }
-            
             reduce_sum(gradient, leftGradient, reduce_axes, ndim_diff);
             free(reduce_axes);
         }
-        
     } else {
         // Determine broadcasted dimensions for right
         int ndim_diff = gradient->ndim - right->ndim;
@@ -270,11 +267,9 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
             for (int i = 0; i < ndim_diff; i++) {
                 reduce_axes[i] = i;
             }
-            
             reduce_sum(gradient, rightGradient, reduce_axes, ndim_diff);
             free(reduce_axes);
         }
-        
     }
 }
 
@@ -295,7 +290,6 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
             int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
             for (int i = 0; i < ndim_diff; i++) 
                 reduce_axes[i] = i;
-            
             reduce_sum(temp, leftGradient, reduce_axes, ndim_diff);
             free(reduce_axes);
             //add(leftGradient, temp, leftGradient);
@@ -314,7 +308,6 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
             int *reduce_axes = malloc(ndim_diff * sizeof(int));
             for (int i = 0; i < ndim_diff; i++) 
                 reduce_axes[i] = i;
-            
             reduce_sum(temp, rightGradient, reduce_axes, ndim_diff);
             free(reduce_axes);
         }
@@ -410,7 +403,6 @@ void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, 
     // Target is not differentiable
     if (idx != 0) 
         return;
-    
     size_t N;
     if (axes == NULL) {
         N = input->size;
