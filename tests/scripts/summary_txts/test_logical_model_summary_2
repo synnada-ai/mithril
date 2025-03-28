@@ -5,9 +5,6 @@ Model Name        |                                   Model Keys
                   |             Keys      : Shapes           : Connections           
 =====================================================================================
 Convolution2D_0   |   Inputs  : weight    : [ 4, u1,  4,  4] : '$weight_0'           
-                  |             $start    :               -- : -2                    
-                  |             $stop     :               -- : None                  
-                  |             $step     :               -- : None                  
                   |             padding   :               -- : (0, 0)                
                   |             stride    :               -- : (1, 1)                
                   |             dilation  :               -- : (1, 1)                
@@ -21,9 +18,6 @@ Relu              |   Inputs  : input     : [u2,  4, u5, u6] : Convolution2D_0.o
                   |   Outputs : output    : [u2,  4, u5, u6] : Convolution2D_1.input 
 -------------------------------------------------------------------------------------
 Convolution2D_1   |   Inputs  : weight    : [ 4,  4,  4,  4] : '$weight_1'           
-                  |             $start    :               -- : -2                    
-                  |             $stop     :               -- : None                  
-                  |             $step     :               -- : None                  
                   |             padding   :               -- : (0, 0)                
                   |             stride    :               -- : (1, 1)                
                   |             dilation  :               -- : (1, 1)                
@@ -44,7 +38,6 @@ Flatten           |   Inputs  : input     : [u2,  4, u7, u8] : LeakyRelu.output
                   |   Outputs : output    :         [u2, u9] : Linear.input          
 -------------------------------------------------------------------------------------
 Linear            |   Inputs  : weight    :         [ 1, u9] : '$weight_2'           
-                  |             $axes     :               -- : None                  
                   |             input     :         [u2, u9] : Flatten.output        
                   |             bias      :             [ 1] : '$bias_2'             
                   |   ---------------------------------------------------------------

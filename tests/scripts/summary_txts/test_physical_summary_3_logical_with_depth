@@ -44,7 +44,6 @@ RBFKernel    |   Inputs  : input1  : [u1, u2] : float              : 'input1'
              |                                                       'kernel'        
 -------------------------------------------------------------------------------------
 Linear       |   Inputs  : weight  : [ 1, u3] : float              : 'weight'        
-             |             $axes   :       -- : NoneType           : None            
              |             input   : [u1, u3] : float              : RBFKernel.output
              |             bias    :     [ 1] : float              : 'bias'          
              |   --------------------------------------------------------------------
