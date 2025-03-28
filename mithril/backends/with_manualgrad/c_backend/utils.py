@@ -22,7 +22,7 @@ from ....cores.c.raw_c.array import (
     to_c_float_array,
     to_c_int_array,
 )
-from ....cores.c.raw_c.raw_c_definitons import Array, lib
+from ....cores.c.raw_c.definitons import Array, lib
 
 CODEGEN_CONFIG = CGenConfig()
 

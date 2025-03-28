@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from numbers import Real
 
 from .ggml.ggml_core import ggml_struct
-from .raw_c.raw_c_definitons import Array, lib
+from .raw_c.definitons import Array, lib
 
 
 class PyArray:
