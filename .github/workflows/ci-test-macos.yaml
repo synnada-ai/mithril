@@ -4,23 +4,66 @@ on:
     branches: [ dev, main ]
   pull_request:
     branches: [ dev, main ]
+  workflow_dispatch: 
+  
 env:
   CI: true
 jobs:
+
+  pre_ci_checks:
+    runs-on: self-hosted
+    outputs:
+      cond_output: ${{ steps.contributors.outputs.cond }}
+    steps:
+    
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check contributors
+        id: contributors
+        run: | 
+          EVENT_NAME=${{ github.event_name }}
+          if [ "${EVENT_NAME}" == "pull_request" ]; then
+            USERNAME=${{ github.actor }}
+            TRUSTED=$(yq -r '.trusted_contributors[].username' .github/contributors.yml | grep -Fxq "$USERNAME" && echo "true" || echo "false")
+            COND="$TRUSTED"
+          else
+            COND="true"
+          fi
+          echo "cond=$COND" >> $GITHUB_OUTPUT
+
+      - name: Clear cache if large
+        run: |
+          MAX_SIZE_GB=20
+
+          CONDA_PKGS_DIR=$(conda info --base)/pkgs
+          CURRENT_SIZE_GB=$(du -s "$CONDA_PKGS_DIR" | awk '{print $1 / 1024 / 1024}')
+
+          if (( $(echo "$CURRENT_SIZE_GB > $MAX_SIZE_GB" | bc -l) )); then
+              conda clean --all -y
+          fi
+  
+
   build:
-    runs-on: macos-15-xlarge
+    runs-on: self-hosted
+    needs: pre_ci_checks
     strategy:
       matrix:
         python-version: [3.12]
+    if: needs.pre_ci_checks.outputs.cond_output == 'true'
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
         with:
           submodules: 'recursive'
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
+
+      - name: Create Conda ennvironment with ${{ matrix.python-version }}
+        run: |
+          
+          conda create -n mithril-test-ci python=${{ matrix.python-version }} -y
+          source activate base
+          source activate mithril-test-ci
+
       - name: Make compile scripts executable
         run: |
           chmod +x ./mithril/cores/c/raw_c/compile.sh
@@ -52,7 +95,12 @@ jobs:
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}      
+          token: ${{ secrets.CODECOV_TOKEN }}    
+      - name: Deactivate and remove environment
+        run: |
+          source activate base
+          conda remove -n mithril-test-ci --all -y
+
 
   on_failure:
     needs: build
@@ -68,3 +116,17 @@ jobs:
         run: |
           gh pr review ${{ github.event.pull_request.number }} -r -b "Tests are failed. Please review the PR."
           exit 1
+
+  deactivate_and_delete_environment:
+    needs: build
+    runs-on: self-hosted
+    env:
+      GH_TOKEN: ${{ github.token }}
+    if: ${{ failure() }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: remove conda environment
+        run: |
+          source activate base
+          conda remove -n mithril-test-ci --all -y
