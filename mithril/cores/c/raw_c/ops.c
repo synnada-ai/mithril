@@ -221,17 +221,17 @@ void squared_error(Array *output, Array *input, Array *target)
     binary_array_iterator(input, target, output, squared_diff);
 }
 
-void reduce_mean(Array *output, Array *input, const int *axes, int num_axes) 
+void reduce_mean(Array *output, Array *input, Array *axes, void *num_axes) 
 {
     size_t N = 1;
     if (axes == NULL) {
         N = input->size;
     } else {
         for (int i=0; i<num_axes; i++) {
-            N *= input->shape[axes[i]];
+            N *= input->shape[(int) axes->data[i]];
         }
     }
-    reduce_sum(input, output, axes, num_axes);
+    reduce_sum(input, output, axes, input->ndim);
     for (size_t i=0; i<output->size; i++) {
         output->data[i] /= N;
     }
@@ -398,7 +398,7 @@ void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input
     free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, const int *axes, bool keepdim, Array *input_grad, int num_axes, bool keepdim_grad) 
+void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *input_grad, void *num_axes, bool keepdim_grad) 
 {
     // Target is not differentiable
     if (idx != 0) 
@@ -409,7 +409,7 @@ void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, 
     } else {
         N = 1;
         for (int i=0; i<num_axes; i++) {
-            N *= input->shape[axes[i]];
+            N *= input->shape[(int) axes->data[i]];
         }
     }
 
