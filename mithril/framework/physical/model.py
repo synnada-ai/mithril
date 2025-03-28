@@ -228,7 +228,7 @@ class PhysicalModel(GenericDataType[DataType]):
             output = Operator.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
 
-            self._infer_differentiability(p_model, model_data)
+            self._infer_differentiability(p_model, model_data, updates)
             for inner_key in p_model.external_keys:
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
@@ -454,7 +454,7 @@ class PhysicalModel(GenericDataType[DataType]):
         return self._input_keys
 
     def _infer_differentiability(
-        self, p_model: Operator, model_data: dict[str, IOHyperEdge]
+        self, p_model: Operator, model_data: dict[str, IOHyperEdge], updates: Updates
     ) -> None:
         # Infer output differentiability only for the models
         # that have a Tensor type output.
@@ -468,7 +468,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         diff = p_model.infer_differentiability(*input_diffs)
         if diff is not None:
-            output_edge.set_differentiability(diff)
+            updates |= output_edge.set_differentiability(diff)
 
     def randomize_params(
         self,
