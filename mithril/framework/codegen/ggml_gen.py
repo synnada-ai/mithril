@@ -131,10 +131,9 @@ class GGMLCodeGen(CGen):
     def create_primitive_call(
         self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> c_ast.Expr:
-        formula_name = op.formula_key
+        formula_name = op.formula_key if isinstance(op, Operator) else op
         if context == "eval_grad":
             formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
-
         arg_exprs: list[c_ast.Expr] = []
         if formula_name in self.pre_processors:
             op, arg_exprs = self.pre_processors[formula_name](op, args, context)
@@ -222,7 +221,7 @@ class GGMLCodeGen(CGen):
             [
                 c_ast.Comment("Create graph object only once"),  # type: ignore
                 c_ast.Assign(  # type: ignore
-                    c_ast.Variable("eval_static_gf"),
+                    c_ast.Variable(f"{fn_ref_name}_static_gf"),
                     c_ast.Call("ggml_new_graph", [ctx_name]),
                 ),
             ]
@@ -238,7 +237,7 @@ class GGMLCodeGen(CGen):
                     c_ast.Call(
                         "ggml_build_forward_expand",
                         [
-                            "eval_static_gf",
+                            f"{fn_ref_name}_static_gf",
                             self.create_key_ref(out_key, context=fn_ref_name),
                         ],
                     )
@@ -289,7 +288,7 @@ class GGMLCodeGen(CGen):
             c_ast.MakeStmt(
                 c_ast.Call(
                     "ggml_graph_compute_with_ctx",
-                    [ctx_name, "eval_static_gf", c_ast.Constant(1)],
+                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
                 )
             ),
         ]
