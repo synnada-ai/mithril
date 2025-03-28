@@ -1169,7 +1169,7 @@ class FlatModel:
         # for key in model._input_keys | model.output_keys:
         for key in model.external_keys:
             if key[0] != "$":
-                p_key_mappings[key] = key_mappings.get(key, key)
+                p_key_mappings[key] = key_mappings.get(key, f"{parent_name}_{key}")
         self.generate_keys(primitive, p_key_mappings, parent_name=parent_name)
 
     def _update_defined_names(self, old_key: str, new_key: str) -> None:

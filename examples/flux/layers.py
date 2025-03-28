@@ -176,10 +176,14 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
     block += Linear(dim * multiplier, name="lin")(output="lin_out")
     lin_out = block.lin_out[:, None, :]  # type: ignore[attr-defined]
     if double:
-        modulation = IOKey("modulation")
-        block |= Split(split_size=2, axis=-1)(lin_out, output=modulation)
-        block |= Split(split_size=3, axis=-1)(modulation[0], IOKey("mod_1"))
-        block |= Split(split_size=3, axis=-1)(modulation[1], IOKey("mod_2"))
+        modulation = IOKey("modulation", expose=False)
+        block |= Split(split_size=2, axis=-1)(input=lin_out, output=modulation)
+        block |= Split(split_size=3, axis=-1)(
+            input=modulation[0], output=IOKey("mod_1")
+        )
+        block |= Split(split_size=3, axis=-1)(
+            input=modulation[1], output=IOKey("mod_2")
+        )
     else:
         block |= Split(split_size=3, axis=-1)(lin_out, IOKey("mod_1"))
 

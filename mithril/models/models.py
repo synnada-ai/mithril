@@ -3820,7 +3820,7 @@ class Split(Model):
             )
             to_list_kwargs[f"input{idx+1}"] = indexer.output
         # Finally collect all the split tensors into a list.
-        self |= ToList(n=split_size)(**to_list_kwargs, output="output")
+        self |= ToList(n=split_size)(**to_list_kwargs, output=IOKey("output"))
 
         self._freeze()
 
@@ -3834,6 +3834,4 @@ class Split(Model):
     def infer_differentiability(self, *inputs: bool) -> list[bool]:
         val = self.output.metadata._value
         assert isinstance(val, list)
-        if inputs[0]:
-            return [True for _ in val]
-        return [False for _ in val]
+        return [inputs[0]] * len(val)
