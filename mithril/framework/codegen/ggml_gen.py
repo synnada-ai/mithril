@@ -132,6 +132,8 @@ class GGMLCodeGen(CGen):
         self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> c_ast.Expr:
         formula_name = op.formula_key
+        if context == "eval_grad":
+            formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
 
         if context == "eval_grad":
             formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
