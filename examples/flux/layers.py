@@ -176,12 +176,12 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
     block += Linear(dim * multiplier, name="lin")(output="lin_out")
     lin_out = block.lin_out[:, None, :]  # type: ignore[attr-defined]
     if double:
-        modulation = lin_out.split(2, axis=-1)
-        block |= Buffer()(modulation[0].split(3, axis=-1), IOKey("mod_1"))
-        block |= Buffer()(modulation[1].split(3, axis=-1), IOKey("mod_2"))
+        modulation = IOKey("modulation")
+        block |= Split(split_size=2, axis=-1)(lin_out, output=modulation)
+        block |= Split(split_size=3, axis=-1)(modulation[0], IOKey("mod_1"))
+        block |= Split(split_size=3, axis=-1)(modulation[1], IOKey("mod_2"))
     else:
-        modulation = lin_out.split(3, axis=-1)
-        block |= Buffer()(modulation, IOKey("mod_1"))
+        block |= Split(split_size=3, axis=-1)(lin_out, IOKey("mod_1"))
 
     return block
 
@@ -379,6 +379,7 @@ def last_layer(
     block |= LayerNorm(use_scale=False, use_bias=False, name="norm_final")(
         input=input, output="pre_norm"
     )
+
     shift = block.mod_split[0]  # type: ignore[attr-defined]
     scale = block.mod_split[1]  # type: ignore[attr-defined]
     input = (1 + scale[:, None, :]) * block.pre_norm + shift[:, None, :]  # type: ignore[attr-defined]
