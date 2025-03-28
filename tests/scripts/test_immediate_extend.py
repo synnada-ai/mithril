@@ -16,6 +16,7 @@ from copy import deepcopy
 
 import pytest
 
+import mithril as ml
 from mithril import IOKey
 from mithril.models import (
     Add,
@@ -429,3 +430,19 @@ def test_extend_error_by_constraint_solver_nested_model():
         t = buff.input.T
         t.set_shapes([3, 4, 5])
     assert str(err.value) == "Possible values mismatch!"
+
+
+def test_immediate_extend_integration_with_compile():
+    model = Model()
+    query = IOKey("query", type=ml.Tensor)
+    key = IOKey("key", type=ml.Tensor)
+    bsz = query.transpose()
+
+    q = query + 2
+    model |= Buffer()(input=q)
+    _key = key + 1
+    k_r = _key + bsz
+    model |= Buffer()(input=k_r)
+
+    for con in model.conns.input_connections:
+        assert con.model is model

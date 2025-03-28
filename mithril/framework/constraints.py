@@ -430,14 +430,13 @@ def scalar_slice_type_constraint(
     return status, updates
 
 
-def scalar_item_type_constraint_forward_helper(
-    input_type: GenericAlias | UnionType | type, index: IOHyperEdge
+def scalar_item_type_constraint_helper(
+    input_type: GenericAlias | UnionType | type, index_val: int | slice | ToBeDetermined
 ) -> type | UnionType | GenericAlias:
     # forward inference of scalar item type constraint:
     # Examples:
-    # > scalar_item_type_constraint_forward_helper(list[list[int]], 3) -> list[int]
-    # > scalar_item_type_constraint_forward_helper(list[int | float], 3) -> int | float
-    index_val = index.value
+    # > scalar_item_type_constraint_helper(list[list[int]], 3) -> list[int]
+    # > scalar_item_type_constraint_helper(list[int | float], 3) -> int | float
 
     new_type = input_type
     if isinstance(input_type, GenericAlias):
@@ -464,8 +463,6 @@ def scalar_item_type_constraint_forward_helper(
                     # take union of all types inside tuple
                     new_type = create_union_type(*input_type.__args__)
 
-            # if variadic_required and find_intersection_type(index._type, int) is None:
-            #     new_type = tuple[new_type, ...]  # type: ignore
             if variadic_required:
                 if isinstance(index_val, slice):
                     new_type = tuple[new_type, ...]  # type: ignore
@@ -670,7 +667,7 @@ def indexer_type_constraint(
         )
 
         # Do the forward inference in all types in args, then make Union
-        types = [scalar_item_type_constraint_forward_helper(arg, index) for arg in args]
+        types = [scalar_item_type_constraint_helper(arg, index_value) for arg in args]
         inferred_out_type = create_union_type(*types)
 
         updates |= output.set_type(inferred_out_type)
