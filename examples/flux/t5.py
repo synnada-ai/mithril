@@ -181,9 +181,9 @@ def load_t5_encoder(name: str, max_len: int = 256) -> ml.models.PhysicalModel:
     config = hf_hub_download(configs[name].repo_id, "text_encoder_2/config.json")
 
     with open(config) as f:
-        config = json.load(f)
+        _config = json.load(f)
 
-    t5 = t5_encode(config, name="encoder")
+    t5 = t5_encode(_config, name="encoder")
     t5.set_shapes(input=[1, max_len])
 
     return t5

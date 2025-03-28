@@ -79,7 +79,6 @@ from .operators import (
     SineOp,
     SizeOp,
     SliceOp,
-    SplitOp,
     SqrtOp,
     SubtractOp,
     SumOp,
@@ -163,7 +162,7 @@ class TemplateBase:
                     connections=[self, tuple_template], model=IndexerOp
                 )
 
-            case int() | EllipsisType() | None | Tensor() | Sequence():
+            case int() | EllipsisType() | None | Tensor() | Sequence() | IOKey():
                 output = ExtendTemplate(connections=[self, key], model=IndexerOp)  # type: ignore
         return output
 
@@ -368,9 +367,6 @@ class TemplateBase:
         self, axes: tuple[int, ...] | TemplateBase | None = None
     ) -> ExtendTemplate:
         return ExtendTemplate(connections=[self, axes], model=TransposeOp)
-
-    def split(self, split_size: int, axis: int) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, split_size, axis], model=SplitOp)
 
     def item(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=ItemOp)

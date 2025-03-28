@@ -1108,8 +1108,10 @@ def dtype(input: jax.Array) -> jnp.dtype[Any]:
     return input.dtype.type  # type: ignore
 
 
-def split(input: jax.Array, split_size: int | list[int], axis: int = 0) -> jax.Array:
-    return jnp.stack(jnp.split(input, split_size, axis=axis))
+def split(
+    input: jax.Array, split_size: int | list[int], axis: int = 0
+) -> list[jax.Array]:
+    return jnp.split(input, split_size, axis=axis)
 
 
 def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]) -> jax.Array:

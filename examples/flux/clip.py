@@ -170,10 +170,10 @@ def load_clip_encoder(
     config = hf_hub_download(configs[name].repo_id, "text_encoder/config.json")
 
     with open(config) as f:
-        config = json.load(f)
+        _config = json.load(f)
 
-    clip_model = clip_text_model(config)
-    clip_model.set_shapes(input=[1, config["max_position_embeddings"]])
+    clip_model = clip_text_model(_config)
+    clip_model.set_shapes(input=[1, _config["max_position_embeddings"]])
 
     return clip_model
 
