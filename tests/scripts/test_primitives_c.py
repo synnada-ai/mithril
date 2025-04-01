@@ -108,13 +108,11 @@ def test_primitives_c_backends():
     )
 
     # Compile the model
-    np_pm = ml.compile(model=tm, backend=backend, file_path="out_np.py", jit=False)
+    np_pm = ml.compile(model=tm, backend=backend, jit=False)
 
-    ggml_pm = ml.compile(
-        model=tm, backend=ggml_backend, file_path="out_ggml.c", jit=False
-    )
+    ggml_pm = ml.compile(model=tm, backend=ggml_backend, jit=False)
 
-    c_pm = ml.compile(model=tm, backend=cbackend, file_path="out_c.c", jit=False)
+    c_pm = ml.compile(model=tm, backend=cbackend, jit=False)
 
     params = np_pm.randomize_params()
     c_params = {}
@@ -187,7 +185,6 @@ def test_primitives_c_ggml_transpose():
     np_pm = ml.compile(
         model=model,
         backend=backend,
-        file_path="out_np_mm.py",
         inference=False,
         trainable_keys=["input"],
         shapes={"input": [4, 4]},
@@ -197,7 +194,6 @@ def test_primitives_c_ggml_transpose():
     ggml_pm = ml.compile(
         model=model,
         backend=ggml_backend,
-        file_path="out_ggml_mm.c",
         inference=False,
         trainable_keys=["input"],
         shapes={"input": [4, 4]},
