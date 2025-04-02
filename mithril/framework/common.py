@@ -263,6 +263,7 @@ class EvaluateType(Protocol, Generic[DataType]):
         self,
         params: ParamsEvalType[DataType] | None,
         data: DataEvalType[DataType] | None,
+        cache: DataEvalType[DataType] | None = None,
     ) -> DataEvalType[DataType]: ...
 
 

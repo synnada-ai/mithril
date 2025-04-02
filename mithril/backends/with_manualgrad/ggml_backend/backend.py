@@ -20,7 +20,9 @@ import numpy as np
 
 from .... import types
 from ....cores.c.array import PyArray
+from ....cores.c.ggml import ops
 from ....cores.c.ggml.ggml_core import ggml_struct
+from ....cores.c.ggml.utils import dtype_map
 from ....cores.c.raw_c import array
 from ...backend import Backend
 from ...utils import process_shape
@@ -39,7 +41,10 @@ class GGMLBackend(Backend[PyArray]):
 
     def __init__(self) -> None:
         self._device = "cpu"
-        self.primitive_function_dict = {}
+        self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = dtype_map
+        self.registered_primitives = {}
+        self.array_creation_funcs: list[str] = []
 
     @property
     def is_manualgrad(self) -> bool:
