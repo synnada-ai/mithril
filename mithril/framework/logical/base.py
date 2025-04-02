@@ -1013,7 +1013,9 @@ class BaseModel:
                 if self_con is not None:
                     model.conns.connections_dict.setdefault(self_con.metadata, set())
                     model.conns.metadata_dict.setdefault(self_con.metadata, set())
-                    model._match_hyper_edges(self_con.metadata, _con.metadata)
+                    updates = model._match_hyper_edges(self_con.metadata, _con.metadata)
+                    # TODO: Should we run model's solver or directly self solver?
+                    model.constraint_solver(updates)
                 else:
                     _con.model = None
                 conns[con.key] = _con
@@ -1036,7 +1038,7 @@ class BaseModel:
             sub_m.conns.metadata_dict[con.metadata] |= model.conns.metadata_dict[
                 con.metadata
             ]
-        # Extend the model with submodel.
+        # Extend the self model with submodel.
         self.extend(sub_m, **conns)
 
     @staticmethod

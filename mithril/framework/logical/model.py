@@ -167,9 +167,9 @@ def create_extracted_model(
     for m in new_models:
         if m is provisional_model:
             continue
-        updates = provisional_model.constraint_solver.match(m.constraint_solver)
-        provisional_model.constraint_solver(updates)
         if m.provisional_source:
+            updates = provisional_model.constraint_solver.match(m.constraint_solver)
+            provisional_model.constraint_solver(updates)
             assert isinstance(m, Model)
             # Merge provisional models
             for sub_m in m.dag:
@@ -556,6 +556,8 @@ class Model(BaseModel):
         provisional_model.provisional_source = self
         self.provisional_model = provisional_model
         provisional_model.enforce_jit = self.enforce_jit
+        updates = self.constraint_solver.match(provisional_model.constraint_solver)
+        self.constraint_solver(updates)
         provisional_model.constraint_solver = self.constraint_solver
 
     def _extend_op_model(
@@ -615,7 +617,7 @@ class Model(BaseModel):
         return template
 
     def extend_extracted_model(self, model: Model, start_con: ConnectionData) -> None:
-        # Extend model with submodels of ExtractModel.
+        # Extend model with submodels of provisional Model.
         # Match and update constraint solver of the model.
         updates = self.constraint_solver.match(model.constraint_solver)
         self.constraint_solver(updates)
@@ -641,6 +643,9 @@ class Model(BaseModel):
                     if sub_m not in sub_models and sub_m not in self.dag:
                         self.provisional_model._extract_submodel(model, sub_m)
                         model.provisional_source = False
+        # TODO: while removing the child model's provisional model,
+        # make sure that all objects are deleted and no references are left.
+        # Then remove the provisional model from the child model.
 
     @property
     def cout(self) -> Connection:
