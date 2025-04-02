@@ -379,13 +379,16 @@ class GGMLCodeGen(CGen):
     @override
     def _determine_struct_keys(self) -> dict[str, list[str]]:
         determined_struct_keys = super()._determine_struct_keys()
-        static_cache_keys = sorted(self.pm.flat_graph.data_store.all_static_keys)
-        for key in static_cache_keys:
+        static_cache_keys = (
+            self.pm.flat_graph.data_store.all_static_keys
+            - self.pm.flat_graph.data_store.runtime_static_keys
+        )
+        for key in sorted(static_cache_keys):
             if self.pm.shapes[key] is None:
                 static_cache_keys.remove(key)
         if static_cache_keys:
-            determined_struct_keys["eval_input_keys"] = static_cache_keys
-
+            static_cache_keys |= self.pm.flat_graph.data_store.runtime_static_keys
+            determined_struct_keys["eval_input_keys"] = sorted(static_cache_keys)
         return determined_struct_keys
 
     def _create_shape_constant(self, shape: tuple[int, ...]) -> list[c_ast.Expr]:
