@@ -36,6 +36,10 @@ class PyArray:
     #     self.lib.delete_struct(self.arr)
 
     @property
+    def dtype(self) -> type:
+        return ctypes.c_float
+
+    @property
     def data(self) -> Sequence[int | Sequence[int | Sequence[int]]]:
         total_elements = 1
         for dim in self.shape:

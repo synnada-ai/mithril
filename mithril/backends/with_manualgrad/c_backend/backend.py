@@ -20,8 +20,9 @@ import numpy as np
 
 from .... import types
 from ....cores.c.array import PyArray
-from ....cores.c.raw_c import array
+from ....cores.c.raw_c import array, ops
 from ....cores.c.raw_c.definitons import Array
+from ....cores.c.raw_c.utils import dtype_map
 from ...backend import Backend
 from ...utils import process_shape
 from . import utils
@@ -38,7 +39,10 @@ class CBackend(Backend[PyArray]):
 
     def __init__(self) -> None:
         self._device = "cpu"
-        self.primitive_function_dict = {}
+        self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = dtype_map
+        self.registered_primitives = {}
+        self.array_creation_funcs: list[str] = []
 
     @property
     def is_manualgrad(self) -> bool:
