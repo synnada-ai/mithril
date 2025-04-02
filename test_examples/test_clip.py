@@ -56,17 +56,12 @@ def load_weights(
     ml_params = {}
     torch_state_dict = torch_model.state_dict()
 
-    for torch_key in torch_state_dict:
+    for torch_key, value in torch_state_dict.items():
         ml_key = torch_key.replace(".", "_").lower()
         if ml_key not in param_shapes:
             continue
 
-        param_shape = param_shapes[ml_key]
-
-        if torch_state_dict[torch_key].shape != param_shape:
-            parameter = torch_state_dict[torch_key].numpy().reshape(param_shape)
-        else:
-            parameter = torch_state_dict[torch_key].numpy().reshape(param_shape)
+        parameter = value.numpy().reshape(value.shape)
         ml_params[ml_key] = backend.array(parameter)
 
     return ml_params

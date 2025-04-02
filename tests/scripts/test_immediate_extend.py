@@ -20,6 +20,7 @@ import mithril as ml
 from mithril import IOKey
 from mithril.models import (
     Add,
+    Arange,
     AtLeast1D,
     Buffer,
     Concat,
@@ -27,8 +28,12 @@ from mithril.models import (
     Model,
     Multiply,
     Power,
+    Reshape,
+    ScaledDotProduct,
+    Tensor,
     ToList,
     Transpose,
+    Where,
 )
 
 from .helper import assert_models_equal
@@ -373,11 +378,15 @@ def test_extend_only_dependent_submodels():
     a = buff1.output**2
     b = buff1.output / 3
     c = a + 4
+    assert a.model is b.model is c.model and a.model is not None
+    provisional_model = b.model
+    assert provisional_model is not None
+    dag = provisional_model.dag
+    assert {m.__class__.__name__ for m in dag} == {"PowerOp", "AddOp", "DivideOp"}
+
     model |= Buffer()(c)
 
-    assert a.model is b.model is c.model and a.model is not None
-    dag = a.model.dag
-    assert {m.__class__.__name__ for m in dag} == {"PowerOp", "AddOp", "DivideOp"}
+    assert b.model is provisional_model
 
     _model = Model()
     _model |= (buff := Buffer())
@@ -432,7 +441,7 @@ def test_extend_error_by_constraint_solver_nested_model():
     assert str(err.value) == "Possible values mismatch!"
 
 
-def test_immediate_extend_integration_with_compile():
+def test_immediate_extend_integration():
     model = Model()
     query = IOKey("query", type=ml.Tensor)
     key = IOKey("key", type=ml.Tensor)
@@ -446,3 +455,120 @@ def test_immediate_extend_integration_with_compile():
 
     for con in model.conns.input_connections:
         assert con.model is model
+
+
+def test_immediate_extend_integration_reshape():
+    model = Model()
+    queries = IOKey("queries")
+    B = queries.shape[1]
+    model |= Linear()(queries, output="in_proj")
+
+    _ = model.in_proj.reshape((B, B, 3, -1))  # type: ignore
+
+    for con in model.conns.input_connections:
+        assert con.model is model
+
+
+def test_immediate_extend_integration_str_matching():
+    block = Model()
+    input = IOKey("input")
+    block += Buffer()(input="input", output="b_out")
+
+    block |= Buffer()(input=input + block.b_out)  # type: ignore
+
+    result = input + block.b_out  # type: ignore
+    block |= Buffer()(result, output=IOKey("output"))
+
+    for con in block.conns.input_connections:
+        assert con.model is block
+
+
+def test_apply_rope():
+    block = Model()
+    # We define the input connections
+    xq = IOKey("xq", type=ml.Tensor)
+    freqs_cis = IOKey("freqs_cis", type=ml.Tensor)
+
+    xq_shape = xq.shape
+    a, b, c, d = freqs_cis[..., 0], xq[..., 0], freqs_cis[..., 1], xq[..., 1]
+    e = a * b
+    f = c * d
+    _ = e + f
+
+    block |= Reshape()(shape=xq_shape, output="xq_out_raw")
+
+    for con in block.conns.input_connections:
+        assert con.model is block
+
+
+def apply_rope(*, name: str | None = None) -> Model:
+    block = Model(name=name)
+    # We define the input connections
+    xq = IOKey("xq", type=ml.Tensor)
+    freqs_cis = IOKey("freqs_cis", type=ml.Tensor)
+
+    xq_shape = xq.shape
+    # Do the math
+    a = (_a1 := freqs_cis[..., 0]) * (_a2 := xq[..., 0])
+    b = freqs_cis[..., 1] * xq[..., 1]
+    xq_out = a + b
+
+    block |= Reshape()(xq_out, shape=xq_shape, output="xq_out_raw")
+    return block
+
+
+def test_apply_rope_2():
+    block = apply_rope()
+    for con in block.conns.input_connections:
+        assert con.model is block
+
+
+def build_attention_mask() -> Model:
+    block = Model()
+    block |= Arange(stop=77)(output="arange_out_1")
+    block |= Arange(stop=77)(output="arange_out_2")
+    upper_bool_triu = block.arange_out_1[..., None] >= block.arange_out_2[None, ...]  # type: ignore
+    block |= Where()(
+        cond=upper_bool_triu,
+        input1=Tensor(0.0),
+        input2=Tensor(float("-inf")),
+        output=IOKey("output"),
+    )
+    return block
+
+
+def test_multihead():
+    d_model = 768
+    n_head = 12
+    block = Model()
+    queries = IOKey("queries")
+    head_dim = d_model // n_head
+    B, L = queries.shape[0], queries.shape[1]
+    block |= Linear(3 * d_model, name="in_proj")(queries, output="in_proj")
+
+    in_proj = (
+        block.in_proj.reshape((B, L, 3, -1))  # type: ignore
+        .reshape((1, B, L, 3, d_model))
+        .transpose((3, 1, 2, 0, 4))
+        .reshape((3, B, L, -1))
+    )
+
+    queries = (
+        in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    )
+    keys = in_proj[1, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    values = (
+        in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    )
+
+    block |= (mask_model := build_attention_mask())
+    block |= ScaledDotProduct(is_causal=False, use_attn_mask=True)(
+        query=queries,
+        key=keys,
+        value=values,
+        attn_mask=mask_model.cout,
+        output="attention",
+    )
+    _ = B * L
+    for con in block.conns.input_connections:
+        assert con.model is block
