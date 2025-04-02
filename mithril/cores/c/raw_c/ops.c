@@ -221,13 +221,14 @@ void squared_error(Array *output, Array *input, Array *target)
     binary_array_iterator(input, target, output, squared_diff);
 }
 
-void reduce_mean(Array *output, Array *input, Array *axes, void *num_axes) 
+void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim) 
 {
+    // TODO: keepdim and axes is NULL, add keepdim and axes support.
     size_t N = 1;
     if (axes == NULL) {
         N = input->size;
     } else {
-        for (int i=0; i<num_axes; i++) {
+        for (int i=0; i<axes->ndim; i++) {
             N *= input->shape[(int) axes->data[i]];
         }
     }
@@ -334,18 +335,18 @@ void transpose_grad(const Array *gradient, int idx, Array *output , const Array 
     }
 }
 
-void relu_grad(const Array *output_grad, int idx, Array *output, Array *input, Array *input_grad) 
+void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input, Array *inputGradient) 
 {
     // Compute the broadcasted strides for input relative to output_grad's shape
-    int *input_b_strides = broadcastStride(input, output_grad->shape, output_grad->ndim);
+    int *input_b_strides = broadcastStride(input, outputGradient->shape, outputGradient->ndim);
     const float *input_data = input->data;
-    const float *output_grad_data = output_grad->data;
-    float *input_grad_data = input_grad->data;
+    const float *output_grad_data = outputGradient->data;
+    float *input_grad_data = inputGradient->data;
 
     // Iterate over each element in the output gradient
-    for (size_t i = 0; i < output_grad->size; i++) {
+    for (size_t i = 0; i < outputGradient->size; i++) {
         // Find the corresponding index in the input array
-        size_t input_idx = loc(i, output_grad->shape, input_b_strides, output_grad->ndim);
+        size_t input_idx = loc(i, outputGradient->shape, input_b_strides, outputGradient->ndim);
 
         // If input element was positive, accumulate the gradient
         if (input_data[input_idx] > 0.0f) {
@@ -356,14 +357,14 @@ void relu_grad(const Array *output_grad, int idx, Array *output, Array *input, A
     free(input_b_strides);
 }
 
-void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input, Array *target, Array *input_grad, Array *target_grad) 
+void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *target, Array *inputGradient, Array *targetGradient) 
 {
     float sign = (idx == 0) ? 1.0f : -1.0f;
     float factor = 2.0f * sign;
 
     // Compute broadcasted strides for input and target relative to output_grad's shape
-    int *input_b_strides = broadcastStride(input, output_grad->shape, output_grad->ndim);
-    int *target_b_strides = broadcastStride(target, output_grad->shape, output_grad->ndim);
+    int *input_b_strides = broadcastStride(input, outputGradient->shape, outputGradient->ndim);
+    int *target_b_strides = broadcastStride(target, outputGradient->shape, outputGradient->ndim);
 
     // Validate allocations
     if (!input_b_strides || !target_b_strides) {
@@ -373,17 +374,17 @@ void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input
 
     const float *input_data = input->data;
     const float *target_data = target->data;
-    const float *grad_data_in = output_grad->data;
+    const float *grad_data_in = outputGradient->data;
 
     // Determine which gradient array to update
-    Array *grad_array = (idx == 0) ? input_grad : target_grad;
+    Array *grad_array = (idx == 0) ? inputGradient : targetGradient;
     float *grad_data_out = grad_array->data;
 
     // Iterate over each element in the output gradient
-    for (size_t i = 0; i < output_grad->size; ++i) {
+    for (size_t i = 0; i < outputGradient->size; ++i) {
         // Get broadcasted indices for input and target
-        size_t input_idx = loc(i, output_grad->shape, input_b_strides, output_grad->ndim);
-        size_t target_idx = loc(i, output_grad->shape, target_b_strides, output_grad->ndim);
+        size_t input_idx = loc(i, outputGradient->shape, input_b_strides, outputGradient->ndim);
+        size_t target_idx = loc(i, outputGradient->shape, target_b_strides, outputGradient->ndim);
 
         // Compute gradient contribution
         float diff = input_data[input_idx] - target_data[target_idx];
@@ -398,7 +399,7 @@ void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input
     free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *input_grad, void *num_axes, bool keepdim_grad) 
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, void *num_axes, bool keepdimGradient) 
 {
     // Target is not differentiable
     if (idx != 0) 
@@ -413,10 +414,10 @@ void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, 
         }
     }
 
-    int *bcast_strides = broadcastStride(output_grad, input->shape, input->ndim);
+    int *bcast_strides = broadcastStride(outputGradient, input->shape, input->ndim);
     for (size_t i=0; i<input->size; i++) {
         size_t grad_idx = loc(i, input->shape, bcast_strides, input->ndim);
-        input_grad->data[i] += output_grad->data[grad_idx] / N;
+        inputGradient->data[i] += outputGradient->data[grad_idx] / N;
     }
     free(bcast_strides);
 }

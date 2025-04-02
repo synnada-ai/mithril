@@ -43,14 +43,14 @@ int *broadcastStride(const Array *t1, const int *shape, const int ndim)
         if (input_size == 1 && output_size > 1) {
             newStrides[target_dim] = 0;
         } else {
-            newStrides[target_dim] = t1->strides[0];
+            newStrides[target_dim] = oldStrides[0];
         }
     } 
     else 
     {
         for (size_t i = diff; i < t1->ndim; i++)
         {
-            if (shape[i] == 1 || t1->shape[i - diff] == 1)
+            if (shape[i] == 1  || t1->shape[i - diff] == 1)
                 newStrides[i] = 0;
             else
                 newStrides[i] = oldStrides[i - diff];

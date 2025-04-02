@@ -21,7 +21,7 @@ import numpy as np
 from .... import types
 from ....cores.c.array import PyArray
 from ....cores.c.raw_c import array, ops
-from ....cores.c.raw_c.definitons import Array
+from ....cores.c.raw_c.definitions import Array
 from ....cores.c.raw_c.utils import dtype_map
 from ...backend import Backend
 from ...utils import process_shape

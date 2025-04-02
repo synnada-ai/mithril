@@ -24,12 +24,10 @@ struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_ten
 struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_tensor * gradient, struct ggml_tensor * input)
 {
     struct ggml_tensor * res;
-    //printf("%d, %d", ggml_n_dims(gradient), ggml_n_dims(input));
     if(ggml_n_dims(gradient) == ggml_n_dims(input)){
         return gradient;
     }
     int axes = accumulate_grads_helper(gradient, input);
-    //printf("AXES %d\n",axes);
     if(axes == 0)
     {
         if(ggml_n_dims(gradient) == 3)

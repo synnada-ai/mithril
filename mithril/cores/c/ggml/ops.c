@@ -74,6 +74,8 @@ struct ggml_tensor * squared_error(struct ggml_context * ctx, struct ggml_tensor
 }
 
 struct ggml_tensor * reduce_mean(struct ggml_context * ctx, struct ggml_tensor * input, struct ggml_tensor * axes,struct ggml_tensor * keepdim) {
+    // TODO: keepdim and axes in NULL and they are not used. 
+    // Add keepdim and axes support.
     int64_t num_elements = ggml_nelements(input); 
     struct ggml_tensor * sum = ggml_sum(ctx, input);
 
@@ -97,7 +99,7 @@ struct ggml_tensor * multiplication_grad(struct ggml_context * ctx, struct ggml_
 }
 
 struct ggml_tensor * transpose_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left,  struct ggml_tensor * right) {     
-    return transpose(ctx,gradient,gradient); //ggml_transpose(ctx, ggml_dup(ctx,left));
+    return transpose(ctx,gradient,gradient);
 }
 
 struct ggml_tensor * matrix_multiplication_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left,  struct ggml_tensor * right) {

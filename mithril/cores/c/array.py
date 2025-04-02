@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from numbers import Real
 
 from .ggml.ggml_core import ggml_struct
-from .raw_c.definitons import Array, lib
+from .raw_c.definitions import Array, lib
 
 
 class PyArray:
@@ -69,28 +69,22 @@ class PyArray:
         return f"PyArray(shape={self.shape})\n{self.data}"
 
     def __add__(self, other):
-        if isinstance(other, PyArray):
-            return binary_op(self, other, lib.add)
-        else:
-            return binary_op(self, other, lib.scalar_add)
+        fn = (lib.scalar_add, lib.add)[isinstance(other, PyArray)]
+        return binary_op(self, other, fn)
 
     def __radd__(self, other):
         return self.__add__(other)
 
     def __mul__(self, other):
-        if isinstance(other, PyArray):
-            return binary_op(self, other, lib.multiplication)
-        else:
-            return binary_op(self, other, lib.scalar_multiply)
+        fn = (lib.scalar_multiply, lib.multiplication)[isinstance(other, PyArray)]
+        return binary_op(self, other, fn)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     def __sub__(self, other):
-        if isinstance(other, PyArray):
-            return binary_op(self, other, lib.subtract)
-        else:
-            return binary_op(self, other, lib.scalar_subtract)
+        fn = (lib.scalar_subtract, lib.subtract)[isinstance(other, PyArray)]
+        return binary_op(self, other, fn)
 
     def __rsub__(self, other):
         if isinstance(other, Real):
@@ -102,19 +96,17 @@ class PyArray:
 def binary_op(left, right, op):
     if isinstance(right, PyArray):
         shape = left.shape if left.ndim >= right.ndim else right.shape
-        c_shape = (ctypes.c_int * len(shape))(*shape)
-        result = lib.create_empty_struct(len(c_shape), c_shape)
-        self_ptr, temp_self = _get_array_ptr(left)
-        other_ptr, temp_other = _get_array_ptr(right)
-        op(result, self_ptr, other_ptr)
-        return _create_result(result, shape, left.name)
-    elif isinstance(right, Real):
+        other_ptr, _ = _get_array_ptr(right)
+    else:
         # Scalar addition
-        c_shape = (ctypes.c_int * len(left.shape))(*left.shape)
-        result = lib.create_empty_struct(len(c_shape), c_shape)
-        self_ptr, temp_self = _get_array_ptr(left)
-        op(result, self_ptr, ctypes.c_float(float(right)))
-        return _create_result(result, left.shape, left.name)
+        shape = left.shape
+        other_ptr = ctypes.c_float(float(right))
+
+    c_shape = (ctypes.c_int * len(shape))(*shape)
+    result = lib.create_empty_struct(len(c_shape), c_shape)
+    self_ptr, _ = _get_array_ptr(left)
+    op(result, self_ptr, other_ptr)
+    return _create_result(result, shape, left.name)
 
 
 def _create_temp_array(pyarray):

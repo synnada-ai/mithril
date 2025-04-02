@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 
 from ..array import PyArray
-from .definitons import lib
+from .definitions import lib
 
 
 def to_c_int_array(lst: list[int] | tuple[int, ...]) -> ctypes.Array[ctypes.c_int]:

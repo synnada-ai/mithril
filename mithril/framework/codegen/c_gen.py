@@ -218,8 +218,6 @@ class CGen(CodeGen[PyArray]):
                 for arg_key in self.determined_struct_keys["eval_input_keys"]:
                     if arg_key in inputs:
                         continue
-                    if arg_key == FinalCost:
-                        continue
                     if self._get_tensor_shape(arg_key) is None:
                         continue
                     arr_shape = self._get_array_shape(arg_key)
@@ -257,6 +255,7 @@ class CGen(CodeGen[PyArray]):
                     and key == self.pm.flat_graph.output_dict[FinalCost]
                 ):
                     outputs[FinalCost] = PyArray(array_ptr.contents, shape=[1])
+                    outputs[key] = PyArray(array_ptr.contents, shape=[1])
                 else:
                     outputs[key] = PyArray(
                         array_ptr.contents, shape=self._get_tensor_shape(key)
@@ -312,10 +311,6 @@ class CGen(CodeGen[PyArray]):
                         ctypes.POINTER(self.backend.get_struct_cls()),
                     )
                     for key in self.determined_struct_keys["eval_grad_input_keys"]
-                    if (
-                        FinalCost not in self.pm._output_keys
-                        or key != self.pm.flat_graph.output_dict[FinalCost]
-                    )
                     if self._get_tensor_shape(key) is not None
                 }
             )
