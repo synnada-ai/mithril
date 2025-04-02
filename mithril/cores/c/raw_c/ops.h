@@ -26,18 +26,18 @@ void scalar_multiply(Array *output, Array *input, float scalar);
 void multiplication(Array *output, Array *left, Array *right);
 void subtract(Array *output, Array *left, Array *right);
 void scalar_subtract(Array *output, Array *input, float scalar);
-void matrix_multiplication(Array *C, const Array *A, const Array *B);
+void matrix_multiplication(Array *output, const Array *left, const Array *right);
 void transpose(Array *output,const Array *input, void * axes);
-void transpose_grad(const Array *gradient, int idx, Array *output , const Array *left, const Array *right, Array *leftGradient, void *);
-void matrix_multiplication_grad(const Array *gradient, int idx, Array *output , const Array *left, const Array *right,Array *leftGradient, Array *rightGradient);
+void transpose_grad(const Array *gradient, int idx, Array *output , const Array *left, const Array *right, Array *leftGradient, void * axes);
+void matrix_multiplication_grad(const Array *gradient, int idx, Array *output ,const Array *left, const Array *right, Array *leftGradient, Array *rightGradient);
 void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right, Array *leftGradient, Array *rightGradient);
 void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, Array *right, Array *leftGradient, Array *rightGradient);
 void reduce_sum(const Array *input, Array *output, const int *axes, int num_axes);
 void relu(Array *output, const Array *input);
-void relu_grad(const Array *output_grad, int idx, Array *output, Array *input, Array *input_grad);
+void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input, Array *inputGradient);
 void squared_error(Array *output, Array *input, Array *target) ;
-void squared_error_grad(Array *output_grad, int idx, Array *output, Array *input, Array *target, Array *input_grad, Array *target_grad) ;
+void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *target, Array *inputGradient, Array *targetGradient);
 void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim);
-void reduce_mean_grad(Array *output_grad, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *input_grad, void *num_axes, bool keepdim_grad);
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, void *num_axes, bool keepdimGradient) ;
 
 #endif
