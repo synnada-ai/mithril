@@ -334,6 +334,7 @@ def test_extend_metadata_linear():
     model = Model()
     model += lin1(weight=IOKey("w"))
     assert list(lin1.dag.keys())[0].input.metadata is lin1.weight.metadata  # type: ignore
+    assert lin1.weight.metadata is model.w.metadata  # type: ignore
 
 
 def test_extend_provisional_model():
@@ -476,11 +477,19 @@ def test_immediate_extend_integration_str_matching():
 
     block |= Buffer()(input=input + block.b_out)  # type: ignore
 
-    result = input + block.b_out  # type: ignore
+    result = block.b_out + input  # type: ignore
     block |= Buffer()(result, output=IOKey("output"))
 
     for con in block.conns.input_connections:
         assert con.model is block
+
+
+def test_immediate_extend_integration_str_matching2():
+    block = Model()
+    input = IOKey("input")
+    block |= Buffer()(input="input", output="b_out")
+    block |= Buffer()(input=input, output="b_odsfut")
+    ...
 
 
 def test_apply_rope():
