@@ -28,6 +28,11 @@ float multiply_lambda(float x, float y)
     return x * y;
 }
 
+float subtract_lambda(float x, float y)
+{
+    return x - y;
+}
+
 static float squared_diff(float x, float y) {
     float diff = x - y;
     return diff * diff;
@@ -59,9 +64,7 @@ void scalar_multiply(Array *output, Array *input, float scalar)
 
 void subtract(Array *output, Array *left, Array *right)
 {
-    Array * temp = create_empty_struct(right->ndim, right->shape);
-    scalar_multiply(temp, right, -1.0);
-    add(output, left, temp);
+    binary_array_iterator(left, right, output, subtract_lambda);
 }
 
 void scalar_subtract(Array *output, Array *input, float scalar)
