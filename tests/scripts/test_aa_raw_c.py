@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import shutil
 import platform
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-
 
 # def test_c_bindings():
 #     test_dir = Path(__file__).parent.absolute()
@@ -53,7 +52,7 @@ from pathlib import Path
 def test_c_bindings():
     test_dir = Path(__file__).parent.absolute()
     c_file = test_dir / "c_tests.c"
-    
+
     # Library detection
     so_base = test_dir.parent.parent / "mithril/cores/c/raw_c/libmithrilc"
     so_file = None
@@ -62,7 +61,7 @@ def test_c_bindings():
         if candidate.exists():
             so_file = candidate
             break
-    
+
     if so_file is None:
         raise FileNotFoundError(
             f"Could not find libmithrilc.dylib or libmithrilc.so in {so_base.parent}"
@@ -78,7 +77,7 @@ def test_c_bindings():
         print("Library path:", tmp_lib)
         print("Library exists:", tmp_lib.exists())
         print("File size:", tmp_lib.stat().st_size, "bytes")
-        
+
         try:
             print("\nLibrary info:")
             subprocess.run(["file", str(tmp_lib)], check=True)
@@ -100,7 +99,7 @@ def test_c_bindings():
             compile_cmd.extend(["-Wl,-undefined,dynamic_lookup"])
 
         print("\nCompilation command:", " ".join(compile_cmd))
-        
+
         try:
             # Let the output show in CI logs
             result = subprocess.run(
