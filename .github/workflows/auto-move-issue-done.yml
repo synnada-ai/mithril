@@ -1,0 +1,16 @@
+name: Move Issues to Done When Closed
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  move_issue_done:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move Issue to Done
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/synnada-ai/projects/5
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          status: "Done"

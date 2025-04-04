@@ -1,0 +1,16 @@
+name: Move PRs to Done When Merged
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  move_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move PR to Done
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/synnada-ai/projects/5
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          status: "Done"
