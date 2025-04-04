@@ -21,24 +21,51 @@ from pathlib import Path
 def test_c_bindings():
     test_dir = Path(__file__).parent.absolute()
     c_file = test_dir / "c_tests.c"
-    so_file = test_dir.parent.parent / "mithril/cores/c/raw_c/libmithrilc.so"
+
+    # Try both .dylib and .so extensions
+    so_base = test_dir.parent.parent / "mithril/cores/c/raw_c/libmithrilc"
+    so_file = None
+
+    # Check which library file exists
+    for ext in [".dylib", ".so"]:
+        if (so_base.parent / (so_base.name + ext)).exists():
+            so_file = so_base.parent / (so_base.name + ext)
+            break
+
+    if so_file is None:
+        raise FileNotFoundError(
+            f"Could not find libmithrilc.dylib or libmithrilc.so in {so_base.parent}"
+        )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         _tmp_dir = Path(tmp_dir)
-        # Copy .so to temp dir
-        tmp_so = _tmp_dir / "libmithrilc.so"
-        shutil.copy(so_file, tmp_so)
+        # Copy library to temp dir (keeping its original extension)
+        tmp_lib = _tmp_dir / so_file.name
+        shutil.copy(so_file, tmp_lib)
 
         executable = _tmp_dir / "c_tests"
         compile_cmd = [
             "cc",
             str(c_file),
-            str(tmp_so),
-            f"-Wl,-rpath,{_tmp_dir}",  # Look in temp dir
+            f"-L{_tmp_dir}",
+            "-lmithrilc",
+            f"-Wl,-rpath,{_tmp_dir}",
             "-o",
             str(executable),
         ]
-        subprocess.check_call(compile_cmd)
+
+        # macOS-specific flags
+        import platform
+
+        if platform.system() == "Darwin":
+            compile_cmd.extend(["-Wl,-undefined,dynamic_lookup"])
+
+        try:
+            subprocess.check_call(compile_cmd, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            print("Compilation failed with command:", " ".join(compile_cmd))
+            print("Error output:", e.stderr)
+            raise
 
         result = subprocess.run(
             [str(executable)],
@@ -46,4 +73,8 @@ def test_c_bindings():
             text=True,
             cwd=_tmp_dir,
         )
+        if result.returncode != 0:
+            print("Test executable failed:")
+            print("STDOUT:", result.stdout)
+            print("STDERR:", result.stderr)
         assert result.returncode == 0
