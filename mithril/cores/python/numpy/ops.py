@@ -161,7 +161,6 @@ __all__ = [
     "unique",
     "trapezoid",
     "pad",
-    "split",
     "randn",
     "randint",
     "atleast_1d",
@@ -1282,15 +1281,6 @@ def logical_xor(
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any] | int | bool:
     return left ^ right
-
-
-def split(
-    input: np.ndarray[Any, Any],
-    split_size: int | list[int],
-    axis: int = 0,
-    cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
-    return np.stack(np.split(input, split_size, axis=axis))
 
 
 def pad(
