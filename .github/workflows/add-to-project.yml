@@ -13,5 +13,5 @@ jobs:
       - name: Add Issue or PR to Project
         uses: actions/add-to-project@v0.5.0
         with:
-          project-url: https://github.com/orgs/synnada-ai/projects/5
+          project-url: https://github.com/orgs/synnada-ai/projects/5/views/1
           github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -11,6 +11,6 @@ jobs:
       - name: Move Issue to In Progress
         uses: actions/add-to-project@v0.5.0
         with:
-          project-url: https://github.com/orgs/synnada-ai/projects/5
+          project-url: https://github.com/orgs/synnada-ai/projects/5/views/1
           github-token: ${{ secrets.GITHUB_TOKEN }}
           status: "In Progress"
