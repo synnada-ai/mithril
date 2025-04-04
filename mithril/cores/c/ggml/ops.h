@@ -38,5 +38,4 @@ struct ggml_tensor * relu_grad(struct ggml_context * ctx, struct ggml_tensor * o
 struct ggml_tensor * squared_error_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * output, struct ggml_tensor * left, struct ggml_tensor * right);
 struct ggml_tensor * reduce_mean_grad(struct ggml_context * ctx, struct ggml_tensor * gradient, int idx, struct ggml_tensor * left, struct ggml_tensor * right, struct ggml_tensor * axes,struct ggml_tensor * keepdim);
 
-void print_tensor_data(struct ggml_tensor * tensor);
 #endif
