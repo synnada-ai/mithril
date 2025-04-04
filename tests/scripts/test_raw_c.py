@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import shutil
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
+
 
 def test_c_bindings():
     test_dir = Path(__file__).parent.absolute()
@@ -30,9 +31,12 @@ def test_c_bindings():
 
         executable = _tmp_dir / "c_tests"
         compile_cmd = [
-            "cc", str(c_file), str(tmp_so),
+            "cc",
+            str(c_file),
+            str(tmp_so),
             f"-Wl,-rpath,{_tmp_dir}",  # Look in temp dir
-            "-o", str(executable)
+            "-o",
+            str(executable),
         ]
         subprocess.check_call(compile_cmd)
 
