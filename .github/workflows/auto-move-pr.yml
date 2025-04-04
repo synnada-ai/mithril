@@ -16,8 +16,9 @@ jobs:
           private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
       - name: Move PR to "Done"
-        uses: actions/add-to-project@vv1.0.2
+        uses: actions/add-to-project@v1.0.2
         with:
           project-id: "PVT_kwDOBaFPkM4A17Eb"
+          project-url: https://github.com/orgs/synnada-ai/projects/5
           github-token: ${{ steps.get-token.outputs.token }}
           status: "Done"
