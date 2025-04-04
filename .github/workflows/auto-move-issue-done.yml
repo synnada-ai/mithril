@@ -5,12 +5,19 @@ on:
     types: [closed]
 
 jobs:
-  move_issue_done:
+  move_to_in_progress:
     runs-on: ubuntu-latest
     steps:
-      - name: Move Issue to Done
-        uses: actions/add-to-project@v0.5.0
+      - name: Generate GitHub App Token
+        id: get-token
+        uses: tibdex/github-app-token@v1
         with:
-          project-url: https://github.com/orgs/synnada-ai/projects/5/views/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          app_id: ${{ secrets.GH_APP_ID }}
+          private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: Move Issue to "Done"
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-id: "PVT_kwDOBaFPkM4A17Eb"
+          github-token: ${{ steps.get-token.outputs.token }}
           status: "Done"
