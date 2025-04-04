@@ -1,16 +1,23 @@
-name: Move PRs to Done When Merged
+name: Move PR to Done When Merged
 
 on:
   pull_request:
     types: [closed]
 
 jobs:
-  move_pr:
+  move_pr_to_done:
     runs-on: ubuntu-latest
     steps:
-      - name: Move PR to Done
-        uses: actions/add-to-project@v0.5.0
+      - name: Generate GitHub App Token
+        id: get-token
+        uses: tibdex/github-app-token@v1
         with:
-          project-url: https://github.com/orgs/synnada-ai/projects/5/views/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          app_id: ${{ secrets.GH_APP_ID }}
+          private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: Move PR to "Done"
+        uses: actions/add-to-project@v1.1.0
+        with:
+          project-id: "PVT_kwDOBaFPkM4A17Eb"
+          github-token: ${{ steps.get-token.outputs.token }}
           status: "Done"

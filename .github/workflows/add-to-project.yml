@@ -1,4 +1,4 @@
-name: Auto-add Issues & PRs to Project
+name: Auto-Add Issues & PRs to Project
 
 on:
   issues:
@@ -10,8 +10,20 @@ jobs:
   add_to_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Add Issue or PR to Project
-        uses: actions/add-to-project@v0.5.0
+      - name: Generate GitHub App Token
+        id: get-token
+        uses: tibdex/github-app-token@v1
         with:
-          project-url: https://github.com/orgs/synnada-ai/projects/5/views/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          app_id: ${{ secrets.GH_APP_ID }}
+          private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: Add Issue or PR to GitHub Project
+        uses: actions/add-to-project@v1.1.0
+        with:
+          project-id: "PVT_kwDOBaFPkM4A17Eb"
+          github-token: ${{ steps.get-token.outputs.token }}
+
+
+
+
+https://github.com/orgs/synnada-ai/projects/5
