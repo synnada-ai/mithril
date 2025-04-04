@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
-#include "cbackend.h"
+#include "../../mithril/cores/c/raw_c/cbackend.h"
 
 #define FLOAT_TOLERANCE 1e-6
 
@@ -469,25 +469,6 @@ int main()
     test_reduce_mean_grad();
     
     printf("All tests passed!\n");
-    /*
-    int left_shape[] = {5, 5};
-    int right_shape[] = {5, 5};
-    int out_shape[] = {5, 5};
-    Array *left = create_full_struct(1, 2, left_shape);
-    Array *left_grad = create_full_struct(0, 2, left_shape);
-    Array *left2 = create_full_struct(1, 2, left_shape);
-    Array *left2_grad = create_full_struct(0, 2, left_shape);
-    Array *right = create_full_struct(4, 2, right_shape);
-    Array *right_grad = create_full_struct(0, 2, right_shape);
-    Array *out = create_empty_struct(2, out_shape);
-    Array *out_grad = create_full_struct(0.33, 2, out_shape);
-    Array *out2 = create_empty_struct(2, out_shape);
-    Array *out2_grad = create_full_struct(0.33, 2, out_shape);
-
-    evaluate_gradients(left, left2, left2_grad, left_grad, out, out2, out2_grad, out_grad, right,  right_grad);
-    printf("Left grad:\n");
-
-    */
     return 0;
 }
 

@@ -44,7 +44,7 @@ class GGMLCodeGen(CGen):
 
         # Generate static context variable at file scope
         eval_static_ctx = c_ast.StaticVariable(
-            c_ast.Pointer("struct ggml_context"),
+            c_ast.Pointer("g_context"),
             "eval_static_ctx",
             c_ast.Constant("NULL"),
         )
@@ -56,7 +56,7 @@ class GGMLCodeGen(CGen):
         )
 
         eval_grad_static_ctx = c_ast.StaticVariable(
-            c_ast.Pointer("struct ggml_context"),
+            c_ast.Pointer("g_context"),
             "eval_grad_static_ctx",
             c_ast.Constant("NULL"),
         )
@@ -170,7 +170,7 @@ class GGMLCodeGen(CGen):
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             static_vars.append(
                 c_ast.StaticVariable(
-                    c_ast.Pointer("struct ggml_tensor"), key, c_ast.Constant("NULL")
+                    c_ast.Pointer("g_tensor"), key, c_ast.Constant("NULL")
                 )
             )
 

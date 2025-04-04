@@ -21,7 +21,7 @@ CODEGEN_CONFIG.HEADER_NAME = "ggml_backend.h"
 
 
 # Array configs
-CODEGEN_CONFIG.ARRAY_NAME = "struct ggml_tensor"
+CODEGEN_CONFIG.ARRAY_NAME = "g_tensor"
 
 # Function configs
 CODEGEN_CONFIG.IMPLICIT_BROADCAST_OPS = {
