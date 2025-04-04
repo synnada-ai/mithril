@@ -23,3 +23,4 @@ jobs:
           project-id: "PVT_kwDOBaFPkM4A17Eb"
           project-url: https://github.com/orgs/synnada-ai/projects/5
           github-token: ${{ steps.get-token.outputs.token }}
+          
