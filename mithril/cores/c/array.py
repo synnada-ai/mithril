@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ctypes
+import math
 from collections.abc import Sequence
 from numbers import Real
 
@@ -41,10 +42,7 @@ class PyArray:
 
     @property
     def data(self) -> Sequence[int | Sequence[int | Sequence[int]]]:
-        total_elements = 1
-        for dim in self.shape:
-            total_elements *= dim
-
+        total_elements = math.prod(self.shape)
         # Convert the array into a Python list
         data_ptr = ctypes.cast(self.arr.data, ctypes.POINTER(ctypes.c_float))
         data_list = [data_ptr[i] for i in range(total_elements)]
@@ -52,9 +50,7 @@ class PyArray:
         def reshape(data: list[float], shape: tuple[int, ...]) -> list:
             if len(shape) == 1:
                 return data
-            slice_size = 1
-            for d in shape[1:]:
-                slice_size *= d
+            slice_size = math.prod(shape[1:])
             return [
                 reshape(data[i * slice_size : (i + 1) * slice_size], shape[1:])
                 for i in range(shape[0])
@@ -116,9 +112,7 @@ def _create_temp_array(pyarray):
     strides = [1] if ndim == 1 else [shape[1], 1]
     c_shape_array = (ctypes.c_int * ndim)(*shape)
     c_strides_array = (ctypes.c_int * ndim)(*strides)
-    size = 1
-    for size_ in shape:
-        size *= size_
+    size = math.prod(shape)
     return Array(
         data=ctypes.cast(arr.data, ctypes.POINTER(ctypes.c_float)),
         shape=ctypes.cast(c_shape_array, ctypes.POINTER(ctypes.c_int)),

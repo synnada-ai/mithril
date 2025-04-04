@@ -48,30 +48,9 @@ void multiplication(Array *output, Array *left, Array *right)
     binary_array_iterator(left, right, output, multiply_lambda);
 }
 
-void scalar_add(Array *output, Array *input, float scalar) 
-{
-    for (int i = 0; i < input->size; i++) {
-        output->data[i] = input->data[i] + scalar;
-    }
-}
-
-void scalar_multiply(Array *output, Array *input, float scalar) 
-{
-    for (int i = 0; i < input->size; i++) {
-        output->data[i] = input->data[i] * scalar;
-    }
-}
-
 void subtract(Array *output, Array *left, Array *right)
 {
     binary_array_iterator(left, right, output, subtract_lambda);
-}
-
-void scalar_subtract(Array *output, Array *input, float scalar)
-{
-    for (int i = 0; i < input->size; i++) {
-        output->data[i] = input->data[i] - scalar;
-    }
 }
 
 void transpose(Array *output, const Array *input, void *axes)

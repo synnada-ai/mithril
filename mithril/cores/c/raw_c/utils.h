@@ -216,4 +216,25 @@ void invert_permutation(const int *axes, int *inv_axes, int ndim)
         inv_axes[axes[i]] = i;
     }
 }
+
+void scalar_add(Array *output, Array *input, float scalar) 
+{
+    for (int i = 0; i < input->size; i++) {
+        output->data[i] = input->data[i] + scalar;
+    }
+}
+
+void scalar_multiply(Array *output, Array *input, float scalar) 
+{
+    for (int i = 0; i < input->size; i++) {
+        output->data[i] = input->data[i] * scalar;
+    }
+}
+
+void scalar_subtract(Array *output, Array *input, float scalar)
+{
+    for (int i = 0; i < input->size; i++) {
+        output->data[i] = input->data[i] - scalar;
+    }
+}
 #endif
