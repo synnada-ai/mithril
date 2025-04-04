@@ -1,0 +1,16 @@
+name: Move Issues to In Progress When PR is Opened
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  move_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move Issue to In Progress
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/synnada-ai/projects/5/views/1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          status: "In Progress"
