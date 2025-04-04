@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <stdio.h>
-#include <stdio.h>
 #include <assert.h>
 #include <math.h>
 #include "cbackend.h"
@@ -328,13 +327,14 @@ void test_reduce_mean_axis0() {
     printf("test_reduce_mean_axis0\n");
     int input_shape[] = {2, 3};
     float input_data[] = {1,2,3,4,5,6};
-    int axes[] = {0};
+    int axes_data[] = {0};
     float expected[] = {2.5, 3.5, 4.5};
     
     Array *input = create_struct(input_data, 2, input_shape);
     Array *output = create_empty_struct(1, (int[]){2});
+    Array *axes = create_struct(axes_data, 1, (int[]){1});
     
-    reduce_mean(output, input, axes, 1);
+    reduce_mean(output, input, axes, NULL);
     assert_array_equal(output, expected, 2);
     
     delete_struct(input);
@@ -345,13 +345,14 @@ void test_reduce_mean_axis1() {
     printf("test_reduce_mean_axis1\n");
     int input_shape[] = {2, 3};
     float input_data[] = {1,2,3,4,5,6};
-    int axes[] = {1};
+    float axes_data[] = {1};
     float expected[] = {2.0, 5.0};
     
     Array *input = create_struct(input_data, 2, input_shape);
     Array *output = create_empty_struct(1, (int[]){2});
-    
-    reduce_mean(output, input, axes, 1);
+    Array *axes = create_struct(axes_data, 1, (int[]){1});
+
+    reduce_mean(output, input, axes, NULL);
     assert_array_equal(output, expected, 2);
     
     delete_struct(input);
@@ -427,12 +428,13 @@ void test_reduce_mean_grad() {
     
     // Forward pass (reduce along axis 0)
     Array *output = create_empty_struct(1, (int[]){3});
-    reduce_mean(input, output, (int[]){0}, 1);
+    Array *axes = create_struct((float[]){0}, 1, (int[]){1});
+    reduce_mean(input, output, axes, NULL);
     
     // Backward pass
     Array *output_grad = create_struct((float[]){1,1,1}, 1, (int[]){3});
     Array *input_grad = create_full_struct(0.0f, 2, input_shape);
-    reduce_mean_grad(output_grad, 0, output, input, (int[]){0}, NULL, input_grad, 1, NULL);
+    reduce_mean_grad(output_grad, 0, output, input, axes, NULL, input_grad, 1, NULL);
     
     // Each element in input_grad should be 1/2 (since 2 elements averaged)
     float expected[] = {0.5,0.5,0.5,0.5,0.5,0.5};

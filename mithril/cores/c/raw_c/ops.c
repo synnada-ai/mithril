@@ -205,7 +205,14 @@ void squared_error(Array *output, Array *input, Array *target)
 
 void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim) 
 {
-    // TODO: keepdim and axes is NULL, add keepdim and axes support.
+    int num_axes = 0;
+    if (axes != NULL) {
+        num_axes = axes->ndim;
+    }
+    else {
+        num_axes = input->ndim;
+    }
+    // TODO: keepdim is NULL, add keepdim support.
     size_t N = 1;
     if (axes == NULL) {
         N = input->size;
@@ -214,7 +221,15 @@ void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim)
             N *= input->shape[(int) axes->data[i]];
         }
     }
-    reduce_sum(input, output, axes, input->ndim);
+    // Convert float axes to int
+    int *int_axes = NULL;
+    if (axes != NULL) {
+        int_axes = (int *)malloc(num_axes * sizeof(int));
+        for (int i = 0; i < num_axes; i++) {
+            int_axes[i] = (int)(axes->data[i]);
+        }
+    }
+    reduce_sum(input, output, int_axes, num_axes);
     for (size_t i=0; i<output->size; i++) {
         output->data[i] /= N;
     }

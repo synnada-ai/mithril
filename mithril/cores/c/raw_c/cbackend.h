@@ -16,5 +16,6 @@
 #define CBACKEND_H
 
 #include "ops.h"
+#include "utils.h"
 
 #endif
