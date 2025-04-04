@@ -18,7 +18,7 @@ jobs:
           private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
       - name: Add Issue or PR to GitHub Project
-        uses: actions/add-to-project@v1.1.0
+        uses: actions/add-to-project@v0.5.0
         with:
           project-id: "PVT_kwDOBaFPkM4A17Eb"
           github-token: ${{ steps.get-token.outputs.token }}
