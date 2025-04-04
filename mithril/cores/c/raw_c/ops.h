@@ -21,11 +21,8 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 void add(Array *output, Array *left, Array *right);
-void scalar_add(Array *output, Array *input, float scalar) ;
-void scalar_multiply(Array *output, Array *input, float scalar);
 void multiplication(Array *output, Array *left, Array *right);
 void subtract(Array *output, Array *left, Array *right);
-void scalar_subtract(Array *output, Array *input, float scalar);
 void matrix_multiplication(Array *output, const Array *left, const Array *right);
 void transpose(Array *output,const Array *input, void * axes);
 void transpose_grad(const Array *gradient, int idx, Array *output , const Array *left, const Array *right, Array *leftGradient, void * axes);
@@ -38,6 +35,6 @@ void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input
 void squared_error(Array *output, Array *input, Array *target) ;
 void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *target, Array *inputGradient, Array *targetGradient);
 void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim);
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, void *num_axes, bool keepdimGradient) ;
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, void *num_axes, bool keepdimGradient);
 
 #endif
