@@ -396,7 +396,7 @@ void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *in
     free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, void *num_axes, bool keepdimGradient) 
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, int num_axes, bool keepdimGradient) 
 {
     // Target is not differentiable
     if (idx != 0) 
