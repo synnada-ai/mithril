@@ -316,7 +316,7 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
     free(temp);
 }
 
-void transpose_grad(const Array *gradient, int idx, Array *output , const Array *left, const Array *right, Array *leftGradient, void * axes)
+void transpose_grad(const Array *gradient, int idx, Array *output, const Array *left, const Array *right, Array *leftGradient, void *axes)
 {
     if (axes == NULL) {
         // For the standard 2D transpose, the gradient is just the transpose.
@@ -396,7 +396,7 @@ void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *in
     free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, int num_axes, bool keepdimGradient) 
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, Array *num_axes, bool keepdimGradient) 
 {
     // Target is not differentiable
     if (idx != 0) 
