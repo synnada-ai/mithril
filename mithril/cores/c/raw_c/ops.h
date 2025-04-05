@@ -35,6 +35,6 @@ void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input
 void squared_error(Array *output, Array *input, Array *target) ;
 void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *target, Array *inputGradient, Array *targetGradient);
 void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim);
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, int *num_axes, bool keepdimGradient);
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, int num_axes, bool keepdimGradient);
 
 #endif
