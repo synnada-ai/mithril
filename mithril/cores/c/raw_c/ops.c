@@ -406,7 +406,7 @@ void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *inpu
         N = input->size;
     } else {
         N = 1;
-        for (int i=0; i<num_axes; i++) {
+        for (int i=0; i<num_axes->data[0]; i++) {
             N *= input->shape[(int) axes->data[i]];
         }
     }

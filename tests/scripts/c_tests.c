@@ -429,12 +429,13 @@ void test_reduce_mean_grad() {
     // Forward pass (reduce along axis 0)
     Array *output = create_empty_struct(1, (int[]){3});
     Array *axes = create_struct((float[]){0}, 1, (int[]){1});
+    Array *num_axes = create_struct((float[]){1}, 1, (int[]){1});
     reduce_mean(input, output, axes, NULL);
     
     // Backward pass
     Array *output_grad = create_struct((float[]){1,1,1}, 1, (int[]){3});
     Array *input_grad = create_full_struct(0.0f, 2, input_shape);
-    reduce_mean_grad(output_grad, 0, output, input, axes, NULL, input_grad, 1, NULL);
+    reduce_mean_grad(output_grad, 0, output, input, axes, NULL, input_grad, num_axes, NULL);
     
     // Each element in input_grad should be 1/2 (since 2 elements averaged)
     float expected[] = {0.5,0.5,0.5,0.5,0.5,0.5};
