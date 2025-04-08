@@ -19,18 +19,6 @@
 
 #define FLOAT_TOLERANCE 1e-6
 
-void evaluate(Array * left, Array * left2, Array * output, Array * output2, Array * right) {
-    add(output, left, right);
-    add(output2, left2, output);
-}
-
-void evaluate_gradients(Array * left, Array * left2, Array * left2_grad, Array * left_grad, Array * output, Array * output2, Array * output2_grad, Array * output_grad, Array * right, Array * right_grad) {
-    add_grad(output2_grad, 0, output2, left2, output, left2_grad, output_grad);
-    add_grad(output2_grad, 1, output2, left2, output, left2_grad, output_grad);
-    add_grad(output_grad, 0, output, left, right, left_grad, right_grad);
-    add_grad(output_grad, 1, output, left, right, left_grad, right_grad);
-}
-
 void assert_array_equal(const Array *result, const float *expected, int size) {
     assert(result->size == size);
     for (int i=0; i<size; i++) {
