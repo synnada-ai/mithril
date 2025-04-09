@@ -76,3 +76,8 @@ data/
 *.pickle
 build
 mithril.egg-info
+
+# Documentation
+#######################
+
+site/
