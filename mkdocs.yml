@@ -1,0 +1,134 @@
+site_name: Mithril Documentation
+site_description: Documentation for Mithril - A Modular Machine Learning Library for Model Composability
+site_author: Mithril Team
+site_url: https://example.com/mithril
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+    - grid
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.arithmatex:
+      generic: true
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+repo_name: mithril
+repo_url: https://github.com/example/mithril
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/example/mithril
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/mithril/
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Key Concepts: getting-started/key-concepts.md
+    - Migration Guide: getting-started/migration-guide.md
+    - FAQ: getting-started/faq.md
+  - User Guide:
+    - Overview: user-guide/index.md
+    - Logical Models: 
+      - Basic Concepts: user-guide/logical-models.md
+      - Custom Models: user-guide/custom-models.md
+      - Model Composition: user-guide/model-composition.md
+      - Terminal Management: user-guide/terminal-management.md
+      - Model Serialization: user-guide/model-serialization.md
+    - Physical Models: 
+      - Overview: user-guide/physical-models.md
+      - Shape Inference: user-guide/shape-inference.md
+      - Type Inference: user-guide/type-inference.md
+    - Compilation: 
+      - Basic Compilation: user-guide/compilation.md
+      - Advanced Compilation: user-guide/advanced-compilation.md
+      - Code Generation: user-guide/code-generation.md
+      - Optimization: user-guide/optimization.md
+    - Backends: 
+      - Overview: user-guide/backends.md
+      - JAX Backend: user-guide/jax-backend.md
+      - PyTorch Backend: user-guide/pytorch-backend.md
+      - NumPy Backend: user-guide/numpy-backend.md
+      - MLX Backend: user-guide/mlx-backend.md
+      - Custom Backends: user-guide/custom-backends.md
+    - Parallelization: 
+      - Basic Concepts: user-guide/parallelization.md
+      - Data Parallelism: user-guide/data-parallelism.md
+      - Model Parallelism: user-guide/model-parallelism.md
+      - Mixed Parallelism: user-guide/mixed-parallelism.md
+    - Training: 
+      - Basic Training: user-guide/training.md
+      - Optimizers: user-guide/optimizers.md
+      - Loss Functions: user-guide/loss-functions.md
+      - Training Loops: user-guide/training-loops.md
+      - Metrics: user-guide/metrics.md
+    - Advanced Topics:
+      - Conditional Execution: user-guide/conditional-execution.md
+      - Graph Manipulation: user-guide/graph-manipulation.md
+      - Custom Primitives: user-guide/custom-primitives.md
+      - Memory Optimization: user-guide/memory-optimization.md
+      - Performance Tuning: user-guide/performance-tuning.md
+      - Internal Architecture: user-guide/advanced-topics/internal-architecture.md
+      - Backend Comparison: user-guide/advanced-topics/backend-comparison.md
+  - API Reference:
+    - Core API: api/core.md
+    - Models: api/models.md
+    - Backends: api/backends.md
+    - Framework: api/framework.md
+    - Primitives: api/primitives.md
+    - Common Utilities: api/common.md
+  - Examples:
+    - Basic Examples: examples/basic.md
+    - CLIP: examples/clip.md
+    - GPT: examples/gpt.md
+    - Flux: examples/flux.md
+    - Whisper: examples/whisper.md
+    - Computer Vision: examples/computer-vision.md
+    - Natural Language Processing: examples/nlp.md
+    - Custom Models: examples/custom-models.md
+    - Multi-backend: examples/multi-backend.md
+  - Tutorials:
+    - Linear Regression: tutorials/linear-regression.md
+    - Image Classification: tutorials/image-classification.md
+    - Language Modeling: tutorials/language-modeling.md
+    - Fine-tuning: tutorials/fine-tuning.md
+    - Debugging Models: tutorials/debugging.md
+    - Migrating from PyTorch: tutorials/migrating-from-pytorch.md
+    - Migrating from JAX: tutorials/migrating-from-jax.md
+  - Contributing:
+    - Development Guide: contributing/development.md
+    - Code Style: contributing/code-style.md
+    - Testing: contributing/testing.md
+    - Documentation: contributing/documentation.md
+    - Release Process: contributing/releases.md
+  - Benchmarks: benchmarks.md
+  - Changelog: changelog.md
