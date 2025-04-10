@@ -18,9 +18,9 @@ from typing import Any
 
 import torch
 
-from ...backends.with_autograd.torch_backend import TorchBackend
-from ..logical import Operator
-from ..physical.model import PhysicalModel
+from ....backends.with_autograd.torch_backend import TorchBackend
+from ...logical import Operator
+from ...physical.model import PhysicalModel
 from .python_gen import PythonCodeGen
 
 

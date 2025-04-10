@@ -16,9 +16,9 @@
 from collections.abc import Sequence
 from typing import override
 
-from ...cores.c.array import PyArray
-from ..logical.operator import Operator
-from ..physical.model import PhysicalModel
+from ....cores.c.array import PyArray
+from ...logical.operator import Operator
+from ...physical.model import PhysicalModel
 from . import c_ast
 from .c_gen import CGen
 

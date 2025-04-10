@@ -20,11 +20,11 @@ from typing import Any
 
 import numpy as np
 
-from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...cores.python.numpy.utils import fill_zeros_like
-from ...framework.physical.model import PhysicalModel
-from ...utils.func_utils import is_make_array_required, prepare_function_args
-from ..common import (
+from ....backends.with_manualgrad.numpy_backend import NumpyBackend
+from ....cores.python.numpy.utils import fill_zeros_like
+from ...physical.model import PhysicalModel
+from ....utils.func_utils import is_make_array_required, prepare_function_args
+from ...common import (
     DataEvalType,
     EvaluateAllType,
     EvaluateType,
@@ -33,9 +33,9 @@ from ..common import (
     ParamsEvalType,
     is_type_adjustment_required,
 )
-from ..logical import Operator
+from ...logical import Operator
 from .python_gen import PythonCodeGen, RawGradientType
-from .utils import check_repr_inequality
+from ..utils import check_repr_inequality
 
 
 class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):

@@ -18,22 +18,22 @@ import subprocess
 import tempfile
 from collections.abc import Sequence
 
-from ...backends.with_manualgrad.c_backend import CBackend, backend
-from ...backends.with_manualgrad.ggml_backend import GGMLBackend
-from ...common import CGenConfig
-from ...cores.c.array import PyArray
-from ...framework.common import (
+from ....backends.with_manualgrad.c_backend import CBackend, backend
+from ....backends.with_manualgrad.ggml_backend import GGMLBackend
+from ....common import CGenConfig
+from ....cores.c.array import PyArray
+from ...common import (
     EvaluateAllType,
     EvaluateType,
     FinalCost,
     Tensor,
 )
-from ...utils.type_utils import is_list_int
-from ..logical.operator import Operator
-from ..physical.model import PhysicalModel
+from ....utils.type_utils import is_list_int
+from ...logical.operator import Operator
+from ...physical.model import PhysicalModel
 from . import c_ast
-from .code_gen import CodeGen
-from .utils import check_repr_inequality
+from ..code_gen import CodeGen
+from ..utils import check_repr_inequality
 from typing import Callable
 
 ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]

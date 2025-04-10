@@ -17,7 +17,7 @@ from typing import Any
 
 from ...backends.backend import Backend
 from .code_gen import CodeGen
-from .python_gen import PythonCodeGen
+from .py_style_codegen.python_gen import PythonCodeGen
 
 code_gen_map: dict[type[Backend[Any]], type[CodeGen[Any]]] = {}
 
@@ -35,14 +35,14 @@ except ImportError:
     pass
 try:
     from ...backends.with_autograd.torch_backend import TorchBackend
-    from .torch_gen import TorchCodeGen
+    from .py_style_codegen.torch_gen import TorchCodeGen
 
     code_gen_map[TorchBackend] = TorchCodeGen
 except ImportError:
     pass
 try:
     from ...backends.with_manualgrad.c_backend import CBackend
-    from .raw_c_gen import RawCGen
+    from .c_style_codegen.raw_c_gen import RawCGen
 
     code_gen_map[CBackend] = RawCGen
 except Exception:
@@ -50,14 +50,14 @@ except Exception:
 
 try:
     from ...backends.with_manualgrad.ggml_backend import GGMLBackend
-    from .ggml_gen import GGMLCodeGen
+    from .c_style_codegen.ggml_gen import GGMLCodeGen
 
     code_gen_map[GGMLBackend] = GGMLCodeGen
 except Exception as e:
     raise e
 try:
     from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-    from .numpy_gen import NumpyCodeGen
+    from .py_style_codegen.numpy_gen import NumpyCodeGen
 
     code_gen_map[NumpyBackend] = NumpyCodeGen
 except ImportError:
