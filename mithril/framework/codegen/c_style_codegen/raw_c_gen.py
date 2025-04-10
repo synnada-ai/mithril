@@ -14,7 +14,7 @@
 
 from typing import override
 
-from . import c_ast
+from . import c_ast, utils
 from .c_gen import CGen
 
 
@@ -22,9 +22,9 @@ class RawCGen(CGen):
     dynamic_links = ["-lmithrilc"]
 
     @override
-    def _determine_struct_keys(self) -> dict[str, list[str]]:
-        determined_struct_keys = super()._determine_struct_keys()
-        determined_struct_keys["eval_grad_input_keys"] = sorted(
+    def _determine_struct_keys(self) -> utils.StructKeys:
+        struct_keys = super()._determine_struct_keys()
+        struct_keys.eval_grad_input_keys = sorted(
             {
                 key + "_grad"
                 for key in self.pm.flat_graph.all_keys
@@ -32,21 +32,19 @@ class RawCGen(CGen):
             }
             | self.pm.flat_graph.all_keys
         )
-        determined_struct_keys["eval_output_keys"] = sorted(
-            determined_struct_keys["eval_input_keys"]
-        )
+        struct_keys.eval_output_keys = sorted(struct_keys.eval_input_keys)
 
-        return determined_struct_keys
+        return struct_keys
 
     def create_key_ref(
         self, key: str, context: str, load: bool = True
     ) -> c_ast.Variable | c_ast.Expr:
-        if key in self.determined_struct_keys["eval_input_keys"]:
+        if key in self.struct_keys.eval_input_keys:
             return c_ast.Variable(f"inputs->{key}")
 
         else:
             return super().create_key_ref(key, context, load)
-    
+
     @override
     def assign_primitive_output(
         self, target: str, source: c_ast.Expr, context: str
