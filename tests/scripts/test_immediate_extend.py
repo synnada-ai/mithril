@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from copy import deepcopy
 
 import pytest
@@ -581,3 +582,53 @@ def test_multihead():
     _ = B * L
     for con in block.conns.input_connections:
         assert con.model is block
+
+
+def test_extend_new_model_with_provisional_ref_count():
+    submodel = Model()
+    submodel |= (mult := Multiply())
+    mult.output + 3
+    sub_pro_model = submodel.provisional_model
+    assert isinstance(sub_pro_model, Model)
+    conns_ref_count = sys.getrefcount(sub_pro_model.conns) + 1
+    assert sys.getrefcount(sub_pro_model.conns) == conns_ref_count
+    model = Model()
+    model |= (buff := Buffer())
+    buff.output - 2
+    pro_model = model.provisional_model
+    model |= submodel
+    assert submodel.provisional_model is None
+    assert sub_pro_model.provisional_source is False
+    assert pro_model is model.provisional_model
+    assert isinstance(model.provisional_model, Model)
+    assert len(model.provisional_model.dag) == 2  # AddOp and SubtractOp
+    # TODO: Re-consider what should be the ref count of conns
+    # assert sys.getrefcount(sub_pro_model.conns) == conns_ref_count
+
+
+def test_extend_new_model_with_provisional_model_connection_ref_count():
+    submodel = Model()
+    submodel |= (mult := Multiply())
+    mult.output + 3
+    sub_pro_model = submodel.provisional_model
+    assert sys.getrefcount(sub_pro_model) == 7
+    model = Model()
+    model |= (buff := Buffer())
+    buff.output - 2
+    model |= submodel
+    assert sys.getrefcount(sub_pro_model) == 2
+
+
+def test_extend_child_provisional_extraction():
+    submodel = Model()
+    submodel |= (mult := Multiply())
+    add_output = mult.output + 3
+
+    model = Model()
+    model |= (buff := Buffer())
+    buff.output - 2
+    model |= submodel
+    pow = add_output**2
+    model |= Buffer()(pow)
+    for con in model.conns.input_connections:
+        assert con.model is model

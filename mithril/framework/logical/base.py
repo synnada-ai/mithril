@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import KeysView, Mapping, ValuesView
+from collections.abc import Iterable, KeysView, Mapping, ValuesView
 from itertools import chain
 from types import UnionType
 from typing import Any, Self, get_origin
@@ -993,15 +993,14 @@ class BaseModel:
     def _extract_submodels(
         self,
         model: BaseModel,
-        submodels: list[BaseModel] | set[BaseModel] | KeysView[BaseModel] | None = None,
+        submodels: Iterable[BaseModel] | None = None,
         replicate: bool = True,
     ) -> None:
         if submodels is None:
-            submodels = model.dag.keys()
+            submodels = model.dag
         for sub_m in submodels:
             if sub_m in self.dag:
                 continue
-                # self._extract_submodel(model, sub_m, replicate_cons=replicate)
             sub_m.parent = None
             conns: dict[str, ConnectionData] = {}
             # Update all connections of the submodel.
@@ -1039,10 +1038,14 @@ class BaseModel:
                     conns[con.key] = _con
                 # Update connections_dict and metadata_dict of Connections class.
                 edge = con.metadata
+                # if replicate:
                 sub_m.conns.connections_dict.setdefault(edge, set())
                 sub_m.conns.connections_dict[edge] |= model.conns.connections_dict[edge]
                 sub_m.conns.metadata_dict.setdefault(edge, set())
                 sub_m.conns.metadata_dict[edge] |= model.conns.metadata_dict[edge]
+                if _con.model is model:
+                    _con.model = None
+
             # Extend the self model with submodel.
             self.extend(sub_m, **conns)
 
@@ -1895,8 +1898,6 @@ class BaseModel:
             )
 
         right_connections = self.conns.connections_dict.pop(right, set())
-        if left not in self.conns.connections_dict:
-            ...
         self.conns.connections_dict[left] |= right_connections
 
         for conns_obj in right_connections:

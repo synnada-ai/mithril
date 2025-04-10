@@ -632,15 +632,23 @@ class Model(BaseModel):
         else:
             submodels = model.get_models_in_topological_order(start_m[0])
             self._extract_submodels(model, submodels)
+            # Remove submodels from model.dag
+            for m in submodels:
+                model.dag.pop(m, None)
+
         # Merge provisional models
-        if isinstance(model.provisional_source, BaseModel) and not use_sub_provisional:
+        if (
+            isinstance(model.provisional_source, BaseModel)
+            and not use_sub_provisional
+            and self.provisional_model is not model
+        ):
             submodels = [
                 sub_m
                 for sub_m in model.dag
                 if sub_m not in submodels and sub_m not in self.dag
             ]
             assert isinstance(self.provisional_model, BaseModel)
-            self.provisional_model._extract_submodels(model, submodels)
+            self.provisional_model._extract_submodels(model, submodels, replicate=False)
             if isinstance(source := model.provisional_source, BaseModel):
                 source.provisional_model = None
             model.provisional_source = True
@@ -690,6 +698,21 @@ class Model(BaseModel):
                 else:
                     kwargs[key] = _value  # type: ignore
             kwargs[key] = self._unroll_template(kwargs[key])  # type: ignore
+
+        mp = model.provisional_model
+        if mp is not None and self.provisional_model is None:
+            mp = model.provisional_model
+            provisional_model = Model()
+            self._bind_provisional_model(provisional_model)
+
+        # Merge provisional models
+        if mp is not None and mp is not self.provisional_model:
+            submodels = [sub_m for sub_m in mp.dag if sub_m not in self.dag]
+            assert isinstance(self.provisional_model, BaseModel)
+            self.provisional_model._extract_submodels(mp, submodels, False)
+            if isinstance(source := mp.provisional_source, BaseModel):
+                source.provisional_model = None
+            mp.provisional_source = False
 
         self.extend(model, trace, **kwargs)
         return self
