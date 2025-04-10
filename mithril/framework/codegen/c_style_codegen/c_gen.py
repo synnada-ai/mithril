@@ -340,7 +340,7 @@ class CGen(CodeGen[PyArray]):
 
     def generate_op(
         self, op: Operator, inputs: Sequence[str | int | float], output_key: str, context: str
-    ) -> c_ast.Stmt:
+    ) -> c_ast.Expr:
         
         # Create input variables
         input_vars: list[c_ast.Expr] = []
@@ -363,10 +363,7 @@ class CGen(CodeGen[PyArray]):
         # Create op call
         op_call = self._call_op(formula_key, input_vars, context)
 
-        # Assign op call to output
-        op_ast = self.assign_primitive_output(output_key, op_call, context)
-
-        return op_ast
+        return op_call
     
     def _call_op(self, formula_key: str, input_vars: list[c_ast.Expr], context: str) -> c_ast.Expr:
         return c_ast.Call(formula_key, input_vars)
@@ -464,14 +461,17 @@ class CGen(CodeGen[PyArray]):
                 inputs = [output_key] + inputs
 
             # Create primitive call
-            p_call = self.generate_op(
+            op_call = self.generate_op(
                 op,
                 inputs,
                 output_key,
                 context="eval",
             )
 
-            operations.append(p_call)  # type: ignore
+            # Assign op call to output
+            op_ast = self.assign_primitive_output(output_key, op_call, context="eval")
+
+            operations.append(op_ast)  # type: ignore
 
         # Prepare output
         post_process.append(self.create_output_struct(context="eval"))  # type: ignore
