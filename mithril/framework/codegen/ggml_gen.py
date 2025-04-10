@@ -33,9 +33,11 @@ class GGMLCodeGen(CGen):
 
         self.defined_tmp_vars: set[str] = set()
 
-        self.pre_processors = {
-            "broadcast_to": self.pre_broadcast_to,
-        }
+        self.pre_processors.update(
+            {
+                "broadcast_to": self.pre_broadcast_to,
+            }
+        )
 
     def generate_code(self, file_path: str | None = None) -> None:
         # Add stdlib.h include for atexit
@@ -128,28 +130,9 @@ class GGMLCodeGen(CGen):
         )
 
     @override
-    def create_primitive_call(
-        self, op: Operator, args: Sequence[str | int | float], context: str
-    ) -> c_ast.Expr:
-        formula_name = op.formula_key if isinstance(op, Operator) else op
-        if context == "eval_grad":
-            formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
-        arg_exprs: list[c_ast.Expr] = []
-        if formula_name in self.pre_processors:
-            op, arg_exprs = self.pre_processors[formula_name](op, args, context)
-        else:
-            arg_exprs = [
-                self.create_key_ref(key, context=context, load=True)
-                if isinstance(key, str)
-                else c_ast.Constant(key)
-                for key in args
-            ]
-
-        # Add context as input for all primitive calls
+    def _call_op(self, formula_key: str, input_vars: list[c_ast.Expr], context: str) -> c_ast.Expr:
         context_txt = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
-        arg_exprs = [c_ast.Variable(context_txt), *arg_exprs]
-
-        return c_ast.Call(formula_name, arg_exprs)
+        return c_ast.Call(formula_key, [c_ast.Variable(context_txt), *input_vars])
 
     def update_function(
         self,
@@ -391,12 +374,6 @@ class GGMLCodeGen(CGen):
             determined_struct_keys["eval_input_keys"] = sorted(static_cache_keys)
         return determined_struct_keys
 
-    def _create_shape_constant(self, shape: tuple[int, ...]) -> list[c_ast.Expr]:
-        # GGML expects 4 dimensions for shape
-        shape = shape + (1,) * (4 - len(shape))
-
-        return [c_ast.Constant(dim) for dim in shape]
-
     def pre_broadcast_to(
         self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> tuple[Operator, list[c_ast.Expr]]:
@@ -404,14 +381,7 @@ class GGMLCodeGen(CGen):
         assert isinstance(shape_key, str), "Shape key must be a string"
         shape: tuple[int, ...] = self.pm.flat_graph.data_store.data_values[shape_key]  # type: ignore
         assert isinstance(shape, tuple), "Shape must be a tuple or list"
+        # GGML expects 4 dimensions for shape
+        shape = shape + (1,) * (4 - len(shape)) 
 
-        args = args[:-1]
-        arg_exprs: list[c_ast.Expr] = [
-            self.create_key_ref(key, context=context, load=True)
-            if isinstance(key, str)
-            else c_ast.Constant(key)
-            for key in args
-        ]
-        shape_constant: list[c_ast.Expr] = self._create_shape_constant(shape)
-
-        return op, arg_exprs + shape_constant
+        return op, [*args[:-1], *shape]

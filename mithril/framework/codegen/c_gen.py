@@ -34,6 +34,7 @@ from ..physical.model import PhysicalModel
 from . import c_ast
 from .code_gen import CodeGen
 from .utils import check_repr_inequality
+from typing import Callable
 
 ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
 
@@ -58,14 +59,13 @@ class CGen(CodeGen[PyArray]):
             " or GGMLBackend"
         )
 
-        self.backend: CBackend | GGMLBackend = self.pm.backend
 
         self.imports: list[c_ast.AST] = []
         self.globals: list[c_ast.AST] = []
         self.functions: list[c_ast.AST] = []
 
         # This will be used to store the keys of the argument of the functions
-        self.func_arg_keys: dict[str, list[str]] = {}
+        self.backend: CBackend | GGMLBackend = self.pm.backend
         self.configs: CGenConfig = self.backend.CODEGEN_CONFIG
 
         # Determine struct keys
@@ -73,21 +73,21 @@ class CGen(CodeGen[PyArray]):
             self._determine_struct_keys()
         )
 
+        # Pre-processors
+        self.pre_processors: dict[str, Callable] = {}
+
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
 
         self.imports += self.generate_imports()
 
-        # Functions
-        eval_fn = self.generate_evaluate()
-        self.functions.append(eval_fn)
-        self.func_arg_keys["evaluate"] = sorted(self.pm.input_keys)
+        # Generate functions
+        self.functions.append(self.generate_evaluate())
 
         if not self.pm.inference:
-            eval_grad_fn = self.generate_evaluate_gradients()
-            self.functions.append(eval_grad_fn)
+            self.functions.append(self.generate_evaluate_gradients())
 
-        # Structs
+        # Generate structs
         self._generate_structs()
 
         # Init cache struct
@@ -338,14 +338,20 @@ class CGen(CodeGen[PyArray]):
         header_path = os.path.join(self.backend.SRC_PATH, self.configs.HEADER_NAME)
         return [c_ast.Include(header_path, system=False)]
 
-    def create_primitive_call(
-        self, op: Operator, args: Sequence[str | int | float], context: str
-    ) -> c_ast.Expr:
-        input_vars: list[c_ast.Expr] = [
-            self.create_key_ref(arg, context=context, load=True)
-            if isinstance(arg, str)
-            else c_ast.Constant(arg)
-            for arg in args
+    def generate_op(
+        self, op: Operator, inputs: Sequence[str | int | float], output_key: str, context: str
+    ) -> c_ast.Stmt:
+        
+        # Create input variables
+        input_vars: list[c_ast.Expr] = []
+        if op.formula_key in self.pre_processors:
+            op, inputs = self.pre_processors[op.formula_key](op, inputs, context)
+        
+        input_vars = [
+            self.create_key_ref(key, context=context, load=True)
+            if isinstance(key, str)
+            else c_ast.Constant(key)
+            for key in inputs
         ]
 
         formula_key = (
@@ -353,6 +359,16 @@ class CGen(CodeGen[PyArray]):
             if context == "eval"
             else op.formula_key + self.BACKWARD_FN_SUFFIX
         )
+
+        # Create op call
+        op_call = self._call_op(formula_key, input_vars, context)
+
+        # Assign op call to output
+        op_ast = self.assign_primitive_output(output_key, op_call, context)
+
+        return op_ast
+    
+    def _call_op(self, formula_key: str, input_vars: list[c_ast.Expr], context: str) -> c_ast.Expr:
         return c_ast.Call(formula_key, input_vars)
 
     def assign_primitive_output(
@@ -402,6 +418,9 @@ class CGen(CodeGen[PyArray]):
     ) -> c_ast.FunctionDef:
         body = pre_process + operations + post_process
         return c_ast.FunctionDef(return_type, name, params, body)
+    
+    def init_struct(self, struct_name: str, declaration_list: dict[str, c_ast.Expr], static: bool = True) -> c_ast.StructInit:
+        return c_ast.StructInit(struct_name, declaration_list, static)
 
     def create_output_struct(self, context: str) -> c_ast.StructInit:
         output_keys = (
@@ -440,22 +459,19 @@ class CGen(CodeGen[PyArray]):
             op = self.pm.flat_graph.get_op(output_key)
             inputs = self.pm.flat_graph.get_source_keys(output_key)
 
+            # In some backends the output is used as input
             if self.configs.USE_OUTPUT_AS_INPUT:
-                # In raw_c backend we need to pass output array as first argument
                 inputs = [output_key] + inputs
 
             # Create primitive call
-            p_call = self.create_primitive_call(
+            p_call = self.generate_op(
                 op,
                 inputs,
+                output_key,
                 context="eval",
             )
 
-            p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
-                output_key, p_call, context="eval"
-            )
-
-            operations.append(p_call_stmts)  # type: ignore
+            operations.append(p_call)  # type: ignore
 
         # Prepare output
         post_process.append(self.create_output_struct(context="eval"))  # type: ignore
@@ -520,9 +536,10 @@ class CGen(CodeGen[PyArray]):
                     ]
 
                 # Create primitive call
-                p_call = self.create_primitive_call(
+                p_call = self.generate_op(
                     op,
                     fn_inputs,
+                    output_key,
                     context="eval_grad",
                 )
                 if output_key is FinalCost:
@@ -566,10 +583,6 @@ class CGen(CodeGen[PyArray]):
         )
 
         return evaluate_grad_fn
-
-    def _get_backend_path(self) -> str:
-        backend_path = backend.__file__
-        return backend_path[: backend_path.rindex("/")]
 
     def _get_array_shape(self, key: str) -> tuple[int, ...]:
         if key == FinalCost:

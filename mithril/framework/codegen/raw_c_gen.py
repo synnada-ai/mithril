@@ -46,7 +46,8 @@ class RawCGen(CGen):
 
         else:
             return super().create_key_ref(key, context, load)
-
+    
+    @override
     def assign_primitive_output(
         self, target: str, source: c_ast.Expr, context: str
     ) -> c_ast.Assign:
