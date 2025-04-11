@@ -99,82 +99,6 @@ __all__ = [
 ]
 
 
-def create_provisional_model(
-    connections: list[TemplateConnectionType],
-    model: type[Operator],
-    defaults: dict[str, Any] | None = None,
-) -> Connection:
-    # Find a main model and all new models to be added to main model
-    provisional_model: BaseModel | None = None
-    main_model: Model | None = None
-    new_models: list[BaseModel] = []
-    for c in connections:
-        if isinstance(c, str):
-            raise ValueError("Connection key is not allowed in connections!")
-        if isinstance(c, ConnectionData) and c.model is not None:
-            m = c.model
-            if isinstance(m.provisional_source, BaseModel):
-                m = m.provisional_source
-            m = m._get_outermost_parent()
-
-            if not m.is_frozen and m.provisional_source is False:
-                if main_model is not None and main_model is not m:
-                    raise ValueError(
-                        "Multiple non-frozen active models found in connections!"
-                    )
-                assert isinstance(m, Model)
-                main_model = m
-            elif m not in new_models:
-                if provisional_model is None and m.provisional_source is not False:
-                    provisional_model = m
-                new_models.append(m)
-
-    if main_model is not None and main_model.provisional_model:
-        # If main_model has provisional, then set it as provisional_model.
-        provisional_model = main_model.provisional_model
-
-    if provisional_model is None:
-        provisional_model = Model()
-        if main_model is not None:
-            # If main_model is not None, then set created provisional to main_model.
-            main_model._bind_provisional_model(provisional_model)
-        else:
-            provisional_model.provisional_source = True
-
-    assert isinstance(provisional_model, Model)
-    _connections: list[TemplateConnectionType | ConnectionData] = []
-    # Iterate over connections, if connection is coming from main model, create
-    # a new connection with same edge, otherwise use connections as is.
-    for c in connections:
-        if (
-            isinstance(c, ConnectionData)
-            and c.model is not None
-            and c.model._get_outermost_parent() is main_model
-        ):
-            _c = main_model.conns.get_con_by_metadata(c.metadata)
-            assert isinstance(_c, ConnectionData)
-            con = provisional_model.conns.get_con_by_metadata(_c.metadata)
-            if con is None:
-                con = _c._replicate()
-            _connections.append(con)
-        else:
-            _connections.append(c)
-
-    # Merge provisional models
-    for m in new_models:
-        # Add all new models to provisional_model.
-        if m is provisional_model:
-            continue
-        if m.provisional_source:
-            updates = provisional_model.constraint_solver.match(m.constraint_solver)
-            provisional_model.constraint_solver(updates)
-            assert isinstance(m, Model)
-            provisional_model._extract_submodels(m, replicate=False)
-        else:
-            provisional_model._extend(m)
-    return provisional_model._extend_op_model(_connections, model, defaults)
-
-
 class Connection(ConnectionData):
     def __hash__(self) -> int:
         return hash(id(self))
@@ -550,6 +474,23 @@ class Model(BaseModel):
         setattr(self, key, conn)
 
     def _bind_provisional_model(self, provisional_model: BaseModel) -> None:
+        """
+        Binds a provisional model to the main model by synchronizing their
+        configurations and combining their constraint solvers.
+
+        This method is called when a provisional model needs to be integrated
+        with the main model. It performs the following operations:
+            - Sets the provisional model's source to the main model.
+            - Transfers main model settings, such as just-in-time enforcement,
+                to the provisional model.
+            - Matches and updates the constraint solvers from both models,
+                ensuring that the provisional model's constraint solver is
+                updated with the main model's matched solver.
+
+        Parameters:
+                provisional_model (BaseModel): The provisional model that
+                is to be bound to the main model.
+        """
         provisional_model.provisional_source = self
         self.provisional_model = provisional_model
         provisional_model.enforce_jit = self.enforce_jit
@@ -614,12 +555,38 @@ class Model(BaseModel):
         return template
 
     def extend_extracted_model(self, model: Model, start_con: ConnectionData) -> None:
+        """
+        Extends the main (parent) model by extracting and incorporating submodels from
+        a provisional child model based on a provided connection.
+
+        This method is invoked during the extension process when a model extends a
+        parent model and the given connections contain provisional models.
+        The workflow is as follows:
+        1. Checks whether provisional submodels should be used by assessing the
+            existence of a provisional model.
+        2. Identifies the starting connection in the given model by matching the
+            metadata of the provided start connection.
+        3. Determines the dependent submodels by tracing from the start node using
+            the local dependency map, arranging them in topological order.
+        4. Extends the parent model by appending the obtained submodels through
+            the _extend_with_submodels method, and removes these submodels from
+            the child model's DAG.
+        5. Merges any remaining provisional submodels from the child model into
+            the parent's provisional model, and cleans up provisional references
+            to ensure no stale or empty provisional models remain.
+
+        Args:
+             model (Model): The provisional model from which the required
+                submodels are extracted.
+             start_con (ConnectionData): The connection data used as the
+                starting point to identify dependent submodels.
+
+        Returns:
+             None
+        """
         # Extend model with submodels of provisional Model.
         use_sub_provisional = False
-        if (
-            self.constraint_solver is not model.constraint_solver
-            and self.provisional_model is None
-        ):
+        if self.provisional_model is None:
             use_sub_provisional = True
             self._bind_provisional_model(model)
 
@@ -631,7 +598,7 @@ class Model(BaseModel):
             con.model = None
         else:
             submodels = model.get_models_in_topological_order(start_m[0])
-            self._extract_submodels(model, submodels)
+            self._extend_with_submodels(model, submodels)
             # Remove submodels from model.dag
             for m in submodels:
                 model.dag.pop(m, None)
@@ -648,7 +615,9 @@ class Model(BaseModel):
                 if sub_m not in submodels and sub_m not in self.dag
             ]
             assert isinstance(self.provisional_model, BaseModel)
-            self.provisional_model._extract_submodels(model, submodels, replicate=False)
+            self.provisional_model._extend_with_submodels(
+                model, submodels, replicate=False
+            )
             if isinstance(source := model.provisional_source, BaseModel):
                 source.provisional_model = None
             model.provisional_source = True
@@ -709,7 +678,7 @@ class Model(BaseModel):
         if mp is not None and mp is not self.provisional_model:
             submodels = [sub_m for sub_m in mp.dag if sub_m not in self.dag]
             assert isinstance(self.provisional_model, BaseModel)
-            self.provisional_model._extract_submodels(mp, submodels, False)
+            self.provisional_model._extend_with_submodels(mp, submodels, False)
             if isinstance(source := mp.provisional_source, BaseModel):
                 source.provisional_model = None
             mp.provisional_source = False
@@ -825,6 +794,94 @@ class Model(BaseModel):
                 if isinstance(model, Operator):
                     kwargs.pop("depth")
                 model.summary(**kwargs)  # type: ignore
+
+
+def create_provisional_model(
+    connections: list[TemplateConnectionType],
+    model: type[Operator],
+    defaults: dict[str, Any] | None = None,
+) -> Connection:
+    """
+    Create a provisional model for connection-based operations (e.g. +, abs(), etc.).
+    If any connection contains an associated model, that is considered the main model.
+    If there exits a main model the provisional model is linked with the main model by:
+      - Setting the provisional model as the main_model's provisional_model field.
+      - Setting the main model as the provisional model's provisional_source field.
+    When the actual extend operation is performed, only the corresponding submodels
+    (tracked by topological order) are extracted from the provisional model using the
+    _extend_with_submodels method.
+    """
+    # Find a main model and all new models to be added to main model
+    provisional_model: BaseModel | None = None
+    main_model: Model | None = None
+    new_models: list[BaseModel] = []
+    for c in connections:
+        if isinstance(c, str):
+            raise ValueError(
+                "Strings are not allowed to be used in Connection Operations!"
+            )
+        if isinstance(c, ConnectionData) and c.model is not None:
+            m = c.model
+            if isinstance(m.provisional_source, BaseModel):
+                m = m.provisional_source
+            m = m._get_outermost_parent()
+
+            if not m.is_frozen and m.provisional_source is False:
+                if main_model is not None and main_model is not m:
+                    raise ValueError(
+                        "Multiple non-frozen active models found in connections!"
+                    )
+                assert isinstance(m, Model)
+                main_model = m
+            elif m not in new_models:
+                if provisional_model is None and m.provisional_source is not False:
+                    provisional_model = m
+                new_models.append(m)
+
+    if main_model is not None and main_model.provisional_model:
+        # If main_model has provisional, then set it as provisional_model.
+        provisional_model = main_model.provisional_model
+
+    if provisional_model is None:
+        provisional_model = Model()
+        if main_model is not None:
+            # If main_model is not None, then set created provisional to main_model.
+            main_model._bind_provisional_model(provisional_model)
+        else:
+            provisional_model.provisional_source = True
+
+    assert isinstance(provisional_model, Model)
+    _connections: list[TemplateConnectionType | ConnectionData] = []
+    # Iterate over connections, if connection is coming from main model, create
+    # a new connection with same edge, otherwise use connections as is.
+    for c in connections:
+        if (
+            isinstance(c, ConnectionData)
+            and c.model is not None
+            and c.model._get_outermost_parent() is main_model
+        ):
+            _c = main_model.conns.get_con_by_metadata(c.metadata)
+            assert isinstance(_c, ConnectionData)
+            con = provisional_model.conns.get_con_by_metadata(_c.metadata)
+            if con is None:
+                con = _c._replicate()
+            _connections.append(con)
+        else:
+            _connections.append(c)
+
+    # Merge provisional models
+    for m in new_models:
+        # Add all new models to provisional_model.
+        if m is provisional_model:
+            continue
+        if m.provisional_source:
+            updates = provisional_model.constraint_solver.match(m.constraint_solver)
+            provisional_model.constraint_solver(updates)
+            assert isinstance(m, Model)
+            provisional_model._extend_with_submodels(m, replicate=False)
+        else:
+            provisional_model._extend(m)
+    return provisional_model._extend_op_model(_connections, model, defaults)
 
 
 def define_unique_names(
