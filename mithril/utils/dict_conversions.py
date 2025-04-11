@@ -235,7 +235,7 @@ def extract_model_key_index(
                 | tuple[BaseModel, OrderedSet[ConnectionData]]
             ) = model.dependency_map.local_input_dependency_map.get(
                 connection,
-                model.dependency_map.local_output_dependency_map.get(connection),  # type: ignore
+                model.dependency_map._local_output_dependency_map.get(connection),  # type: ignore
             )
             _model = model_info[0][0] if isinstance(model_info, list) else model_info[0]
             # Get corresponding connection of the _model.

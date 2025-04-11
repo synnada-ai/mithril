@@ -239,7 +239,7 @@ class Connections:
         }
 
         self.metadata_dict: dict[IOHyperEdge, set[ConnectionData]] = {}
-        self.connections_dict: dict[IOHyperEdge, set[Connections]] = {}
+        self._connections_dict: dict[IOHyperEdge, set[Connections]] | None = {}
         self.cins: set[ConnectionData] = set()
         self.couts: set[ConnectionData] = set()
 
@@ -298,6 +298,11 @@ class Connections:
         return (
             self._connection_dict[KeyType.INPUT] | self._connection_dict[KeyType.OUTPUT]
         ).keys()
+
+    @property
+    def connections_dict(self) -> dict[IOHyperEdge, set[Connections]]:
+        assert self._connections_dict is not None
+        return self._connections_dict
 
     def add(
         self,
@@ -429,7 +434,7 @@ class BaseModel:
         self.name = name
         self._enforce_jit = enforce_jit
         self._jittable = True
-        self.constraint_solver: ConstraintSolver = ConstraintSolver()
+        self._constraint_solver: ConstraintSolver | None = ConstraintSolver()
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
@@ -438,6 +443,11 @@ class BaseModel:
     @property
     def formula_key(self) -> str | None:
         return self._formula_key
+
+    @property
+    def constraint_solver(self) -> ConstraintSolver:
+        assert self._constraint_solver is not None
+        return self._constraint_solver
 
     def create_key_name(self) -> str:
         self.inter_key_count += 1
@@ -921,7 +931,6 @@ class BaseModel:
         model.parent = self
         # Freeze the model.
         model._freeze()
-
         updates = Updates()
         self.state_connections |= model.state_connections
 
@@ -974,10 +983,13 @@ class BaseModel:
         self.constraint_solver(updates)
 
         model.constraint_solver.clear()
-        model.conns.connections_dict = {}
+        model.conns._connections_dict = None
 
         # Update jittablity by using model's jittablity.
         self._jittable &= model.jittable
+
+        model._constraint_solver = None
+        model.dependency_map.clear()
 
     @staticmethod
     def _update_key_name(
@@ -1192,7 +1204,7 @@ class BaseModel:
                 "Logical models have altenative primitive implementation must "
                 "have only 1 output."
             )
-        # super()._freeze()
+
         self.is_frozen = True
 
     @staticmethod
@@ -1210,6 +1222,7 @@ class BaseModel:
 
     def get_models_in_topological_order(self) -> list[BaseModel]:
         dependency_map = self.dependency_map.local_output_dependency_map
+
         graph = {
             info[0]: OrderedSet(
                 [dependency_map[spec][0] for spec in info[1] if spec in dependency_map]
@@ -1882,33 +1895,83 @@ class DependencyMap:
     """
 
     def __init__(self, connections: Connections) -> None:
-        self.conns = connections
+        self._conns: Connections | None = connections
         # Stores relation between input_keys to dependent output connections
-        self._global_input_dependency_map: dict[
-            ConnectionData, OrderedSet[ConnectionData]
-        ] = {}
+        self._global_input_dependency_map: (
+            dict[ConnectionData, OrderedSet[ConnectionData]] | None
+        ) = {}
         # Stores relation between output_keys to dependent input connections
-        self._global_output_dependency_map: dict[
-            ConnectionData, OrderedSet[ConnectionData]
-        ] = {}
+        self._global_output_dependency_map: (
+            dict[ConnectionData, OrderedSet[ConnectionData]] | None
+        ) = {}
 
         # Caches relations during extend to avoid traverse whole graph
-        self._global_input_dependency_map_cache: dict[
-            ConnectionData, OrderedSet[ConnectionData]
-        ] = {}
-        self._global_output_dependency_map_cache: dict[
-            ConnectionData, OrderedSet[ConnectionData]
-        ] = {}
+        self._global_input_dependency_map_cache: (
+            dict[ConnectionData, OrderedSet[ConnectionData]] | None
+        ) = {}
+        self._global_output_dependency_map_cache: (
+            dict[ConnectionData, OrderedSet[ConnectionData]] | None
+        ) = {}
         # Stores releation between local input keys to dependent local
         # output connections
-        self.local_input_dependency_map: dict[
-            ConnectionData, list[tuple[BaseModel, OrderedSet[ConnectionData]]]
-        ] = {}
+        self._local_input_dependency_map: (
+            dict[ConnectionData, list[tuple[BaseModel, OrderedSet[ConnectionData]]]]
+            | None
+        ) = {}
         # Stores releation between local output keys to dependent local
         # input connections
-        self.local_output_dependency_map: dict[
-            ConnectionData, tuple[BaseModel, OrderedSet[ConnectionData]]
-        ] = {}
+        self._local_output_dependency_map: (
+            dict[ConnectionData, tuple[BaseModel, OrderedSet[ConnectionData]]] | None
+        ) = {}
+
+    @property
+    def global_input_dependency_map(
+        self,
+    ) -> dict[ConnectionData, OrderedSet[ConnectionData]]:
+        assert self._global_input_dependency_map is not None
+        return self._global_input_dependency_map
+
+    @property
+    def global_output_dependency_map(
+        self,
+    ) -> dict[ConnectionData, OrderedSet[ConnectionData]]:
+        assert self._global_output_dependency_map is not None
+        return self._global_output_dependency_map
+
+    @property
+    def global_input_dependency_map_cache(
+        self,
+    ) -> dict[ConnectionData, OrderedSet[ConnectionData]]:
+        assert self._global_input_dependency_map_cache is not None
+        return self._global_input_dependency_map_cache
+
+    @property
+    def global_output_dependency_map_cache(
+        self,
+    ) -> dict[ConnectionData, OrderedSet[ConnectionData]]:
+        assert self._global_output_dependency_map_cache is not None
+        return self._global_output_dependency_map_cache
+
+    @property
+    def local_input_dependency_map(
+        self,
+    ) -> dict[ConnectionData, list[tuple[BaseModel, OrderedSet[ConnectionData]]]]:
+        assert self._local_input_dependency_map is not None
+        return self._local_input_dependency_map
+
+    @property
+    def local_output_dependency_map(
+        self,
+    ) -> dict[ConnectionData, tuple[BaseModel, OrderedSet[ConnectionData]]]:
+        assert self._local_output_dependency_map is not None
+        return self._local_output_dependency_map
+
+    @property
+    def conns(
+        self,
+    ) -> Connections:
+        assert self._conns is not None
+        return self._conns
 
     # Add new model to dependency map, model_dag is created in extend
     def add_model_dag(
@@ -1959,26 +2022,26 @@ class DependencyMap:
     ) -> None:
         # Be sure all input and output keys has cache entry
         for conn in self.conns.input_connections:
-            self._global_input_dependency_map_cache.setdefault(conn, OrderedSet())
+            self.global_input_dependency_map_cache.setdefault(conn, OrderedSet())
         for conn in self.conns.latent_input_connections:
-            self._global_input_dependency_map_cache.setdefault(conn, OrderedSet())
+            self.global_input_dependency_map_cache.setdefault(conn, OrderedSet())
 
         for conn in self.conns.output_connections:
-            self._global_output_dependency_map_cache.setdefault(conn, OrderedSet())
+            self.global_output_dependency_map_cache.setdefault(conn, OrderedSet())
 
         all_dependent_input_conns: OrderedSet[ConnectionData] = OrderedSet()
 
         for input_conn in dependent_conns:
             # Extend from output, update global input dependency map with new
             # output conn
-            for dependent_conn in self._global_output_dependency_map_cache.get(
+            for dependent_conn in self.global_output_dependency_map_cache.get(
                 input_conn, OrderedSet()
             ):
                 all_dependent_input_conns.add(dependent_conn)
 
                 # If not extend from input add
-                if output_conn not in self._global_input_dependency_map_cache:
-                    self._global_input_dependency_map_cache[dependent_conn].add(
+                if output_conn not in self.global_input_dependency_map_cache:
+                    self.global_input_dependency_map_cache[dependent_conn].add(
                         output_conn
                     )
 
@@ -1990,54 +2053,54 @@ class DependencyMap:
                 all_dependent_input_conns.add(input_conn)
 
                 # If not extend from input add
-                if output_conn not in self._global_input_dependency_map_cache:
-                    self._global_input_dependency_map_cache[input_conn].add(output_conn)
+                if output_conn not in self.global_input_dependency_map_cache:
+                    self.global_input_dependency_map_cache[input_conn].add(output_conn)
 
         # Extend from Input
-        if output_conn in self._global_input_dependency_map_cache:
-            dependent_output_conns = self._global_input_dependency_map_cache.pop(
+        if output_conn in self.global_input_dependency_map_cache:
+            dependent_output_conns = self.global_input_dependency_map_cache.pop(
                 output_conn
             )
 
             # Update global_input_dependencies
             for dependent_input_conn in all_dependent_input_conns:
-                if dependent_input_conn in self._global_input_dependency_map_cache:
-                    self._global_input_dependency_map_cache[
+                if dependent_input_conn in self.global_input_dependency_map_cache:
+                    self.global_input_dependency_map_cache[
                         dependent_input_conn
                     ].discard(output_conn)
-                    self._global_input_dependency_map_cache[dependent_input_conn] |= (
+                    self.global_input_dependency_map_cache[dependent_input_conn] |= (
                         dependent_output_conns
                     )
 
             # Update global_output_dependencies
             for dependent_output_conn in dependent_output_conns:
-                if dependent_output_conn in self._global_output_dependency_map_cache:
-                    self._global_output_dependency_map_cache[
+                if dependent_output_conn in self.global_output_dependency_map_cache:
+                    self.global_output_dependency_map_cache[
                         dependent_output_conn
                     ].discard(output_conn)
-                    self._global_output_dependency_map_cache[dependent_output_conn] |= (
+                    self.global_output_dependency_map_cache[dependent_output_conn] |= (
                         all_dependent_input_conns
                     )
 
         else:
-            self._global_output_dependency_map_cache.setdefault(
+            self.global_output_dependency_map_cache.setdefault(
                 output_conn, OrderedSet()
             )
-            self._global_output_dependency_map_cache[output_conn] |= (
+            self.global_output_dependency_map_cache[output_conn] |= (
                 all_dependent_input_conns
             )
 
     # Caches given input connection for later usage
     def cache_conn_input_dependency(self, conn: ConnectionData) -> None:
-        if conn not in self._global_input_dependency_map_cache:
+        if conn not in self.global_input_dependency_map_cache:
             dependents = self.get_output_key_dependency(conn.key)
-            self._global_input_dependency_map_cache[conn] = dependents
+            self.global_input_dependency_map_cache[conn] = dependents
 
     # Caches given output connection for later usage
     def cache_conn_output_dependency(self, conn: ConnectionData) -> None:
-        if conn not in self._global_output_dependency_map_cache:
+        if conn not in self.global_output_dependency_map_cache:
             dependents = self.get_input_key_dependency(conn.key)
-            self._global_output_dependency_map_cache[conn] = dependents
+            self.global_output_dependency_map_cache[conn] = dependents
 
     # Returns dependent input keys of given output key
     def get_dependent_input_conns(self, key: str) -> OrderedSet[ConnectionData]:
@@ -2045,11 +2108,11 @@ class DependencyMap:
             raise KeyError("Given key does not belong to the Model!")
         dependent_conns: OrderedSet[ConnectionData] = OrderedSet()
         if key in self.conns.output_keys:
-            dependent_conns = self._global_output_dependency_map[given_conn]
+            dependent_conns = self.global_output_dependency_map[given_conn]
         elif (
             conn := self.conns.get_connection(key)
-        ) in self._global_output_dependency_map_cache:
-            return self._global_output_dependency_map_cache[conn]
+        ) in self.global_output_dependency_map_cache:
+            return self.global_output_dependency_map_cache[conn]
         else:
             return self.get_output_key_dependency(key)
 
@@ -2061,11 +2124,11 @@ class DependencyMap:
             raise KeyError("Given key does not belong to the Model!")
         dependent_conns: OrderedSet[ConnectionData] = OrderedSet()
         if key in self.conns.input_keys:
-            dependent_conns = self._global_input_dependency_map[given_conn]
+            dependent_conns = self.global_input_dependency_map[given_conn]
         elif (
             conn := self.conns.get_connection(key)
-        ) in self._global_input_dependency_map_cache:
-            return self._global_input_dependency_map_cache[conn]
+        ) in self.global_input_dependency_map_cache:
+            return self.global_input_dependency_map_cache[conn]
         else:
             return self.get_input_key_dependency(key)
 
@@ -2083,9 +2146,7 @@ class DependencyMap:
     # Get dependent output connections if given input connection is cached
     # else returns None
     def _get_from_input_cache(self, conn: ConnectionData) -> OrderedSet[ConnectionData]:
-        dependent_conns = self._global_input_dependency_map_cache.get(
-            conn, OrderedSet()
-        )
+        dependent_conns = self.global_input_dependency_map_cache.get(conn, OrderedSet())
         dependent_conns = OrderedSet(
             [
                 dependent_conn
@@ -2100,7 +2161,7 @@ class DependencyMap:
     def _get_from_output_cache(
         self, conn: ConnectionData
     ) -> OrderedSet[ConnectionData]:
-        dependent_conns = self._global_output_dependency_map_cache.get(
+        dependent_conns = self.global_output_dependency_map_cache.get(
             conn, OrderedSet()
         )
         dependent_conns = OrderedSet(
@@ -2115,10 +2176,10 @@ class DependencyMap:
     # Update global dependency maps wrt given connections
     def update_globals(self, updated_conns: OrderedSet[ConnectionData]) -> None:
         for input_conn in self.conns.input_connections:
-            self._global_input_dependency_map.setdefault(input_conn, OrderedSet())
+            self.global_input_dependency_map.setdefault(input_conn, OrderedSet())
 
         for output_conn in self.conns.output_connections:
-            self._global_output_dependency_map.setdefault(output_conn, OrderedSet())
+            self.global_output_dependency_map.setdefault(output_conn, OrderedSet())
 
         visited_keys: OrderedSet[ConnectionData] = OrderedSet()
         while updated_conns:
@@ -2134,23 +2195,23 @@ class DependencyMap:
                 dependent_conns = self._get_from_input_cache(conn)
 
                 for dependent_conn in dependent_conns:
-                    self._global_input_dependency_map[conn].add(dependent_conn)
+                    self.global_input_dependency_map[conn].add(dependent_conn)
 
             elif conn.key in self.conns.output_keys:
                 # New global output key
                 dependent_conns = self._get_from_output_cache(conn)
 
                 for dependent_conn in dependent_conns:
-                    self._global_output_dependency_map[conn].add(dependent_conn)
+                    self.global_output_dependency_map[conn].add(dependent_conn)
 
             else:
                 # Key must be overriden, remove from dependecy map
-                if conn in self._global_input_dependency_map:
-                    dependent_conns = self._global_input_dependency_map.pop(
+                if conn in self.global_input_dependency_map:
+                    dependent_conns = self.global_input_dependency_map.pop(
                         conn, OrderedSet()
                     )
                     for dependent_conn in dependent_conns:
-                        self._global_output_dependency_map[dependent_conn].remove(conn)
+                        self.global_output_dependency_map[dependent_conn].remove(conn)
 
                 dependent_conns = OrderedSet()
             updated_conns |= OrderedSet(dependent_conns)
@@ -2248,10 +2309,8 @@ class DependencyMap:
     def merge_global_connections(
         self, conn1: ConnectionData, conn2: ConnectionData
     ) -> None:
-        conn1_global_out_dependency = self._global_output_dependency_map.get(conn1)
-        conn2_global_out_dependency = self._global_output_dependency_map.pop(
-            conn2, None
-        )
+        conn1_global_out_dependency = self.global_output_dependency_map.get(conn1)
+        conn2_global_out_dependency = self.global_output_dependency_map.pop(conn2, None)
         # If conn1 and conn2 cache exists, add all conn2 dependencies to conn1
         if (
             conn1_global_out_dependency is not None
@@ -2260,18 +2319,18 @@ class DependencyMap:
             for dependent_conn in conn2_global_out_dependency:
                 conn1_global_out_dependency.add(dependent_conn)
 
-                self._global_input_dependency_map[dependent_conn].remove(conn2)
-                self._global_input_dependency_map[dependent_conn].add(conn1)
+                self.global_input_dependency_map[dependent_conn].remove(conn2)
+                self.global_input_dependency_map[dependent_conn].add(conn1)
         # If conn1 is not, but conn2 cache exists, move all conn2 dependencies to conn1
         elif conn2_global_out_dependency is not None:
-            self._global_output_dependency_map[conn1] = conn2_global_out_dependency
+            self.global_output_dependency_map[conn1] = conn2_global_out_dependency
 
             for dependent_conn in conn2_global_out_dependency:
-                self._global_input_dependency_map[dependent_conn].remove(conn2)
-                self._global_input_dependency_map[dependent_conn].add(conn1)
+                self.global_input_dependency_map[dependent_conn].remove(conn2)
+                self.global_input_dependency_map[dependent_conn].add(conn1)
 
-        conn1_global_in_dependency = self._global_input_dependency_map.get(conn1)
-        conn2_global_in_dependency = self._global_input_dependency_map.pop(conn2, None)
+        conn1_global_in_dependency = self.global_input_dependency_map.get(conn1)
+        conn2_global_in_dependency = self.global_input_dependency_map.pop(conn2, None)
         # If conn1 and conn2 cache exists, add all conn2 dependencies to conn1
         if (
             conn1_global_in_dependency is not None
@@ -2280,19 +2339,19 @@ class DependencyMap:
             for dependent_conn in conn2_global_in_dependency:
                 conn1_global_in_dependency.add(dependent_conn)
 
-                self._global_output_dependency_map[dependent_conn].remove(conn2)
-                self._global_output_dependency_map[dependent_conn].add(conn1)
+                self.global_output_dependency_map[dependent_conn].remove(conn2)
+                self.global_output_dependency_map[dependent_conn].add(conn1)
         # If conn1 is not, but conn2 cache exists, move all conn2 dependencies to conn1
         elif conn2_global_in_dependency is not None:
-            self._global_input_dependency_map[conn1] = conn2_global_in_dependency
+            self.global_input_dependency_map[conn1] = conn2_global_in_dependency
 
             for dependent_conn in conn2_global_in_dependency:
-                self._global_output_dependency_map[dependent_conn].remove(conn2)
-                self._global_output_dependency_map[dependent_conn].add(conn1)
+                self.global_output_dependency_map[dependent_conn].remove(conn2)
+                self.global_output_dependency_map[dependent_conn].add(conn1)
 
     def merge_global_caches(self, conn1: ConnectionData, conn2: ConnectionData) -> None:
-        conn1_global_out_cache = self._global_output_dependency_map_cache.get(conn1)
-        conn2_global_out_cache = self._global_output_dependency_map_cache.pop(
+        conn1_global_out_cache = self.global_output_dependency_map_cache.get(conn1)
+        conn2_global_out_cache = self.global_output_dependency_map_cache.pop(
             conn2, None
         )
 
@@ -2301,32 +2360,49 @@ class DependencyMap:
             for dependent_conn in conn2_global_out_cache:
                 conn1_global_out_cache.add(dependent_conn)
 
-                self._global_input_dependency_map_cache[dependent_conn].remove(conn2)
-                self._global_input_dependency_map_cache[dependent_conn].add(conn1)
+                self.global_input_dependency_map_cache[dependent_conn].remove(conn2)
+                self.global_input_dependency_map_cache[dependent_conn].add(conn1)
 
         # If conn1 is not, but conn2 cache exists, move all conn2 dependencies to conn1
         elif conn2_global_out_cache is not None:
-            self._global_output_dependency_map_cache[conn1] = conn2_global_out_cache
+            self.global_output_dependency_map_cache[conn1] = conn2_global_out_cache
 
             for dependent_conn in conn2_global_out_cache:
-                self._global_input_dependency_map_cache[dependent_conn].remove(conn2)
-                self._global_input_dependency_map_cache[dependent_conn].add(conn1)
+                self.global_input_dependency_map_cache[dependent_conn].remove(conn2)
+                self.global_input_dependency_map_cache[dependent_conn].add(conn1)
 
-        conn1_global_in_cache = self._global_input_dependency_map_cache.get(conn1)
-        conn2_global_in_cache = self._global_input_dependency_map_cache.pop(conn2, None)
+        conn1_global_in_cache = self.global_input_dependency_map_cache.get(conn1)
+        conn2_global_in_cache = self.global_input_dependency_map_cache.pop(conn2, None)
 
         # If conn1 and conn2 cache exists, add all conn2 dependencies to conn1
         if conn1_global_in_cache is not None and conn2_global_in_cache is not None:
             for dependent_conn in conn2_global_in_cache:
                 conn1_global_in_cache.add(dependent_conn)
 
-                self._global_output_dependency_map_cache[dependent_conn].remove(conn2)
-                self._global_output_dependency_map_cache[dependent_conn].add(conn1)
+                self.global_output_dependency_map_cache[dependent_conn].remove(conn2)
+                self.global_output_dependency_map_cache[dependent_conn].add(conn1)
 
         # If conn1 is not, but conn2 cache exists, move all conn2 dependencies to conn1
         elif conn2_global_in_cache is not None:
-            self._global_input_dependency_map_cache[conn1] = conn2_global_in_cache
+            self.global_input_dependency_map_cache[conn1] = conn2_global_in_cache
 
             for dependent_conn in conn2_global_in_cache:
-                self._global_output_dependency_map_cache[dependent_conn].remove(conn2)
-                self._global_output_dependency_map_cache[dependent_conn].add(conn1)
+                self.global_output_dependency_map_cache[dependent_conn].remove(conn2)
+                self.global_output_dependency_map_cache[dependent_conn].add(conn1)
+
+    def clear(self) -> None:
+        self._conns = None
+        self.global_input_dependency_map.clear()
+        self._global_input_dependency_map = None
+
+        self.global_output_dependency_map.clear()
+        self._global_output_dependency_map = None
+
+        self.global_input_dependency_map_cache.clear()
+        self._global_input_dependency_map_cache = None
+
+        self.global_output_dependency_map_cache.clear()
+        self._global_output_dependency_map_cache = None
+
+        self.local_input_dependency_map.clear()
+        self._local_input_dependency_map = None
