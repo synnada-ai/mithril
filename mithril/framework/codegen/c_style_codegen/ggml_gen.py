@@ -121,8 +121,12 @@ class GGMLCodeGen(CGen):
         operations: ast_block_type,
         post_process: ast_block_type,
     ) -> c_ast.FunctionDef:
+        # In GGML backend, we need to initialize the context and graph
+        # before calling the operations. We will create the graph object
+        # once in first call, and then reuse it in all subsequent calls.
+
         if name in ["evaluate", "evaluate_gradients"]:
-            return self.update_function(
+            return self.update_compute_function(
                 name, return_type, params, pre_process, operations, post_process
             )
 
@@ -137,7 +141,7 @@ class GGMLCodeGen(CGen):
         context_txt = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
         return c_ast.Call(formula_key, [c_ast.Variable(context_txt), *input_vars])
 
-    def update_function(
+    def update_compute_function(
         self,
         name: str,
         return_type: str,
@@ -152,7 +156,8 @@ class GGMLCodeGen(CGen):
         fn_ref_name = "eval" if name == "evaluate" else "eval_grad"
         ctx_name = f"{fn_ref_name}_static_ctx"
 
-        # Add static tensors
+        # Input tensors will be stored in static variables
+        # We will update their data pointers in every call
         input_keys = (
             self.struct_keys.eval_input_keys
             if fn_ref_name == "eval"
@@ -167,7 +172,54 @@ class GGMLCodeGen(CGen):
 
         pre_process = static_vars + pre_process
 
-        # Create initialization block
+        # Initialization block
+        init_block: ast_block_type = self.create_init_block(
+            operations, fn_ref_name, input_keys, ctx_name
+        )
+
+        # Update the data pointers of the input tensors
+        update_ptr_block = self._generate_update_tensor_pointers(
+            input_keys, fn_ref_name
+        )
+
+        # Then use this block where the original code was located
+        # For example, adding it to the pre_process list
+        pre_process.extend(update_ptr_block)
+
+        compute_block = [
+            c_ast.Comment("Compute graph"),
+            c_ast.MakeStmt(
+                c_ast.Call(
+                    "ggml_graph_compute_with_ctx",
+                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
+                )
+            ),
+        ]
+
+        # Compute graph
+        compute_block = [
+            c_ast.Comment("Compute graph"),
+            c_ast.MakeStmt(
+                c_ast.Call(
+                    "ggml_graph_compute_with_ctx",
+                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
+                )
+            ),
+        ]
+
+        post_process = update_ptr_block + compute_block + post_process
+
+        return super().define_function(
+            return_type, name, params, pre_process, init_block, post_process
+        )
+
+    def create_init_block(
+        self,
+        operations: ast_block_type,
+        fn_ref_name: str,
+        input_keys: list[str],
+        ctx_name: str,
+    ) -> ast_block_type:
         init_block: ast_block_type = []
 
         # Initialize context if NULL
@@ -176,7 +228,9 @@ class GGMLCodeGen(CGen):
             c_ast.StructInit(  # type: ignore
                 "ggml_init_params params",
                 {
-                    "mem_size": c_ast.Constant(1024 * 1024 * 512),
+                    "mem_size": c_ast.Constant(
+                        1024 * 1024 * 512
+                    ),  # TODO: Calculate this
                     "mem_buffer": c_ast.Constant("NULL"),
                     "no_alloc": c_ast.Constant("false"),
                 },
@@ -241,6 +295,17 @@ class GGMLCodeGen(CGen):
             ]
         )
 
+        # Create and build graph
+        init_block.extend(
+            [
+                c_ast.Comment("Create graph object only once"),  # type: ignore
+                c_ast.Assign(  # type: ignore
+                    c_ast.Variable(f"{fn_ref_name}_static_gf"),
+                    c_ast.Call("ggml_new_graph", [ctx_name]),
+                ),
+            ]
+        )
+
         # Add the original body operations
         init_block += operations  # type: ignore
 
@@ -254,6 +319,7 @@ class GGMLCodeGen(CGen):
             # If key is statically inferred, skip marking
             if out_key in input_keys:
                 continue
+
             init_block.append(
                 c_ast.MakeStmt(  # type: ignore
                     c_ast.Call(
@@ -271,82 +337,7 @@ class GGMLCodeGen(CGen):
         # Wrap initialization in if check
         if_init = [c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)]  # type: ignore
 
-        # Update input data
-        update_ptr_block: ast_block_type = []
-        update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
-        for key in input_keys:
-            # If cached value is not going to be used in another operation,
-            # assign directly to output.
-            if (
-                key in self.struct_keys.eval_cache_keys
-                and key in self.struct_keys.eval_output_keys
-            ):
-                update_ptr_block.append(
-                    c_ast.Assign(  # type: ignore
-                        self.create_key_ref(key, context=fn_ref_name),
-                        c_ast.Arrow(c_ast.Variable("inputs"), f"{key}"),
-                    )
-                )
-            # If cached value is an input to another operation, retrieve
-            # data from input.
-            elif (
-                key in self.struct_keys.eval_cache_keys
-                and key not in self.struct_keys.eval_output_keys
-            ):
-                update_ptr_block.append(
-                    c_ast.Assign(  # type: ignore
-                        c_ast.Arrow(
-                            self.create_key_ref(key, context=fn_ref_name), "data"
-                        ),
-                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
-                    )
-                )
-            else:
-                update_ptr_block.append(
-                    c_ast.Assign(  # type: ignore
-                        c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
-                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
-                    )
-                )
-
-        # Initialization function
-        init_fn = super().define_function(
-            "void",
-            f"init_{fn_ref_name}",
-            params,
-            static_vars,
-            if_init,  # type: ignore
-            update_ptr_block,
-        )
-
-        self.functions.append(init_fn)
-
-        # Call initialization function
-        call_init_fn = c_ast.MakeStmt(
-            c_ast.Call(
-                f"init_{fn_ref_name}",
-                ["inputs"],
-            )
-        )
-
-        pre_process = [call_init_fn]  # type: ignore
-
-        # Compute graph
-        compute_block = [
-            c_ast.Comment("Compute graph"),
-            c_ast.MakeStmt(
-                c_ast.Call(
-                    "ggml_graph_compute_with_ctx",
-                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
-                )
-            ),
-        ]
-
-        post_process = compute_block + post_process
-
-        return super().define_function(
-            return_type, name, params, pre_process, [], post_process
-        )
+        return if_init
 
     @override
     def create_key_ref(
@@ -392,3 +383,45 @@ class GGMLCodeGen(CGen):
         shape = shape + (1,) * (4 - len(shape))
 
         return op, [*args[:-1], *shape]
+
+    def _generate_update_tensor_pointers(
+        self, input_keys: list[str], context: str
+    ) -> ast_block_type:
+        # Generate C code block to update tensor data pointers for each function call.
+        update_ptr_block: ast_block_type = []
+        update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
+
+        for key in input_keys:
+            # If cached value is also an output, assign directly
+            if (
+                key in self.struct_keys.eval_cache_keys
+                and key in self.struct_keys.eval_output_keys
+            ):
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        self.create_key_ref(key, context=context),
+                        c_ast.Arrow(c_ast.Variable("inputs"), f"{key}"),
+                    )
+                )
+            # If cached value is an input to another operation, retrieve
+            # data from input but keep the cached tensor object
+            elif (
+                key in self.struct_keys.eval_cache_keys
+                and key not in self.struct_keys.eval_output_keys
+            ):
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(self.create_key_ref(key, context=context), "data"),
+                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+                    )
+                )
+            # For regular tensors, just update the data pointer
+            else:
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
+                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+                    )
+                )
+
+        return update_ptr_block

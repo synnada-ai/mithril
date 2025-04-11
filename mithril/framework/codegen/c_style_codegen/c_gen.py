@@ -22,7 +22,6 @@ from ....backends.with_manualgrad.c_backend import CBackend
 from ....backends.with_manualgrad.ggml_backend import GGMLBackend
 from ....common import CGenConfig
 from ....cores.c.array import PyArray
-from ....utils.type_utils import is_list_int
 from ...common import (
     EvaluateAllType,
     EvaluateType,
@@ -39,7 +38,6 @@ ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.E
 
 
 class CGen(CodeGen[PyArray]):
-    
     dynamic_links: list[str] = []
 
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:
@@ -50,7 +48,7 @@ class CGen(CodeGen[PyArray]):
             " or GGMLBackend"
         )
 
-        # File sub-sections
+        # File sub-sections
         self.imports: list[c_ast.AST] = []
         self.globals: list[c_ast.AST] = []
         self.functions: list[c_ast.AST] = []
@@ -122,7 +120,8 @@ class CGen(CodeGen[PyArray]):
             ]
         )
 
-        # If the given file path is not absolute, make it relative to the current working directory
+        # If the given file path is not absolute, make it relative to the current
+        # working directory
         if so_file_path[0] != "/":
             so_file_path = "./" + so_file_path
 
@@ -309,12 +308,10 @@ class CGen(CodeGen[PyArray]):
             return outputs, gradients
 
         return evaluate_wrapper, evaluate_gradients_wrapper  # type: ignore
-    
 
     def generate_imports(self) -> list[c_ast.Include]:
         header_path = os.path.join(self.backend.SRC_PATH, self.configs.HEADER_NAME)
         return [c_ast.Include(header_path, system=False)]
-
 
     def generate_evaluate(self) -> c_ast.FunctionDef:
         # Function body
@@ -363,7 +360,6 @@ class CGen(CodeGen[PyArray]):
         )
 
         return evaluate_fn
-
 
     def generate_evaluate_gradients(self) -> c_ast.FunctionDef:
         # Function body
@@ -463,14 +459,12 @@ class CGen(CodeGen[PyArray]):
 
         return evaluate_grad_fn
 
-
     def generate_op(
         self,
         op: Operator,
         inputs: Sequence[str | int | float],
         context: str,
     ) -> c_ast.Expr:
-
         # Create input variables
         input_vars: list[c_ast.Expr] = []
         if op.formula_key in self.pre_processors:
@@ -574,7 +568,6 @@ class CGen(CodeGen[PyArray]):
             f"{output_struct_name} output_struct", output_struct_init
         )
 
-
     def generate_structs(self) -> None:
         # Generate structs
         eval_input_struct = self.generate_struct(
@@ -607,7 +600,6 @@ class CGen(CodeGen[PyArray]):
 
         self.globals = structs + self.globals
 
-
     def generate_struct(self, name: str, field_keys: list[str]) -> c_ast.Stmt:
         fields = [
             c_ast.StructField(
@@ -617,7 +609,6 @@ class CGen(CodeGen[PyArray]):
         ]
         struct = c_ast.StructDef(name, fields)
         return struct
-    
 
     def determine_struct_keys(self) -> utils.StructKeys:
         struct_keys = utils.StructKeys()
@@ -656,7 +647,6 @@ class CGen(CodeGen[PyArray]):
         )
 
         return struct_keys
-    
 
     def initialize_global_structs(self) -> None:
         # Init cache struct
@@ -675,7 +665,6 @@ class CGen(CodeGen[PyArray]):
                 static=True,
             )
             self.globals.append(grad_struct)
-    
 
     def get_tensor_shape(self, key: str) -> tuple[int, ...]:
         if key.startswith(FinalCost):
