@@ -1717,40 +1717,6 @@ def nan_to_num_grad(
     )
 
 
-def split_grad(
-    output_gradient: list[np.ndarray[Any, Any]],
-    cache: CacheType,
-    idx: int,
-    *inputs: np.ndarray[Any, Any],
-) -> np.ndarray[Any, Any]:
-    input, split_size, axis = inputs
-    input_shape = input.shape
-    grad_input = np.zeros(input_shape, dtype=output_gradient[0].dtype)
-
-    # Calculate the split indices if `split_size` is an integer
-    if isinstance(split_size, int):
-        split_indices = [input_shape[axis] // split_size] * split_size
-        if input_shape[axis] % split_size != 0:
-            split_indices.append(input_shape[axis] % split_size)
-    else:
-        # Otherwise, use the list directly
-        split_indices = split_size
-
-    current_index = 0
-    if axis < 0:
-        axis = len(input_shape) + axis
-
-    for grad, size in zip(output_gradient, split_indices, strict=False):
-        slices = tuple(
-            slice(current_index, current_index + size) if ax == axis else slice(None)
-            for ax in range(len(input_shape))
-        )
-        grad_input[slices] = grad
-        current_index += size
-
-    return grad_input
-
-
 def pad_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,

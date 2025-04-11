@@ -1188,10 +1188,8 @@ def dtype(input: torch.Tensor) -> torch.dtype:
     return input.dtype
 
 
-def split(
-    input: torch.Tensor, split_size: int | list[int], axis: int = 0
-) -> torch.Tensor:
-    return torch.stack(torch.tensor_split(input, split_size, dim=axis))
+def split(input: torch.Tensor, split_size: int, axis: int = 0) -> list[torch.Tensor]:
+    return list(torch.tensor_split(input, split_size, dim=axis))
 
 
 def pad(input: torch.Tensor, pad_width: tuple[tuple[int, int], ...]) -> torch.Tensor:
