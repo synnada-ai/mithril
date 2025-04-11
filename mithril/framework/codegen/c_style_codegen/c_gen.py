@@ -39,6 +39,7 @@ ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.E
 
 
 class CGen(CodeGen[PyArray]):
+    
     dynamic_links: list[str] = []
 
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:
@@ -49,6 +50,7 @@ class CGen(CodeGen[PyArray]):
             " or GGMLBackend"
         )
 
+        # File sub-sections
         self.imports: list[c_ast.AST] = []
         self.globals: list[c_ast.AST] = []
         self.functions: list[c_ast.AST] = []
@@ -60,39 +62,25 @@ class CGen(CodeGen[PyArray]):
         # Determine struct keys
         self.struct_keys: utils.StructKeys = self._determine_struct_keys()
 
-        # Pre-processors
+        # Pre-processors for customizing operator code generation
+        # Maps operator keys to functions that transform (op, inputs, context)
         self.pre_processors: dict[str, Callable] = {}
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
 
-        self.imports += self.generate_imports()
-
-        # Generate functions
+        self.imports.append(self.generate_imports())
         self.functions.append(self.generate_evaluate())
-
         if not self.pm.inference:
             self.functions.append(self.generate_evaluate_gradients())
 
-        # Generate structs
-        self._generate_structs()
+        # Generate functions input/output structs
+        self.generate_structs()
 
-        # Init cache struct
-        cache_struct = c_ast.StructInit(
-            f"{utils.CACHE_STRUCT_NAME} {utils.CACHE_NAME}",
-            {key: "NULL" for key in self.struct_keys.eval_cache_keys},
-            static=True,
-        )
-        self.globals.append(cache_struct)
-
-        if not self.pm.inference:
-            # Init grad struct
-            grad_struct = c_ast.StructInit(
-                f"{utils.EVALUATE_GRAD_OUTPUT_STRUCT_NAME} {utils.GRAD_STRUCT_NAME}",
-                {key: "NULL" for key in self.struct_keys.eval_grad_output_keys},
-                static=True,
-            )
-            self.globals.append(grad_struct)
+        # Initialize global structs
+        # These structs are used to store the intermediate results
+        # of the model and the gradients
+        self.initialize_global_structs()
 
         generated_code = c_ast.FILE(self.imports, self.globals, self.functions).accept(  # type: ignore
             c_ast.CStyleCodeGenerator()
@@ -593,7 +581,7 @@ class CGen(CodeGen[PyArray]):
         else:
             raise ValueError(f"Unexpected shape: {shape}")
 
-    def _generate_structs(self) -> None:
+    def generate_structs(self) -> None:
         # Generate structs
         eval_input_struct = self._generate_struct(
             utils.EVALUATE_INPUT_STRUCT_NAME,
@@ -624,6 +612,24 @@ class CGen(CodeGen[PyArray]):
             structs += [eval_grad_input_struct, eval_grad_outputs_struct]
 
         self.globals = structs + self.globals
+
+    def initialize_global_structs(self) -> None:
+        # Init cache struct
+        cache_struct = c_ast.StructInit(
+            f"{utils.CACHE_STRUCT_NAME} {utils.CACHE_NAME}",
+            {key: "NULL" for key in self.struct_keys.eval_cache_keys},
+            static=True,
+        )
+        self.globals.append(cache_struct)
+
+        if not self.pm.inference:
+            # Init grad struct
+            grad_struct = c_ast.StructInit(
+                f"{utils.EVALUATE_GRAD_OUTPUT_STRUCT_NAME} {utils.GRAD_STRUCT_NAME}",
+                {key: "NULL" for key in self.struct_keys.eval_grad_output_keys},
+                static=True,
+            )
+            self.globals.append(grad_struct)
 
     def _generate_struct(self, name: str, field_keys: list[str]) -> c_ast.Stmt:
         fields = [
