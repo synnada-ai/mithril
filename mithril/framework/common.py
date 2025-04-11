@@ -1360,34 +1360,47 @@ class IOHyperEdge:
             self._type = new_type
         return updates
 
-    def _set_value_recursively(
+    def _match_values(
         self,
         value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         self_value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         updates: Updates,
-    ) -> None:
-        # Traverses over the value and sets the value of each item
-        # in self._value recursively.
-        if isinstance(value, Tensor):
-            assert isinstance(self_value, Tensor)
-            # If both values are Tensor, match them.
-            updates |= self_value.match(value)
-        elif isinstance(value, list | tuple):
-            # TODO: Update below assertion type!!!
-            assert isinstance(self_value, list | tuple)
-            for val, self_val in zip(value, self_value, strict=False):
-                self._set_value_recursively(val, self_val, updates)
-        elif isinstance(value, dict):
-            assert isinstance(self_value, dict)
-            for key in value:
-                if key not in self_value:
-                    raise ValueError("Incompatible value types.")
-                self._set_value_recursively(value[key], self_value[key], updates)
-        elif value != self_value:
-            # Simply compare values. If not equal, raise ValueError.
-            raise ValueError(
-                f"Value is set before as {self._value}. A value can not be reset."
-            )
+    ) -> Tensor[int | float | bool] | ScalarValueType:
+        match (value, self_value):
+            case (Tensor(), Tensor()):
+                updates |= self_value.match(value)
+                return self_value
+
+            case (list(), list()):
+                return [
+                    self._match_values(val, self_val, updates)
+                    for val, self_val in zip(value, self_value, strict=True)
+                ]
+
+            case (tuple(), tuple()):
+                return tuple(
+                    self._match_values(val, self_val, updates)
+                    for val, self_val in zip(value, self_value, strict=True)
+                )
+
+            case (dict(), dict()):
+                assert self_value.keys() == value.keys()
+                return {
+                    key: self._match_values(value[key], self_value[key], updates)
+                    for key in value
+                }
+
+            case (val, ToBeDetermined()) | (ToBeDetermined(), val):
+                updates.add(self, UpdateType.VALUE)
+                return val
+
+            case (val1, val2) if val1 == val2:
+                return val1
+
+            case _:
+                raise ValueError(
+                    f"Value is set before as {self._value}. A value can not be reset."
+                )
 
     def update_tensor_values(
         self,
@@ -1442,7 +1455,8 @@ class IOHyperEdge:
             # type is re-updated based on the final value.
             updates |= self.set_type(find_type(value), create_tensor=False)
             if self._value is not TBD:
-                self._set_value_recursively(value, self._value, updates)
+                new_value = self._match_values(value, self._value, updates)
+                self._value = new_value
             else:
                 self._value = value
                 self.update_tensor_values(value, updates)
