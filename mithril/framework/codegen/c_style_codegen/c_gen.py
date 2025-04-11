@@ -62,7 +62,13 @@ class CGen(CodeGen[PyArray]):
 
         # Pre-processors for customizing operator code generation
         # Maps operator keys to functions that transform (op, inputs, context)
-        self.pre_processors: dict[str, Callable] = {}
+        self.pre_processors: dict[
+            str,
+            Callable[
+                [Operator, Sequence[str | int | float], str],
+                tuple[Operator, Sequence[str | int | float]],
+            ],
+        ] = {}
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path

@@ -182,10 +182,6 @@ class GGMLCodeGen(CGen):
             input_keys, fn_ref_name
         )
 
-        # Then use this block where the original code was located
-        # For example, adding it to the pre_process list
-        pre_process.extend(update_ptr_block)
-
         compute_block = [
             c_ast.Comment("Compute graph"),
             c_ast.MakeStmt(
@@ -207,7 +203,7 @@ class GGMLCodeGen(CGen):
             ),
         ]
 
-        post_process = update_ptr_block + compute_block + post_process
+        post_process = update_ptr_block + compute_block + post_process  # type: ignore
 
         return super().define_function(
             return_type, name, params, pre_process, init_block, post_process
@@ -337,7 +333,7 @@ class GGMLCodeGen(CGen):
         # Wrap initialization in if check
         if_init = [c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)]  # type: ignore
 
-        return if_init
+        return if_init  # type: ignore
 
     @override
     def create_key_ref(
