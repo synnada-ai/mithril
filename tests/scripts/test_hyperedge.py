@@ -19,6 +19,7 @@ from mithril.framework.common import (
     TBD,
     Constraint,
     IOHyperEdge,
+    ScalarValueType,
     ShapeNode,
     ShapeRepr,
     Tensor,
@@ -721,3 +722,29 @@ def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
     assert updates.value_updates == set()
+
+
+ValueType = Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
+
+
+@pytest.mark.parametrize(
+    "inputs_and_result",
+    [
+        ([2, TBD], [TBD, 4], [2, 4]),
+        (
+            [[[2, 3], [2, TBD], [TBD, TBD]]],
+            [[[TBD, TBD], [2, 7], [8, 9]]],
+            [[[2, 3], [2, 7], [8, 9]]],
+        ),
+        ((1, TBD), (TBD, 2), (1, 2)),
+        ({"a": TBD, "b": 2}, {"a": 1, "b": TBD}, {"a": 1, "b": 2}),
+    ],
+)
+def test_match_container_hyperedges_with_partial_with_tbd(
+    inputs_and_result: tuple[ValueType, ValueType, ValueType],
+):
+    left, right, expected_result = inputs_and_result
+    left_edge = IOHyperEdge(value=left)
+    right_edge = IOHyperEdge(value=right)
+    left_edge.match(right_edge)
+    assert left_edge._value == expected_result
