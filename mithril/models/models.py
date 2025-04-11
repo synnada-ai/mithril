@@ -869,7 +869,6 @@ class BatchNorm2D(Model):
             name="input", value=input, shape=["N", num_features, "H", "W"]
         )
         shp = input_key.shape
-        size = shp[0] * shp[2] * shp[3]
 
         running_mean = IOKey(name="running_mean")
         running_var = IOKey(name="running_var")
@@ -880,6 +879,7 @@ class BatchNorm2D(Model):
             ).sqrt()
             # Compute mean and variance over the spatial dimensions
         else:
+            size = shp[0] * shp[2] * shp[3]
             mean = input_key.mean(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
             var = input_key.var(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
 

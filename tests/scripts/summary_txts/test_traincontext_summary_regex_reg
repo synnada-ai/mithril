@@ -73,7 +73,6 @@ Model Name   |                             Model Keys
              |             Keys   : Shapes            : Connections  
 =====================================================================
 Linear       |   Inputs  : weight :       [ 10, None] : 'weight'     
-             |             $axes  :                -- : None         
              |             input  : [None, ..., None] : 'input'      
              |             bias   :            [  10] : 'bias'       
              |   ----------------------------------------------------
@@ -92,7 +91,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -111,7 +109,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -130,7 +127,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -149,7 +145,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -168,7 +163,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -187,7 +181,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -206,7 +199,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -225,7 +217,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------
@@ -244,7 +235,6 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : weight :       [ 10, 10] : 'weight'     
-             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             bias   :            [10] : 'bias'       
              |   --------------------------------------------------

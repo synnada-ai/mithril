@@ -341,33 +341,18 @@ def test_shapes_2():
         "$bias_4": [1, 64, 1, 1],
         "output": ["u1", 64, "u13", "u14"],
         "$_Convolution2D_0_padding": None,
-        "$_Convolution2D_0_start": None,
-        "$_Convolution2D_0_stop": None,
-        "$_Convolution2D_0_step": None,
         "$_Convolution2D_0_stride": None,
         "$_Convolution2D_0_dilation": None,
         "$_Convolution2D_1_padding": None,
-        "$_Convolution2D_1_start": None,
-        "$_Convolution2D_1_stop": None,
-        "$_Convolution2D_1_step": None,
         "$_Convolution2D_1_stride": None,
         "$_Convolution2D_1_dilation": None,
         "$_Convolution2D_2_padding": None,
-        "$_Convolution2D_2_start": None,
-        "$_Convolution2D_2_stop": None,
-        "$_Convolution2D_2_step": None,
         "$_Convolution2D_2_stride": None,
         "$_Convolution2D_2_dilation": None,
         "$_Convolution2D_3_padding": None,
-        "$_Convolution2D_3_start": None,
-        "$_Convolution2D_3_stop": None,
-        "$_Convolution2D_3_step": None,
         "$_Convolution2D_3_stride": None,
         "$_Convolution2D_3_dilation": None,
         "$_Convolution2D_4_padding": None,
-        "$_Convolution2D_4_start": None,
-        "$_Convolution2D_4_stop": None,
-        "$_Convolution2D_4_step": None,
         "$_Convolution2D_4_stride": None,
         "$_Convolution2D_4_dilation": None,
     }
@@ -479,15 +464,9 @@ def test_shapes_3():
         "$bias_16": [1, 64, 1, 1],
         "output": ["u1", 64, "u13", "u14"],
         "$_Convolution2D_0_padding": None,
-        "$_Convolution2D_0_start": None,
-        "$_Convolution2D_0_stop": None,
-        "$_Convolution2D_0_step": None,
         "$_Convolution2D_0_stride": None,
         "$_Convolution2D_0_dilation": None,
         "$_Convolution2D_4_padding": None,
-        "$_Convolution2D_4_start": None,
-        "$_Convolution2D_4_stop": None,
-        "$_Convolution2D_4_step": None,
         "$_Convolution2D_4_stride": None,
         "$_Convolution2D_4_dilation": None,
     }
@@ -622,9 +601,6 @@ def test_shapes_4():
         "$bias_0": [71],
         "output": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
         "output2": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
-        "$_Linear_1_axes": None,
-        "$_Linear_2_axes": None,
-        "$_Linear_0_axes": None,
     }
     physical_ref = {
         "weight": [10, 71],
@@ -671,7 +647,6 @@ def test_linear_1_set_shapes():
         "bias": ["u1"],
         "target": [100, "u1"],
         "output": [100, "u1"],
-        "axes": None,
         "$_Mean_2_axis": None,
         "$_Mean_2_keepdim": None,
     }
@@ -712,7 +687,6 @@ def test_linear_1_static_shapes():
         "bias": ["u2"],
         "target": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
         "output": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
-        "axes": None,
         "$_Mean_2_axis": None,
         "$_Mean_2_keepdim": None,
     }
@@ -731,13 +705,6 @@ def test_linear_1_static_shapes():
         "output_3": [],
     }
     assert_shapes(ctx, logical_ref, physical_ref, shapes=shapes, check_all_shapes=True)
-
-
-# '$_MatrixMultiply_0_output': ['(V1, ...)', 'u1', 'u2'],
-# 'input': [['(V1, ...)', 'u1', 'u3'], ['u4', '(V2, ...)', 'u3']],
-# 'w': ['u3', 'u2'],
-# 'b': ['u2'],
-# 'output': [['(V1, ...)', 'u1', 'u2'], ['u4', '(V2, ...)', 'u2']]
 
 
 def test_linear_1_static_inputs():
@@ -764,7 +731,6 @@ def test_linear_1_static_inputs():
         "bias": ["u2"],
         "target": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
         "output": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
-        "axes": None,
         "$_Mean_2_axis": None,
         "$_Mean_2_keepdim": None,
     }
@@ -4019,8 +3985,8 @@ def test_variadic_naming_1():
             ["(V1, ...)", "u3", "u2"],
             ["u4", "(V2, ...)", "u2"],
         ],
+        "$_Transpose_0_axes": None,
         "weight": ["u2", "u1"],
-        "$axes": None,
         "input": [["(V1, ...)", "u3", "u1"], ["u4", "(V2, ...)", "u1"]],
         "bias": ["u2"],
         "output": [["(V1, ...)", "u3", "u2"], ["u4", "(V2, ...)", "u2"]],
@@ -10126,24 +10092,24 @@ def test_shapes_tensor_item_numeric():
     model.set_shapes(input=[3, 4, 5])
 
     ref = {
-        "output": [3, 4, 5],
         "$_Slice_1_output": None,
         "$_Slice_2_output": None,
         "$_Slice_3_output": None,
+        "output": [3, 4, 5],
         "$_ToTuple_4_output": None,
         "$_Indexer_5_output": [3, 1, 4, 2],
-        "output2": [3, 1, 4, 2],
         "input": [3, 4, 5],
-        "$start_0": None,
-        "$stop_0": None,
-        "$step_0": None,
-        "$start_1": None,
-        "$stop_1": None,
-        "$step_1": None,
-        "$start_2": None,
-        "$stop_2": None,
-        "$step_2": None,
-        "$input2": None,
+        "$_Slice_1_start": None,
+        "$_Slice_1_stop": None,
+        "$_Slice_1_step": None,
+        "$_Slice_2_start": None,
+        "$_Slice_2_stop": None,
+        "$_Slice_2_step": None,
+        "$_Slice_3_start": None,
+        "$_Slice_3_stop": None,
+        "$_Slice_3_step": None,
+        "$_ToTuple_4_input2": None,
+        "output2": [3, 1, 4, 2],
     }
     check_shapes_semantically(model.get_shapes(), ref)
 
@@ -10157,24 +10123,24 @@ def test_shapes_tensor_item_symbolic():
     model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
 
     ref: Mapping[str, list | None] = {
-        "output": ["u1", "(V1, ...)", "u2", "u3"],
         "$_Slice_1_output": None,
         "$_Slice_2_output": None,
         "$_Slice_3_output": None,
+        "output": ["u1", "(V1, ...)", "u2", "u3"],
         "$_ToTuple_4_output": None,
-        "$_Indexer_5_output": ["u1", 1, "u5", "u6", "(V2, ...)"],
-        "output2": ["u1", 1, "u5", "u6", "(V2, ...)"],
+        "$_Indexer_5_output": ["u1", 1, "u4", "u5", "(V2, ...)"],
         "input": ["u1", "(V1, ...)", "u2", "u3"],
-        "$start_0": None,
-        "$stop_0": None,
-        "$step_0": None,
-        "$start_1": None,
-        "$stop_1": None,
-        "$step_1": None,
-        "$start_2": None,
-        "$stop_2": None,
-        "$step_2": None,
-        "$input2": None,
+        "$_Slice_1_start": None,
+        "$_Slice_1_stop": None,
+        "$_Slice_1_step": None,
+        "$_Slice_2_start": None,
+        "$_Slice_2_stop": None,
+        "$_Slice_2_step": None,
+        "$_Slice_3_start": None,
+        "$_Slice_3_stop": None,
+        "$_Slice_3_step": None,
+        "$_ToTuple_4_input2": None,
+        "output2": ["u1", 1, "u4", "u5", "(V2, ...)"],
     }
     check_shapes_semantically(model.get_shapes(), ref)
 
@@ -10191,7 +10157,7 @@ def test_tensor_item_with_single_tensor_index():
         "output": [7, 4, 5],
         "$_Indexer_1_output": [3, 3, 4, 5],
         "input": [7, 4, 5],
-        "$index": [3, 3],
+        "$_Indexer_1_index": [3, 3],
         "output2": [3, 3, 4, 5],
     }
     check_shapes_semantically(model.get_shapes(), ref)
@@ -10210,8 +10176,8 @@ def test_tensor_item_with_multiple_tensor_index():
         "$_ToTuple_1_output": None,
         "$_Indexer_2_output": [1, 3, 3, 5],
         "input": [7, 4, 5],
-        "$input1": [3, 3],
-        "$input2": [1, 1, 1],
+        "$_ToTuple_1_input1": [3, 3],
+        "$_ToTuple_1_input2": [1, 1, 1],
         "output2": [1, 3, 3, 5],
     }
 
@@ -10236,14 +10202,13 @@ def test_tensor_item_with_slice_and_multiple_tensor_index():
         "$_ToTuple_2_output": None,
         "$_Indexer_3_output": [6, 5, 3, 3],
         "input": [7, 4, 5],
-        "$start": None,
-        "$stop": None,
-        "$step": None,
-        "$input2": [3, 3],
-        "$input3": [5, 1, 1],
+        "$_Slice_1_start": None,
+        "$_Slice_1_stop": None,
+        "$_Slice_1_step": None,
+        "$_ToTuple_2_input2": [3, 3],
+        "$_ToTuple_2_input3": [5, 1, 1],
         "output2": [6, 5, 3, 3],
     }
-
     check_shapes_semantically(model.get_shapes(), ref)
 
 
@@ -10266,12 +10231,12 @@ def test_tensor_item_with_slice_and_non_consecutive_tensors():
         "$_ToTuple_2_output": None,
         "$_Indexer_3_output": [5, 3, 3, 6, 1],
         "input": [7, 4, 5],
-        "$start": None,
-        "$stop": None,
-        "$step": None,
-        "$input2": [3, 3],
-        "$input3": None,
-        "$input4": [5, 1, 1],
+        "$_Slice_1_start": None,
+        "$_Slice_1_stop": None,
+        "$_Slice_1_step": None,
+        "$_ToTuple_2_input2": [3, 3],
+        "$_ToTuple_2_input3": None,
+        "$_ToTuple_2_input4": [5, 1, 1],
         "output2": [5, 3, 3, 6, 1],
     }
 
@@ -10291,10 +10256,10 @@ def test_tensor_item_with_post_ellipsis_non_consecutive_tensors_and_int():
         "$_ToTuple_1_output": None,
         "$_Indexer_2_output": [3, 3, 7, 1],
         "input": [7, 4, 5],
-        "$input1": None,
-        "$input2": [3, 3],
-        "$input3": None,
-        "$input4": None,
+        "$_ToTuple_1_input1": None,
+        "$_ToTuple_1_input2": [3, 3],
+        "$_ToTuple_1_input3": None,
+        "$_ToTuple_1_input4": None,
         "output2": [3, 3, 7, 1],
     }
 
@@ -10327,13 +10292,6 @@ def test_index_with_two_consec_arange():
         "$_ToTuple_7_output": None,
         "$_Indexer_8_output": [1, 1, 1, 8, 7, 4],
         "$input": [2, 3, 4],
-        "$input1_0": None,
-        "$input2_0": None,
-        "$input1_1": None,
-        "$input2_1": None,
-        "$input1_2": None,
-        "$input2_2": None,
-        "$input3": None,
         "$_Arange_0_start": None,
         "$_Arange_0_stop": None,
         "$_Arange_0_step": None,
@@ -10342,6 +10300,13 @@ def test_index_with_two_consec_arange():
         "$_Arange_1_stop": None,
         "$_Arange_1_step": None,
         "$_Arange_1_dtype": None,
+        "$_ToTuple_3_input1": None,
+        "$_ToTuple_3_input2": None,
+        "$_ToTuple_5_input1": None,
+        "$_ToTuple_5_input2": None,
+        "$_ToTuple_7_input1": None,
+        "$_ToTuple_7_input2": None,
+        "$_ToTuple_7_input3": None,
         "output": [1, 1, 1, 8, 7, 4],
     }
 
@@ -10375,16 +10340,6 @@ def test_index_with_two_non_consec_arange():
         "$_ToTuple_8_output": None,
         "$_Indexer_9_output": [8, 7, 1, 1, 1, 2],
         "$input": [2, 3, 4],
-        "$input1_0": None,
-        "$input2_0": None,
-        "$start": None,
-        "$stop": None,
-        "$step": None,
-        "$input1_1": None,
-        "$input2_1": None,
-        "$input1_2": None,
-        "$input2_2": None,
-        "$input3": None,
         "$_Arange_0_start": None,
         "$_Arange_0_stop": None,
         "$_Arange_0_step": None,
@@ -10393,6 +10348,16 @@ def test_index_with_two_non_consec_arange():
         "$_Arange_1_stop": None,
         "$_Arange_1_step": None,
         "$_Arange_1_dtype": None,
+        "$_ToTuple_3_input1": None,
+        "$_ToTuple_3_input2": None,
+        "$_Slice_5_start": None,
+        "$_Slice_5_stop": None,
+        "$_Slice_5_step": None,
+        "$_ToTuple_6_input1": None,
+        "$_ToTuple_6_input2": None,
+        "$_ToTuple_8_input1": None,
+        "$_ToTuple_8_input2": None,
+        "$_ToTuple_8_input3": None,
         "output": [8, 7, 1, 1, 1, 2],
     }
 
@@ -10411,7 +10376,7 @@ def test_index_with_list_int():
         "output": [7, 4, 5],
         "$_Indexer_1_output": [3, 3, 4, 5],
         "input": [7, 4, 5],
-        "$index": None,
+        "$_Indexer_1_index": None,
         "output2": [3, 3, 4, 5],
     }
     check_shapes_semantically(model.get_shapes(), ref)
@@ -10430,11 +10395,11 @@ def test_index_with_list_of_tuple_ints():
         "$_ToTuple_1_output": None,
         "$_Indexer_2_output": [3, 6, 1, 1, 1, 5],
         "input": [7, 4, 5],
-        "$input1": None,
-        "$input2": None,
-        "$input3": None,
-        "$input4": None,
-        "$input5": None,
+        "$_ToTuple_1_input1": None,
+        "$_ToTuple_1_input2": None,
+        "$_ToTuple_1_input3": None,
+        "$_ToTuple_1_input4": None,
+        "$_ToTuple_1_input5": None,
         "output2": [3, 6, 1, 1, 1, 5],
     }
     check_shapes_semantically(model.get_shapes(), ref)
