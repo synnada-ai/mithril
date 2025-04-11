@@ -21,6 +21,7 @@ import pytest
 
 import mithril as ml
 from mithril import Backend, JaxBackend, NumpyBackend, TorchBackend
+from mithril.cores.python.numpy import utils as np_utils
 
 backends: list[Backend] = [
     TorchBackend(dtype=ml.float64),
@@ -80,7 +81,7 @@ def manul_vjp(
     for idx in idxs:
         grad = grad_fn(out_grad, cache, idx, *args, **kwargs)
         if isinstance(grad, backend.DataType):
-            grad = backend.accumulate_grads(grad, args[idx], {}, idx)  # type: ignore
+            grad = np_utils.accumulate_grads(grad, args[idx], {}, idx)  # type: ignore
         input_grads.append(grad)
 
     return input_grads

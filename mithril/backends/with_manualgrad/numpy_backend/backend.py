@@ -115,15 +115,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self.seed = seed
         self._seed_generator = np.random.default_rng(seed)
 
-    def accumulate_grads(
-        self,
-        gradient: np.ndarray[Any, Any],
-        input: np.ndarray[Any, Any],
-        cache: CacheType | None,
-        idx: int,
-    ) -> np.ndarray[Any, Any]:
-        return core_utils.accumulate_grads(gradient, input, cache, idx)
-
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
         _dtype = utils.determine_dtype(data, dtype, self._dtype, self.precision)
 
