@@ -31,8 +31,7 @@ class GGMLCodeGen(CGen):
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:
         super().__init__(pm)
 
-        self.defined_tmp_vars: set[str] = set()
-
+        # TODO: We can find better way to do this
         self.pre_processors.update(
             {
                 "broadcast_to": self.pre_broadcast_to,
@@ -40,11 +39,13 @@ class GGMLCodeGen(CGen):
         )
 
     def generate_code(self, file_path: str | None = None) -> None:
-        # Add stdlib.h include for atexit
+        # Include stdlib.h for atexit
         stdlib_include = c_ast.Include("stdlib.h", system=True)
         self.imports.append(stdlib_include)
 
-        # Generate static context variable at file scope
+        # Generate static context variables as global variables
+        # We are storing these in global variables to be able to
+        # access them in all functions
         eval_static_ctx = c_ast.StaticVariable(
             c_ast.Pointer("g_context"),
             "eval_static_ctx",
@@ -130,7 +131,7 @@ class GGMLCodeGen(CGen):
         )
 
     @override
-    def _call_op(
+    def call_op(
         self, formula_key: str, input_vars: list[c_ast.Expr], context: str
     ) -> c_ast.Expr:
         context_txt = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
@@ -194,7 +195,7 @@ class GGMLCodeGen(CGen):
             # If key is in cache, skip tensor creation
             if key in self.struct_keys.eval_cache_keys:
                 continue
-            shape = self._get_tensor_shape(key)
+            shape = self.get_tensor_shape(key)
 
             if shape is None:
                 raise ValueError(f"Shape for tensor '{key}' is not determined")
@@ -217,7 +218,7 @@ class GGMLCodeGen(CGen):
                 if fn_ref_name == "eval"
                 else self.struct_keys.eval_grad_output_keys
             ):
-                shape = self._get_tensor_shape(key)
+                shape = self.get_tensor_shape(key)
                 tensor = c_ast.Call(
                     f"ggml_new_tensor_{len(shape)}d",
                     [ctx_name, "GGML_TYPE_F32"] + [str(size) for size in shape],
@@ -366,8 +367,8 @@ class GGMLCodeGen(CGen):
         return super().create_key_ref(key, context, load)
 
     @override
-    def _determine_struct_keys(self) -> utils.StructKeys:
-        struct_keys = super()._determine_struct_keys()
+    def determine_struct_keys(self) -> utils.StructKeys:
+        struct_keys = super().determine_struct_keys()
         static_cache_keys = (
             self.pm.flat_graph.data_store.all_static_keys
             - self.pm.flat_graph.data_store.runtime_static_keys

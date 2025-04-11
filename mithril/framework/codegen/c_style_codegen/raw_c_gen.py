@@ -22,8 +22,8 @@ class RawCGen(CGen):
     dynamic_links = ["-lmithrilc"]
 
     @override
-    def _determine_struct_keys(self) -> utils.StructKeys:
-        struct_keys = super()._determine_struct_keys()
+    def determine_struct_keys(self) -> utils.StructKeys:
+        struct_keys = super().determine_struct_keys()
         struct_keys.eval_grad_input_keys = sorted(
             {
                 key + "_grad"
