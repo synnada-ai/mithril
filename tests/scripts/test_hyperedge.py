@@ -727,24 +727,345 @@ def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
 ValueType = Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
 
 
-@pytest.mark.parametrize(
-    "inputs_and_result",
-    [
-        ([2, TBD], [TBD, 4], [2, 4]),
-        (
-            [[[2, 3], [2, TBD], [TBD, TBD]]],
-            [[[TBD, TBD], [2, 7], [8, 9]]],
-            [[[2, 3], [2, 7], [8, 9]]],
-        ),
-        ((1, TBD), (TBD, 2), (1, 2)),
-        ({"a": TBD, "b": 2}, {"a": 1, "b": TBD}, {"a": 1, "b": 2}),
-    ],
+def test_match_tuple_of_two_scalar_values():
+    """
+    Tests the following case:
+
+    edge1: (1, TBD) -+
+                     |-> expected_result: (1, 2)
+    edge2: (TBD, 2) -+
+    """
+    edge1 = IOHyperEdge(value=(1, TBD))
+    edge2 = IOHyperEdge(value=(TBD, 2))
+    updates = edge1.match(edge2)
+
+    assert edge1._type == tuple[int, int]
+    assert edge1._value == (1, 2)
+    assert updates.value_updates == {edge1}
+
+
+def test_match_recursive_values():
+    """
+    Tests the following case:
+
+    edge1: [(2, TBD), -+
+            (3, 4)]    |
+                       |-> expected_result: [(2, 5),
+                       |                     (3, 4)]
+    edge2: [(TBD, 5), -+
+            (3, 4)]
+    """
+    edge1 = IOHyperEdge(value=[(2, TBD), (3, 4)])
+    edge2 = IOHyperEdge(value=[(TBD, 5), (3, 4)])
+    updates = edge1.match(edge2)
+
+    assert edge1._type == list[tuple[int, int]]
+    assert edge1._value == [(2, 5), (3, 4)]
+    assert updates.value_updates == {edge1}
+
+
+def test_match_recursive_heterogenous_values():
+    """
+    Tests the following case:
+
+    edge1: [(2, TBD),   -+
+           (3, 4, TBD)]  |
+                         |-> expected_result: [(2, 5),
+                         |                    (3, 4, 2)]
+    edge2: [(TBD, 5),   -+
+           (3, 4, 2)]
+    """
+    edge1 = IOHyperEdge(value=[(2, TBD), (3, 4, TBD)])
+    edge2 = IOHyperEdge(value=[(TBD, 5), (3, 4, 2)])
+    updates = edge1.match(edge2)
+
+    assert edge1._type == list[tuple[int, int] | tuple[int, int, int]]
+    assert edge1._value == [(2, 5), (3, 4, 2)]
+    assert updates.value_updates == {edge1}
+
+
+def test_math_values_with_different_types():
+    """
+    Tests the following case:
+
+    edge1: [1, TBD] -+
+                      |-> expected_result: [1, 2]
+    edge2: [TBD, 2] -+
+    """
+
+    edge1 = IOHyperEdge(value=[1, TBD])
+    edge2 = IOHyperEdge(value=[TBD, 2])
+    updates = edge1.match(edge2)
+
+    assert edge1._type == list[int]
+    assert edge1._value == [1, 2]
+    assert updates.value_updates == {edge1}
+
+
+@pytest.mark.skip(
+    reason="Known Bug, see https://github.com/synnada-ai/mithril/issues/333"
 )
-def test_match_container_hyperedges_with_partial_with_tbd(
-    inputs_and_result: tuple[ValueType, ValueType, ValueType],
-):
-    left, right, expected_result = inputs_and_result
-    left_edge = IOHyperEdge(value=left)
-    right_edge = IOHyperEdge(value=right)
-    left_edge.match(right_edge)
-    assert left_edge._value == expected_result
+def test_match_two_tensors():
+    """
+    Tests the following case:
+
+    edge1: [T1, TBD] -+
+                      |-> expected_result: [T1, T2]
+    edge2: [TBD, T2] -+
+
+    T1 and T2 are all different Tensor objects.
+    """
+    t1: Tensor[int | float] = Tensor(type=int | float)
+    t2: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[t1, TBD])
+    edge2 = IOHyperEdge(value=[TBD, t2])
+    updates = edge1.match(edge2)
+
+    assert edge1._type == list[Tensor[int | float]]
+    assert edge1._value == [t1, t2]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == {edge1}
+    assert updates.value_updates == {edge1}
+
+
+def test_match_three_tensors():
+    """
+    Tests the following case:
+
+    edge1: [T1, TBD, T3]  -+
+                           |-> expected_result: [T1, T2, T3]
+    edge2: [TBD, T2, TBD] -+
+
+    T1, T2 and T3 are all different Tensor objects.
+
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=(t1, TBD, t3))
+    edge2 = IOHyperEdge(value=(TBD, t2, TBD))
+
+    updates = edge1.match(edge2)
+    assert edge1._type == tuple[Tensor[int], Tensor[int], Tensor[int]]
+    assert edge1._value == (t1, t2, t3)
+
+    assert t1.referees == {edge1}
+    assert t2.referees == {edge1}
+    assert t3.referees == {edge1}
+
+    assert edge1.tensors == {t1, t2, t3}
+
+    assert updates.value_updates == {edge1}
+
+
+def test_match_three_same_tensors():
+    """
+    Tests the following case:
+
+    edge1: [T1, TBD, T3] -+
+                          |-> expected_result: [T1, T1, T3]
+    edge2: [T2, T2, TBD] -+
+
+    T1, T2 and T3 are all different Tensor objects.
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=(t1, TBD, t3))
+    edge2 = IOHyperEdge(value=(t2, t2, TBD))
+
+    updates = edge1.match(edge2)
+    assert edge1._type == tuple[Tensor[int], Tensor[int], Tensor[int]]
+    assert edge1._value == (t1, t1, t3)
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == {edge1}
+
+    assert edge1.tensors == {t1, t3}
+
+    assert updates.value_updates == {edge1}
+
+
+def test_match_three_same_tensors_backwards():
+    """
+    Tests the following case:
+
+    edge1: [T3, TBD, T1] -+
+                          |-> expected result: [T3, T1, T1]
+    edge2: [TBD, T2, T2] -+
+
+    T1, T2 and T3 are all different Tensor objects.
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=(t3, TBD, t1))
+    edge2 = IOHyperEdge(value=(TBD, t2, t2))
+
+    updates = edge1.match(edge2)
+    assert edge1._type == tuple[Tensor[int], Tensor[int], Tensor[int]]
+    assert edge1._value == (t3, t1, t1)
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == {edge1}
+
+    assert edge1.tensors == {t1, t3}
+
+    assert updates.value_updates == {edge1}
+
+
+def test_match_two_tensors_in_two_containers():
+    """
+    Tests the following case:
+
+    edge1: [T1, T2] -+
+                     |-> expected result: [T1, T1]
+    edge2: [T2, T1] -+
+
+    T1 and T2 are all different Tensor objects.
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[t1, t2])
+    edge2 = IOHyperEdge(value=[t2, t1])
+
+    updates = edge1.match(edge2)
+    assert edge1._type == list[Tensor[int]]
+    assert edge1._value == [t1, t1]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+
+    assert edge1.tensors == {t1}
+
+    assert updates.value_updates == set()
+
+
+def test_match_four_tensors_in_two_nested_containers():
+    """
+    Tests the following case:
+
+    edge1:  [[T1, T2], -+
+             [T3, T4]]  |
+                        |-> expected result: [[T1, T1],
+                        |                     [T1, T1]]
+    edge2:  [[T2, T3], -+
+             [T4, T5]]
+
+    T1, T2, T3, T4 and T5 are all different Tensor objects.
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+    t5: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
+
+    updates = edge1.match(edge2)
+    assert edge1._type == list[list[Tensor[int]]]
+    assert edge1._value == [[t1, t1], [t1, t1]]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == set()
+    assert t4.referees == set()
+    assert t5.referees == set()
+
+    assert edge1.tensors == {t1}
+
+    assert updates.value_updates == set()
+
+
+def test_match_four_tensors_in_two_nested_containers_with_tbd():
+    """
+    Tests the following case:
+
+    edge1:  [[T1, T2], -+
+             [T3, T4]]  |
+                        |-> expected result: [T1, T1]
+                        |                    [T1, T4]
+    edge2:  [[T2, T3], -+
+             TBD]
+
+    T1, T2, T3 and T4 are all different Tensor objects.
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], TBD])
+
+    updates = edge1.match(edge2)
+    assert edge1._type == list[list[Tensor[int]]]
+    assert edge1._value == [[t1, t1], [t1, t4]]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == set()
+    assert t4.referees == {edge1}
+
+    assert edge1.tensors == {t1, t4}
+
+    assert updates.value_updates == {edge1}
+
+
+def test_list_of_tensors_with_three_hyperedges():
+    """
+    Tests the following case:
+
+
+
+    edge1:  [[T1, TBD], -+
+             [T2, T3]]   |
+                         |-> expected: [[T1, TBD], -+
+                         |              [T1, T3]]   |
+    edge2:  [[T2, TBD], -+                          |-> expected: [[T1, T3],
+             TBD]                                   |              [T1, T3]]
+                                edge3: [[TBD, T3], -+
+                                         TBD]
+
+
+    T1, T2, T3 and T4 are all different Tensor objects.
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, TBD], [t2, t3]])
+    edge2 = IOHyperEdge(value=[[t2, TBD], TBD])
+
+    updates = edge1.match(edge2)
+    assert edge1._type == list[list[Tensor[int] | ToBeDetermined]]
+    assert edge1._value == [[t1, TBD], [t1, t3]]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == {edge1}
+
+    assert edge1.tensors == {t1, t3}
+
+    assert updates.value_updates == {edge1}
+
+    edge3 = IOHyperEdge(value=[[TBD, t3], TBD])
+
+    updates |= edge1.match(edge3)
+    assert edge1._type == list[list[Tensor[int]]]
+    assert edge1._value == [[t1, t3], [t1, t3]]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == {edge1}
+
+    assert updates.value_updates == {edge1}
