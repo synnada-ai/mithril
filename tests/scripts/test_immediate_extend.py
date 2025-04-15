@@ -19,6 +19,7 @@ import pytest
 
 import mithril as ml
 from mithril import IOKey
+from mithril.framework.physical.model import FlatModel
 from mithril.models import (
     Add,
     Arange,
@@ -590,8 +591,6 @@ def test_extend_new_model_with_provisional_ref_count():
     mult.output + 3
     sub_pro_model = submodel.provisional_model
     assert isinstance(sub_pro_model, Model)
-    conns_ref_count = sys.getrefcount(sub_pro_model.conns) + 1
-    assert sys.getrefcount(sub_pro_model.conns) == conns_ref_count
     model = Model()
     model |= (buff := Buffer())
     buff.output - 2
@@ -602,8 +601,7 @@ def test_extend_new_model_with_provisional_ref_count():
     assert pro_model is model.provisional_model
     assert isinstance(model.provisional_model, Model)
     assert len(model.provisional_model.dag) == 2  # AddOp and SubtractOp
-    # TODO: Re-consider what should be the ref count of conns
-    # assert sys.getrefcount(sub_pro_model.conns) == conns_ref_count
+    assert sys.getrefcount(sub_pro_model.conns) == 4
 
 
 def test_extend_new_model_with_provisional_model_connection_ref_count():
@@ -632,3 +630,29 @@ def test_extend_child_provisional_extraction():
     model |= Buffer()(pow)
     for con in model.conns.input_connections:
         assert con.model is model
+
+
+def test_flat_model_key_naming_matching():
+    # This test is added to check that the key naming is consistent.
+    # Cleaning conns objects was leading an error in the FlatModel
+    # because of the metadata mismatch.
+    submodel = Model()
+    input = IOKey("input", type=Tensor)
+    submodel |= Buffer()(output="arange")
+    omega = submodel.arange + 2  # type: ignore
+    out = input[..., None] * omega
+    submodel |= Buffer()(input=out, output="dummy_out")
+
+    model = Model()
+    input = IOKey("input")
+
+    model |= submodel(input=input)
+
+    metadata = list(list(model.dag.keys())[0].dag.keys())[2].input.metadata  # type: ignore
+    assert model.conns.get_con_by_metadata(metadata) is not None  # type: ignore
+    flat_model = FlatModel(
+        model,
+        set(ml.JaxBackend().primitive_function_dict.keys()),
+        short_namings=False,
+    )
+    assert flat_model.queued_models == {}

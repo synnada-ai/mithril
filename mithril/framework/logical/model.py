@@ -615,9 +615,7 @@ class Model(BaseModel):
                 if sub_m not in submodels and sub_m not in self.dag
             ]
             assert isinstance(self.provisional_model, BaseModel)
-            self.provisional_model._extend_with_submodels(
-                model, submodels, replicate=False
-            )
+            self.provisional_model._extend_with_submodels(model, submodels, clear=True)
             if isinstance(source := model.provisional_source, BaseModel):
                 source.provisional_model = None
             model.provisional_source = True
@@ -678,7 +676,7 @@ class Model(BaseModel):
         if mp is not None and mp is not self.provisional_model:
             submodels = [sub_m for sub_m in mp.dag if sub_m not in self.dag]
             assert isinstance(self.provisional_model, BaseModel)
-            self.provisional_model._extend_with_submodels(mp, submodels, False)
+            self.provisional_model._extend_with_submodels(mp, submodels, True)
             if isinstance(source := mp.provisional_source, BaseModel):
                 source.provisional_model = None
             mp.provisional_source = False
@@ -874,11 +872,11 @@ def create_provisional_model(
         # Add all new models to provisional_model.
         if m is provisional_model:
             continue
-        if m.provisional_source:
+        if m.provisional_source:  # it is a provisional model without main source model
             updates = provisional_model.constraint_solver.match(m.constraint_solver)
             provisional_model.constraint_solver(updates)
             assert isinstance(m, Model)
-            provisional_model._extend_with_submodels(m, replicate=False)
+            provisional_model._extend_with_submodels(m, clear=True)
         else:
             provisional_model._extend(m)
     return provisional_model._extend_op_model(_connections, model, defaults)
