@@ -5,9 +5,6 @@ Model Name      |                                    Model Keys
                 |             Keys      : Shapes               : Connections         
 =====================================================================================
 Convolution2D   |   Inputs  : weight    : [ 64,  u1,   7,   7] : '$weight_0'         
-                |             $start    :                   -- : -2                  
-                |             $stop     :                   -- : None                
-                |             $step     :                   -- : None                
                 |             padding   :                   -- : 3                   
                 |             stride    :                   -- : 2                   
                 |             dilation  :                   -- : (1, 1)              
@@ -79,7 +76,6 @@ Flatten         |   Inputs  : input     : [ u2, 512, u21, u22] : Model_3.$output
                 |   Outputs : output    :           [ u2, u23] : Linear.input        
 -------------------------------------------------------------------------------------
 Linear          |   Inputs  : weight    :           [  1, u23] : '$weight_21'        
-                |             $axes     :                   -- : None                
                 |             input     :           [ u2, u23] : Flatten.output      
                 |             bias      :                [  1] : '$bias_21'          
                 |   -----------------------------------------------------------------

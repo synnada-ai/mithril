@@ -57,7 +57,6 @@ Model Name   |                                Model Keys
              |             Keys   : Shapes    : Connections   : Parameters
 ==========================================================================
 Linear       |   Inputs  : weight : [   3, 1] : 'weight0'     :          3
-             |             $axes  :        -- : None          :          0
              |             input  : [None, 1] : 'output_10'   :          0
              |             bias   :       [3] : 'bias0'       :          3
              |   ---------------------------------------------------------
@@ -76,7 +75,6 @@ Model Name   |                                Model Keys
              |             Keys   : Shapes    : Connections   : Parameters
 ==========================================================================
 Linear       |   Inputs  : weight : [   4, 3] : 'weight1'     :         12
-             |             $axes  :        -- : None          :          0
              |             input  : [None, 3] : 'output_14'   :          0
              |             bias   :       [4] : 'bias1'       :          4
              |   ---------------------------------------------------------
@@ -95,7 +93,6 @@ Model Name   |                                Model Keys
              |             Keys   : Shapes    : Connections   : Parameters
 ==========================================================================
 Linear       |   Inputs  : weight : [   5, 4] : 'weight2'     :         20
-             |             $axes  :        -- : None          :          0
              |             input  : [None, 4] : 'output_18'   :          0
              |             bias   :       [5] : 'bias2'       :          5
              |   ---------------------------------------------------------
@@ -114,7 +111,6 @@ Model Name   |                                 Model Keys
              |             Keys   : Shapes    : Connections     : Parameters
 ============================================================================
 Linear       |   Inputs  : weight : [   6, 5] : 'weight3'       :         30
-             |             $axes  :        -- : None            :          0
              |             input  : [None, 5] : 'output_22'     :          0
              |             bias   :       [6] : 'bias3'         :          6
              |   -----------------------------------------------------------

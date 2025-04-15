@@ -123,8 +123,8 @@ def test_template_template():
     model_1 = Model()
     model_1 |= (lin_1 := Linear(dimension=2))(input="input_1", weight="w_1", bias="b_1")
     model_1 |= (tensor := ToTensor())(input=2.0)
-    add_1 = lin_1.input + lin_1.bias  # First ExtendTemplate
     model_1 |= (lin_2 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
+    add_1 = lin_1.input + lin_1.bias  # First ExtendTemplate
     add_2 = lin_2.input + lin_2.bias  # Second ExtendTemplate
     # Now add 2 ExtendTemplates
     add_3 = add_1 + add_2
@@ -154,8 +154,8 @@ def test_shape_reshape():
     # Create with shortcut.
     model_1 = Model()
     model_1 |= (lin_1 := Linear(dimension=1))(input="input_1", weight="w_1", bias="b_1")
-    shp = lin_1.input.shape
     model_1 |= (lin_2 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
+    shp = lin_1.input.shape
     reshaped = lin_2.output.reshape(shp)
     model_1 |= Add()(left=lin_1.output, right=reshaped, output=IOKey(name="output"))
 
@@ -1394,7 +1394,7 @@ def test_cast():
 
     model2 = Model()
     model2 |= Buffer()(input="input")
-    model2 |= (cast := Cast())(input="input", dtype=mithril.float16)
+    model2 |= (cast := Cast(dtype=mithril.float16))(input="input")
     model2 |= Buffer()(input=cast.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1792,7 +1792,7 @@ def test_immediate_values_with_extend_template_and_regular_case():
     assert (
         big_model_1.conns.latent_input_keys
         == big_model_1.conns.latent_input_keys
-        == {"$1"}
+        == set()
     )
 
 
@@ -1950,7 +1950,6 @@ def test_tensor_item_with_tuple_of_shape_dependent_slices():
     model2 |= slice_model_2(start=None, stop=scalar_item_model_2.output, step=None)
 
     model2 |= to_tuple_model(input1=slice_model_1.output, input2=slice_model_2.output)
-
     model2 |= tensor_item_model(input="input1", index=to_tuple_model.output)
     model2 |= buffer(input=tensor_item_model.output, output=IOKey("output"))
 

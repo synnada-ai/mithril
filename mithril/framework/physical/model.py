@@ -1217,6 +1217,7 @@ class FlatModel:
         key_count = self.model.inter_key_count
         for conn in external_keys:
             base_name_str = conn.key
+            # If a state key is not in the model, create a generated name for it.
             if conn.model is not self.model:
                 # TODO: we need to set base_name_str to state
                 # connections after they are copied.
