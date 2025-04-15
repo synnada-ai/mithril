@@ -42,6 +42,7 @@ jobs:
           pip install --upgrade "jax[cpu]"
           pip install -r requirements/dev.txt
           pip install tiktoken
+          pip install accelerate
           pip install transformers
           pip install librosa
           pip install einops
