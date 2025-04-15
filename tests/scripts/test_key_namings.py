@@ -138,49 +138,49 @@ def test_generate_input_keys_0():
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
             "$1": "$weight_0",
-            "$3": "$input",
-            "$4": "$bias_0",
-            "$6": "$weight_1",
-            "$8": "$bias_1",
+            "$2": "$input",
+            "$3": "$bias_0",
+            "$5": "$weight_1",
+            "$6": "$bias_1",
         }
 
         model |= (lin3 := Linear(10))(input=lin1.output)
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
             "$1": "$weight_0",
-            "$3": "$input",
-            "$4": "$bias_0",
-            "$6": "$weight_1",
-            "$8": "$bias_1",
-            "$10": "$weight_2",
-            "$12": "$bias_2",
+            "$2": "$input",
+            "$3": "$bias_0",
+            "$5": "$weight_1",
+            "$6": "$bias_1",
+            "$8": "$weight_2",
+            "$9": "$bias_2",
         }
 
         model |= Add()(left=lin2.output, right=lin3.output)
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
             "$1": "$weight_0",
-            "$3": "$input",
-            "$4": "$bias_0",
-            "$6": "$weight_1",
-            "$8": "$bias_1",
-            "$10": "$weight_2",
-            "$12": "$bias_2",
+            "$2": "$input",
+            "$3": "$bias_0",
+            "$5": "$weight_1",
+            "$6": "$bias_1",
+            "$8": "$weight_2",
+            "$9": "$bias_2",
         }
 
         # Extend from input
         model |= Linear(10)(output=lin1.input)
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
+            "$12": "$weight_0",
+            "$13": "$input",
+            "$14": "$bias_0",
             "$1": "$weight_1",
-            "$4": "$bias_1",
-            "$6": "$weight_2",
-            "$8": "$bias_2",
-            "$10": "$weight_3",
-            "$12": "$bias_3",
-            "$15": "$weight_0",
-            "$17": "$input",
-            "$18": "$bias_0",
+            "$3": "$bias_1",
+            "$5": "$weight_2",
+            "$6": "$bias_2",
+            "$8": "$weight_3",
+            "$9": "$bias_3",
         }
 
 
@@ -191,42 +191,42 @@ def test_generate_input_keys_1():
 
     model |= Linear(10)
     key_mappings = model.generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$weight", "$3": "$input", "$4": "$bias"}
+    assert key_mappings == {"$1": "$weight", "$2": "$input", "$3": "$bias"}
 
     model += Linear(10)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$weight_0",
-        "$3": "$input",
-        "$4": "$bias_0",
-        "$6": "$weight_1",
-        "$8": "$bias_1",
+        "$2": "$input",
+        "$3": "$bias_0",
+        "$5": "$weight_1",
+        "$6": "$bias_1",
     }
 
     model += Linear(10)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$weight_0",
-        "$3": "$input",
-        "$4": "$bias_0",
-        "$6": "$weight_1",
-        "$8": "$bias_1",
-        "$10": "$weight_2",
-        "$12": "$bias_2",
+        "$2": "$input",
+        "$3": "$bias_0",
+        "$5": "$weight_1",
+        "$6": "$bias_1",
+        "$8": "$weight_2",
+        "$9": "$bias_2",
     }
 
     model |= Linear(10)(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
-        "$14": "$weight_0",
-        "$16": "$input",
-        "$17": "$bias_0",
+        "$11": "$weight_0",
+        "$12": "$input",
+        "$13": "$bias_0",
         "$1": "$weight_1",
-        "$4": "$bias_1",
-        "$6": "$weight_2",
-        "$8": "$bias_2",
-        "$10": "$weight_3",
-        "$12": "$bias_3",
+        "$3": "$bias_1",
+        "$5": "$weight_2",
+        "$6": "$bias_2",
+        "$8": "$weight_3",
+        "$9": "$bias_3",
     }
 
 
@@ -237,27 +237,27 @@ def test_generate_input_keys_2():
 
     model |= Linear(10)
     key_mappings = model.generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$weight", "$3": "$input", "$4": "$bias"}
+    assert key_mappings == {"$1": "$weight", "$2": "$input", "$3": "$bias"}
 
     model += Linear(10)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$weight_0",
-        "$3": "$input",
-        "$4": "$bias_0",
-        "$6": "$weight_1",
-        "$8": "$bias_1",
+        "$2": "$input",
+        "$3": "$bias_0",
+        "$5": "$weight_1",
+        "$6": "$bias_1",
     }
 
     model |= Linear(10)(input="input", weight="weight_0")
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$_weight_0",
-        "$3": "$_input",
-        "$4": "$bias_0",
-        "$6": "$_weight_1",
-        "$8": "$bias_1",
-        "$11": "$bias_2",
+        "$2": "$_input",
+        "$3": "$bias_0",
+        "$5": "$_weight_1",
+        "$6": "$bias_1",
+        "$8": "$bias_2",
     }
 
 
@@ -320,65 +320,65 @@ def test_generate_input_keys_5():
         model += Sigmoid()
     model |= Linear()(input=model.cout, weight="input")
     key_mappings = model.generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$_input", "$8": "$bias"}
+    assert key_mappings == {"$1": "$_input", "$7": "$bias"}
 
 
 def test_generate_input_keys_6():
     model = Model()
     model |= Linear()
     key_mappings = model.generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$weight", "$3": "$input", "$4": "$bias"}
+    assert key_mappings == {"$1": "$weight", "$2": "$input", "$3": "$bias"}
 
     model |= Linear()(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
-        "$6": "$weight_0",
-        "$8": "$input",
-        "$9": "$bias_0",
+        "$5": "$weight_0",
+        "$6": "$input",
+        "$7": "$bias_0",
         "$1": "$weight_1",
-        "$4": "$bias_1",
+        "$3": "$bias_1",
     }
 
     model |= Linear()(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
-        "$10": "$weight_0",
+        "$8": "$weight_0",
+        "$9": "$input",
+        "$10": "$bias_0",
+        "$5": "$weight_1",
+        "$7": "$bias_1",
+        "$1": "$weight_2",
+        "$3": "$bias_2",
+    }
+
+    model |= Linear()(output=model.cin)
+    key_mappings = model.generate_keys(include_internals=False)
+    assert key_mappings == {
+        "$11": "$weight_0",
         "$12": "$input",
         "$13": "$bias_0",
-        "$6": "$weight_1",
-        "$9": "$bias_1",
-        "$1": "$weight_2",
-        "$4": "$bias_2",
+        "$8": "$weight_1",
+        "$10": "$bias_1",
+        "$5": "$weight_2",
+        "$7": "$bias_2",
+        "$1": "$weight_3",
+        "$3": "$bias_3",
     }
 
     model |= Linear()(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$14": "$weight_0",
-        "$16": "$input",
-        "$17": "$bias_0",
-        "$10": "$weight_1",
+        "$15": "$input",
+        "$16": "$bias_0",
+        "$11": "$weight_1",
         "$13": "$bias_1",
-        "$6": "$weight_2",
-        "$9": "$bias_2",
-        "$1": "$weight_3",
-        "$4": "$bias_3",
-    }
-
-    model |= Linear()(output=model.cin)
-    key_mappings = model.generate_keys(include_internals=False)
-    assert key_mappings == {
-        "$18": "$weight_0",
-        "$20": "$input",
-        "$21": "$bias_0",
-        "$14": "$weight_1",
-        "$17": "$bias_1",
-        "$10": "$weight_2",
-        "$13": "$bias_2",
-        "$6": "$weight_3",
-        "$9": "$bias_3",
+        "$8": "$weight_2",
+        "$10": "$bias_2",
+        "$5": "$weight_3",
+        "$7": "$bias_3",
         "$1": "$weight_4",
-        "$4": "$bias_4",
+        "$3": "$bias_4",
     }
 
 
@@ -494,9 +494,8 @@ def test_generate_input_keys_10():
 
 def test_generate_key_naming_1():
     model = Linear(10)
-    logical_ref = {"$1": "$axes"}
-    physical_ref = {"input", "weight", "bias", "axes"}
-    assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
+    physical_ref = {"input", "weight", "bias"}
+    assert_keys(model, logical_ref={}, physical_ref=physical_ref)
 
 
 def test_generate_key_naming_2():
@@ -562,7 +561,7 @@ def test_generate_key_naming_5():
 def test_generate_key_naming_6():
     model = Model()
     model += Linear()(input="input2", output="output")
-    logical_ref = {"$1": "$weight", "$3": "$bias"}
+    logical_ref = {"$1": "$weight", "$2": "$bias"}
     physical_ref = {"input2", "weight", "bias"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
@@ -570,7 +569,7 @@ def test_generate_key_naming_6():
 def test_generate_key_naming_7():
     model = Model()
     model += Linear()(weight="_weight", output="output")
-    logical_ref = {"$2": "$input", "$3": "$bias"}
+    logical_ref = {"$1": "$input", "$2": "$bias"}
     physical_ref = {"input", "_weight", "bias"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
@@ -581,11 +580,11 @@ def test_generate_key_naming_8():
     model |= (lin := Linear())(output=IOKey(name="output2"))
     model.set_cin(lin.input)
     logical_ref = {
-        "$2": "$_input",
-        "$3": "$bias_0",
-        "$4": "$weight",
-        "$6": "$input",
-        "$7": "$bias_1",
+        "$1": "$_input",
+        "$2": "$bias_0",
+        "$3": "$weight",
+        "$4": "$input",
+        "$5": "$bias_1",
     }
     physical_ref = {"weight", "_weight", "input_1", "bias_0", "input_0", "bias_1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -637,11 +636,11 @@ def test_generate_key_naming_12():
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$weight_0",
-        "$3": "$_input",
-        "$4": "$bias_0",
-        "$5": "$weight_1",
-        "$7": "$input",
-        "$8": "$bias_1",
+        "$2": "$_input",
+        "$3": "$bias_0",
+        "$4": "$weight_1",
+        "$5": "$input",
+        "$6": "$bias_1",
     }
     physical_ref = {"input_1", "bias_1", "bias_0", "weight_0", "input_0", "weight_1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -654,10 +653,10 @@ def test_generate_key_naming_13():
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$weight",
-        "$3": "$_input",
-        "$4": "$bias_0",
-        "$6": "$input",
-        "$7": "$bias_1",
+        "$2": "$_input",
+        "$3": "$bias_0",
+        "$4": "$input",
+        "$5": "$bias_1",
     }
     physical_ref = {"input_1", "_weight", "weight", "bias_0", "input_0", "bias_1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -671,10 +670,10 @@ def test_generate_key_naming_14():
 
     logical_ref = {
         "$1": "$_weight",
-        "$3": "$_input",
-        "$4": "$bias_0",
-        "$6": "$input",
-        "$7": "$bias_1",
+        "$2": "$_input",
+        "$3": "$bias_0",
+        "$4": "$input",
+        "$5": "$bias_1",
     }
     physical_ref = {"input_1", "weight", "weight_0", "bias_0", "bias_1", "input_0"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -688,12 +687,12 @@ def test_generate_key_naming_15():
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight",
-        "$3": "$_input_0",
-        "$4": "$bias_0",
-        "$6": "$_input_1",
-        "$7": "$bias_1",
-        "$9": "$input",
-        "$10": "$bias_2",
+        "$2": "$_input_0",
+        "$3": "$bias_0",
+        "$4": "$_input_1",
+        "$5": "$bias_1",
+        "$6": "$input",
+        "$7": "$bias_2",
     }
     physical_ref = {
         "weight",
@@ -718,15 +717,15 @@ def test_generate_key_naming_16():
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight_0",
-        "$3": "$_input_0",
-        "$4": "$bias_0",
-        "$6": "$_input_1",
-        "$7": "$bias_1",
-        "$9": "$_input_2",
-        "$10": "$bias_2",
-        "$11": "$__weight_1",
-        "$13": "$input",
-        "$14": "$bias_3",
+        "$2": "$_input_0",
+        "$3": "$bias_0",
+        "$4": "$_input_1",
+        "$5": "$bias_1",
+        "$6": "$_input_2",
+        "$7": "$bias_2",
+        "$8": "$__weight_1",
+        "$9": "$input",
+        "$10": "$bias_3",
     }
     physical_ref = {
         "weight",
@@ -762,11 +761,11 @@ def test_generate_key_naming_17():
         "$3": "$bias_0",
         "$4": "$_input_1",
         "$5": "$bias_1",
-        "$7": "$_input_2",
-        "$8": "$bias_2",
-        "$9": "$__weight_1",
-        "$11": "$input",
-        "$12": "$bias_3",
+        "$6": "$_input_2",
+        "$7": "$bias_2",
+        "$8": "$__weight_1",
+        "$9": "$input",
+        "$10": "$bias_3",
     }
     physical_ref = {
         "_weight",
@@ -798,20 +797,16 @@ def test_generate_key_naming_18():
     model |= lin4(output=IOKey(name="output4"))
     model.set_cin(lin4.input)
     logical_ref = {
-        "$1": "$_Linear_0_axes",
-        "$4": "$_Linear_1_axes",
-        "$8": "$_Linear_2_axes",
-        "$12": "$_Linear_3_axes",
-        "$2": "$_input_0",
-        "$3": "$bias_0",
-        "$5": "$_input_1",
-        "$6": "$bias_1",
-        "$7": "$_weight_0",
-        "$9": "$_input_2",
-        "$10": "$bias_2",
-        "$11": "$_weight_1",
-        "$13": "$input",
-        "$14": "$bias_3",
+        "$1": "$_input_0",
+        "$2": "$bias_0",
+        "$3": "$_input_1",
+        "$4": "$bias_1",
+        "$5": "$_weight_0",
+        "$6": "$_input_2",
+        "$7": "$bias_2",
+        "$8": "$_weight_1",
+        "$9": "$input",
+        "$10": "$bias_3",
     }
 
     physical_ref = {

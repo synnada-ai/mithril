@@ -929,6 +929,9 @@ class PhysicalModel(GenericDataType[DataType]):
                 state_outputs[in_key] = outputs.pop(out_key)  # type: ignore
         return outputs, state_outputs
 
+    def contains_invalid_cache_value(self, cache_data: DataEvalType[DataType]) -> bool:
+        return any(self.shapes[key] is None for key in cache_data)
+
     @overload
     def evaluate(
         self,
@@ -1001,7 +1004,17 @@ class PhysicalModel(GenericDataType[DataType]):
             ):
                 outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
             else:
-                outputs = self._generated_eval_fn(params, data)
+                if (
+                    self.flat_graph.cached_data
+                    and not self.contains_invalid_cache_value(
+                        self.flat_graph.cached_data
+                    )
+                ):
+                    outputs = self._generated_eval_fn(
+                        params, data, cache=self.flat_graph.cached_data
+                    )
+                else:
+                    outputs = self._generated_eval_fn(params, data)
 
             outputs, state_outputs = self._extract_state_outputs(outputs)
             if len(state_outputs) == 0:
@@ -1208,6 +1221,7 @@ class FlatModel:
         key_count = self.model.inter_key_count
         for conn in external_keys:
             base_name_str = conn.key
+            # If a state key is not in the model, create a generated name for it.
             if conn.model is not self.model:
                 # TODO: we need to set base_name_str to state
                 # connections after they are copied.

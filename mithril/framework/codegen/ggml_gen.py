@@ -44,7 +44,7 @@ class GGMLCodeGen(CGen):
 
         # Generate static context variable at file scope
         eval_static_ctx = c_ast.StaticVariable(
-            c_ast.Pointer("struct ggml_context"),
+            c_ast.Pointer("g_context"),
             "eval_static_ctx",
             c_ast.Constant("NULL"),
         )
@@ -56,7 +56,7 @@ class GGMLCodeGen(CGen):
         )
 
         eval_grad_static_ctx = c_ast.StaticVariable(
-            c_ast.Pointer("struct ggml_context"),
+            c_ast.Pointer("g_context"),
             "eval_grad_static_ctx",
             c_ast.Constant("NULL"),
         )
@@ -131,10 +131,9 @@ class GGMLCodeGen(CGen):
     def create_primitive_call(
         self, op: Operator, args: Sequence[str | int | float], context: str
     ) -> c_ast.Expr:
-        formula_name = op.formula_key
+        formula_name = op.formula_key if isinstance(op, Operator) else op
         if context == "eval_grad":
             formula_name = f"{formula_name}{self.BACKWARD_FN_SUFFIX}"
-
         arg_exprs: list[c_ast.Expr] = []
         if formula_name in self.pre_processors:
             op, arg_exprs = self.pre_processors[formula_name](op, args, context)
@@ -171,7 +170,7 @@ class GGMLCodeGen(CGen):
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             static_vars.append(
                 c_ast.StaticVariable(
-                    c_ast.Pointer("struct ggml_tensor"), key, c_ast.Constant("NULL")
+                    c_ast.Pointer("g_tensor"), key, c_ast.Constant("NULL")
                 )
             )
 
@@ -202,6 +201,9 @@ class GGMLCodeGen(CGen):
         # Create tensors
         init_block.append(c_ast.Comment("Create tensors only once"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
+            # If key is in cache, skip tensor creation
+            if key in self.determined_struct_keys["eval_cache_keys"]:
+                continue
             shape = self._get_tensor_shape(key)
 
             if shape is None:
@@ -217,12 +219,32 @@ class GGMLCodeGen(CGen):
                 )
                 init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))  # type: ignore
 
+        # Create tensors for static keys if they are
+        # going to be used in other operations
+        for out_key in self.determined_struct_keys["eval_cache_keys"]:
+            if (
+                out_key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]
+                and out_key
+                not in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]
+            ):
+                shape = self._get_tensor_shape(key)
+                tensor = c_ast.Call(
+                    f"ggml_new_tensor_{len(shape)}d",
+                    [ctx_name, "GGML_TYPE_F32"] + [str(size) for size in shape],
+                )
+                init_block.append(
+                    c_ast.Assign(
+                        self.create_key_ref(out_key, context=fn_ref_name),
+                        tensor,  # type: ignore
+                    )
+                )
+
         # Create and build graph
         init_block.extend(
             [
                 c_ast.Comment("Create graph object only once"),  # type: ignore
                 c_ast.Assign(  # type: ignore
-                    c_ast.Variable("eval_static_gf"),
+                    c_ast.Variable(f"{fn_ref_name}_static_gf"),
                     c_ast.Call("ggml_new_graph", [ctx_name]),
                 ),
             ]
@@ -233,12 +255,15 @@ class GGMLCodeGen(CGen):
 
         # Build graph
         for out_key in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]:
+            # If key is statically inferred, skip marking
+            if out_key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
+                continue
             init_block.append(
                 c_ast.MakeStmt(  # type: ignore
                     c_ast.Call(
                         "ggml_build_forward_expand",
                         [
-                            "eval_static_gf",
+                            f"{fn_ref_name}_static_gf",
                             self.create_key_ref(out_key, context=fn_ref_name),
                         ],
                     )
@@ -254,12 +279,39 @@ class GGMLCodeGen(CGen):
         update_ptr_block: ast_block_type = []
         update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
-            update_ptr_block.append(
-                c_ast.Assign(  # type: ignore
-                    c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
-                    c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+            # If cached value is not going to be used in another operation,
+            # assign directly to output.
+            if (
+                key in self.determined_struct_keys["eval_cache_keys"]
+                and key in self.determined_struct_keys["eval_output_keys"]
+            ):
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        self.create_key_ref(key, context=fn_ref_name),
+                        c_ast.Arrow(c_ast.Variable("inputs"), f"{key}"),
+                    )
                 )
-            )
+            # If cached value is an input to another operation, retrieve
+            # data from input.
+            elif (
+                key in self.determined_struct_keys["eval_cache_keys"]
+                and key not in self.determined_struct_keys["eval_output_keys"]
+            ):
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(
+                            self.create_key_ref(key, context=fn_ref_name), "data"
+                        ),
+                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+                    )
+                )
+            else:
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
+                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+                    )
+                )
 
         # Initialization function
         init_fn = super().define_function(
@@ -289,7 +341,7 @@ class GGMLCodeGen(CGen):
             c_ast.MakeStmt(
                 c_ast.Call(
                     "ggml_graph_compute_with_ctx",
-                    [ctx_name, "eval_static_gf", c_ast.Constant(1)],
+                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
                 )
             ),
         ]
@@ -323,6 +375,21 @@ class GGMLCodeGen(CGen):
                 return c_ast.Variable(key)
 
         return super().create_key_ref(key, context, load)
+
+    @override
+    def _determine_struct_keys(self) -> dict[str, list[str]]:
+        determined_struct_keys = super()._determine_struct_keys()
+        static_cache_keys = (
+            self.pm.flat_graph.data_store.all_static_keys
+            - self.pm.flat_graph.data_store.runtime_static_keys
+        )
+        for key in sorted(static_cache_keys):
+            if self.pm.shapes[key] is None:
+                static_cache_keys.remove(key)
+        if static_cache_keys:
+            static_cache_keys |= self.pm.flat_graph.data_store.runtime_static_keys
+            determined_struct_keys["eval_input_keys"] = sorted(static_cache_keys)
+        return determined_struct_keys
 
     def _create_shape_constant(self, shape: tuple[int, ...]) -> list[c_ast.Expr]:
         # GGML expects 4 dimensions for shape

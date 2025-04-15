@@ -19,11 +19,10 @@ import numpy as np
 from ....common import CGenConfig
 from ....cores.c.array import PyArray
 from ....cores.c.raw_c.array import (
-    Array,
-    lib,
     to_c_float_array,
     to_c_int_array,
 )
+from ....cores.c.raw_c.definitions import Array, lib
 
 CODEGEN_CONFIG = CGenConfig()
 

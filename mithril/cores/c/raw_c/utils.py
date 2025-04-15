@@ -12,26 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ....common import CGenConfig
+import ctypes
+from typing import Any
 
-CODEGEN_CONFIG = CGenConfig()
+from ....common import BiMap
 
-# File configs
-CODEGEN_CONFIG.HEADER_NAME = "ggml_backend.h"
-
-
-# Array configs
-CODEGEN_CONFIG.ARRAY_NAME = "g_tensor"
-
-# Function configs
-CODEGEN_CONFIG.IMPLICIT_BROADCAST_OPS = {
-    "add",
-    "subtract",
-    "multiplication",
-    "divide",
-}
-CODEGEN_CONFIG.USE_OUTPUT_AS_INPUT = False
-CODEGEN_CONFIG.RETURN_OUTPUT = True
-
-# Memory management
-CODEGEN_CONFIG.ALLOCATE_INTERNALS = False
+dtype_map: BiMap[str, Any] = BiMap(
+    {
+        "int16": ctypes.c_int16,
+        "int32": ctypes.c_int32,
+        "int64": ctypes.c_int64,
+        "float32": ctypes.c_float,
+        "float64": ctypes.c_double,
+        "bool": ctypes.c_bool,
+    }
+)

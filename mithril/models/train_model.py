@@ -36,8 +36,8 @@ from ..framework.common import (
 from ..framework.logical.base import BaseModel, ConnectionDataType
 from ..framework.logical.model import (
     Connection,
+    ConnectionType,
     ExtendInfo,
-    ExtendTemplate,
     IOKey,
     Model,
 )
@@ -92,7 +92,7 @@ class TrainModel(Model):
         self.factory_args = {"model": model}
         # TODO: If we add inputs as IOKey, we get multi-write error. Fix this.
         key_mappings = model.generate_keys(symbolic=False, include_internals=True)
-        extend_kwargs: dict[str, str | IOKey] = {
+        extend_kwargs: dict[str, ConnectionType] = {
             key: key_mappings.get(
                 key, IOKey(name=key) if key in model.conns.output_keys else key
             )
@@ -406,7 +406,7 @@ class TrainModel(Model):
                 # kwargs[out.key] = key_name
                 kwargs[out.key] = IOKey(name=key_name)
 
-            keywords = {}
+            keywords: dict[str, ConnectionType] = {}
             for key, value in model(**kwargs).connections.items():
                 if isinstance(value, Connection):
                     keywords[key] = value
@@ -509,7 +509,7 @@ class TrainModel(Model):
             if self.reg_coef_map:
                 loss_conn = self.conns.get_connection(LossKey)
                 assert loss_conn is not None
-                reg_concat_args: list[ExtendTemplate | Connection] = [
+                reg_concat_args: list[Connection] = [
                     loss_conn.atleast_1d()  # type: ignore
                 ]
                 for coef, o_set in self.reg_coef_map.items():
