@@ -1030,6 +1030,29 @@ def any_differentiable(value: Any) -> bool:
     return False
 
 
+def set_differentiabilities(value: Any, diff_info: Any, updates: Updates) -> None:
+    if isinstance(value, Tensor):
+        # Set the differentiability of the value Tensor.
+        if not isinstance(diff_info, bool):
+            raise TypeError("Differentiability must be a boolean value.")
+        value.differentiable = diff_info
+        if diff_info and value.type is not float:
+            updates |= value.set_type(float)
+
+    elif diff_info is True:
+        raise ValueError("Non-tensor values cannot be differentiable.")
+
+    elif isinstance(value, list | tuple):
+        assert isinstance(diff_info, list | tuple)
+        for val, info in zip(value, diff_info, strict=True):
+            set_differentiabilities(val, info, updates)
+
+    elif isinstance(value, dict):
+        assert isinstance(diff_info, dict)
+        for val, info in zip(value.values(), diff_info, strict=True):
+            set_differentiabilities(val, info, updates)
+
+
 def convert_to_numeric_value(
     value: Tensor[int | float | bool] | ScalarValueType,
 ) -> ScalarValueType:
@@ -1503,27 +1526,13 @@ class IOHyperEdge:
 
         return updates
 
-    def set_differentiability(self, differentiable: list[bool] | bool) -> Updates:
+    def set_differentiability(self, differentiable: Any) -> Updates:
         updates = Updates()
-        if isinstance(differentiable, bool):
-            if differentiable:
-                # Differentiable edges can only be Tensor[float] type.
-                updates |= self.set_type(Tensor[float])
-            differentiable = [differentiable]
+        if differentiable is True:
+            # Differentiable edges can only be Tensor[float] type.
+            updates |= self.set_type(Tensor[float])
 
-        if not (tensors := self.tensors) and any(differentiable):
-            raise ValueError("Non-tensor edges cannot be differentiable.")
-
-        if tensors:
-            # Set differentiability of the corresponding tensors in _value.
-            # NOTE: the order of tensors and differentiable values should be
-            # matched by index. Flattening any data structure always preserves
-            # the order of Tensor type values. differentiable list must always
-            # match this order.
-            for tensor, diff in zip(tensors, differentiable, strict=True):
-                tensor.differentiable = diff
-                if diff and tensor.type is not float:
-                    updates |= tensor.set_type(float)
+        set_differentiabilities(self._value, differentiable, updates)
         return updates
 
     def add_constraint(self, constraint: Constraint) -> None:

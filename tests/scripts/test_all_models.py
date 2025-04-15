@@ -4917,3 +4917,37 @@ def test_split_6():
         assert_shapes=False,
         tolerances=1e-6,
     )
+
+
+def test_list_of_list_type_data_flow():
+    model = Model()
+    input_1 = IOKey("input_1", differentiable=True)
+    input_2 = IOKey("input_2", value=Tensor(2.0))
+    model |= (tl_1 := ToList(n=2))(input1=input_1, input2=input_2)
+    model |= (tl_2 := ToList(n=2))(input1=input_2, input2=input_2)
+    model |= (tl_3 := ToList(n=2))(input1=tl_1.output, input2=tl_2.output)
+    model |= Buffer()(tl_3.output[0][0], output=IOKey("output"))
+
+    output = [1.0]
+    output_grad = [0.1]
+
+    params = {"input_1": [1.0]}
+    ref_out = {"output": output}
+    out_grad = {"output": output_grad}
+    ref_grad = {"input_1": [0.1]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )

@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
 
 from ...utils.utils import OrderedSet
 from ..common import (
     IOHyperEdge,
     KeyType,
+    ScalarValueType,
     Tensor,
     Updates,
+    any_differentiable,
     create_shape_map,
 )
 from .base import BaseModel, ConnectionData, ConnectionDataType
@@ -135,27 +138,14 @@ class Operator(BaseModel):
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")
 
-    def infer_differentiability(self, *inputs: bool) -> list[bool] | None:
-        """
-        Infers the differentiability of the operator's output based on the
-        differentiability of its inputs.
-
-        This method determines whether the output of the operator is
-        differentiable by analyzing the differentiability of its inputs.
-        By default, if any of the inputs are differentiable, the output
-        is considered differentiable. Override this method in a subclass
-        to implement custom logic for specific operators.
-
-        Args:
-            *inputs (bool): A variable number of boolean arguments, where
-                            each boolean indicates whether a corresponding
-                            input is differentiable.
-
-        Returns:
-            list[bool] | None: A list containing a single boolean value
-                               indicating the differentiability of the
-                               operator's output, or None if differentiability
-                               info is not applicable to the output (i.e non-tensor
-                               type data).
-        """
-        return [any(inputs)]
+    def infer_differentiability(
+        self, values: dict[str, Tensor[int | float | bool] | ScalarValueType]
+    ) -> Any:
+        out_val = values[Operator.output_key]
+        if isinstance(out_val, Tensor):
+            # The case where output tensor depends on input tensors.
+            # NOTE: Default implementation assumes all tensors in any
+            # of the inputs affect output tensor. So any differentiable
+            # input tensor will make the output tensor differentiable.
+            return any(any_differentiable(val) for val in values.values())
+        return None

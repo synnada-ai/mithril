@@ -460,13 +460,10 @@ class PhysicalModel(GenericDataType[DataType]):
         # that have a Tensor type output.
         output_key = Operator.output_key
         output_edge = model_data[output_key]
-        input_diffs = [
-            any_differentiable(value._value)
-            for key, value in model_data.items()
-            if key != output_key
-        ]
 
-        diff = p_model.infer_differentiability(*input_diffs)
+        values = {key: value._value for key, value in model_data.items()}
+        diff = p_model.infer_differentiability(values)
+
         if diff is not None:
             updates |= output_edge.set_differentiability(diff)
 

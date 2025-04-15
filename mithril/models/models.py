@@ -38,6 +38,7 @@ from ..framework.logical.model import (
     IOKey,
     Model,
 )
+from ..framework.logical.operator import Operator
 from ..types import Constant
 from ..utils.utils import convert_to_list, convert_to_tuple
 from .primitives import (
@@ -3781,12 +3782,12 @@ class Split(Model):
         *,
         name: str | None = None,
     ):
-        if split_size is TBD:
-            raise ValueError("split_size must be provided!")
+        # TODO: Raise error if input is not exactly divisible by split_size.
+        # Think about if this will be a logical error block or a runtime error.
 
         super().__init__(name=name, formula_key="split")
 
-        input_key = IOKey("input", value=input)
+        input_key = IOKey("input", value=input, type=Tensor[int | float | bool])
         split_size_key = IOKey("split_size", value=split_size)
         axis_key = IOKey("axis", value=axis)
         # Find the length of the each tensor along the specified axis
@@ -3831,7 +3832,9 @@ class Split(Model):
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
-    def infer_differentiability(self, *inputs: bool) -> list[bool]:
-        val = self.output.metadata._value
+    def infer_differentiability(
+        self, values: dict[str, Tensor[int | float | bool]]
+    ) -> list[bool | None]:
+        val = values[Operator.output_key]
         assert isinstance(val, list)
-        return [inputs[0]] * len(val)
+        return [values["input"].differentiable] * len(val)
