@@ -50,7 +50,6 @@ from ..constraints import (
     shape_constraints,
     size_constraints,
     slice_constraints,
-    split_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
@@ -106,7 +105,6 @@ __all__ = [
     "CastOp",
     "TransposeOp",
     "SqrtOp",
-    "SplitOp",
     "SliceOp",
     "DtypeOp",
     "SineOp",
@@ -652,7 +650,9 @@ class FloorDivideOp(Operator):
             dependencies={bcast_constraint},
         )
 
-    def infer_differentiability(self, *inputs: bool) -> bool:
+    def infer_differentiability(
+        self, values: dict[str, Tensor[int | float | bool] | ScalarValueType]
+    ) -> bool:
         return False
 
 
@@ -1715,33 +1715,6 @@ class TransposeOp(Operator):
             general_type_constraint,
             keys=[Operator.output_key, "input"],
             types=[UpdateType.TYPE],
-        )
-
-
-class SplitOp(Operator):
-    _model_name: str = "Split"
-
-    def __init__(
-        self,
-        split_size: int,  # TODO: should we add default for split_size?
-        axis: int = 0,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
-    ):
-        super().__init__(
-            formula_key="split",
-            name=name,
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | float | bool]),
-            input=BaseKey(
-                shape=[("Var1", ...)], type=Tensor[int | float | bool], value=input
-            ),
-            split_size=BaseKey(type=int, value=split_size),
-            axis=BaseKey(type=int, value=axis),
-        )
-
-        self._add_constraint(
-            fn=split_constraints, keys=["output", "input", "split_size", "axis"]
         )
 
 

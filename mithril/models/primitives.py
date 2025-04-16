@@ -105,7 +105,6 @@ from ..framework.logical.operators import (
     SineOp,
     SizeOp,
     SliceOp,
-    SplitOp,
     SqrtOp,
     SubtractOp,
     SumOp,
@@ -229,7 +228,6 @@ __all__ = [
     "Cast",
     "Transpose",
     "Sqrt",
-    "Split",
     "Slice",
     "Dtype",
     "Sine",
@@ -3865,35 +3863,6 @@ class Transpose(OperatorModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, axes=axes, output=output)
-
-
-class Split(OperatorModel):
-    split_size: Connection
-    axis: Connection
-    input: Connection
-    output: Connection
-
-    def __init__(
-        self,
-        split_size: int,  # TODO: should we add default for split_size?
-        axis: int = 0,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
-    ):
-        m = SplitOp(split_size=split_size, axis=axis, input=input)
-        super().__init__(name=name, model=m)
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        split_size: ConnectionType | int = NOT_GIVEN,
-        axis: ConnectionType | int = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            input=input, split_size=split_size, axis=axis, output=output
-        )
 
 
 class Slice(OperatorModel):

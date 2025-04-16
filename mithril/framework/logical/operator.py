@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
 
 from ...utils.utils import OrderedSet
 from ..common import (
     IOHyperEdge,
     KeyType,
+    ScalarValueType,
     Tensor,
     Updates,
+    any_differentiable,
     create_shape_map,
 )
 from .base import BaseModel, ConnectionData, ConnectionDataType
@@ -53,10 +56,10 @@ class Operator(BaseModel):
         is_diff = False
         output_data: IOHyperEdge | None = None
         for key, conn_data in keys.items():
-            if isinstance(conn_data, ConnectionData):
-                edge = conn_data.metadata
-            else:
+            if isinstance(conn_data, IOHyperEdge):
                 edge = conn_data
+            else:
+                edge = conn_data.metadata
             if edge.is_tensor:
                 assert isinstance(edge._value, Tensor)
                 if key in shapes:
@@ -135,9 +138,14 @@ class Operator(BaseModel):
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")
 
-    def infer_differentiability(self, *inputs: bool) -> bool:
-        # Function to infer differentiability of the operator
-        # based on the differentiability of its inputs
-
-        # If any of the inputs are differentiable, the output is differentiable
-        return any(inputs)
+    def infer_differentiability(
+        self, values: dict[str, Tensor[int | float | bool] | ScalarValueType]
+    ) -> Any:
+        out_val = values[Operator.output_key]
+        if isinstance(out_val, Tensor):
+            # The case where output tensor depends on input tensors.
+            # NOTE: Default implementation assumes all tensors in any
+            # of the inputs affect output tensor. So any differentiable
+            # input tensor will make the output tensor differentiable.
+            return any(any_differentiable(val) for val in values.values())
+        return None

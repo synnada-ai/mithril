@@ -784,7 +784,7 @@ def test_match_recursive_heterogenous_values():
     assert updates.value_updates == {edge1}
 
 
-def test_math_values_with_different_types():
+def test_match_values_with_different_types():
     """
     Tests the following case:
 
@@ -856,7 +856,7 @@ def test_match_three_tensors():
     assert t2.referees == {edge1}
     assert t3.referees == {edge1}
 
-    assert edge1.tensors == {t1, t2, t3}
+    assert edge1.tensors == [t1, t2, t3]
 
     assert updates.value_updates == {edge1}
 
@@ -886,7 +886,7 @@ def test_match_three_same_tensors():
     assert t2.referees == set()
     assert t3.referees == {edge1}
 
-    assert edge1.tensors == {t1, t3}
+    assert set(edge1.tensors) == {t1, t3}
 
     assert updates.value_updates == {edge1}
 
@@ -916,7 +916,7 @@ def test_match_three_same_tensors_backwards():
     assert t2.referees == set()
     assert t3.referees == {edge1}
 
-    assert edge1.tensors == {t1, t3}
+    assert set(edge1.tensors) == {t1, t3}
 
     assert updates.value_updates == {edge1}
 
@@ -944,7 +944,7 @@ def test_match_two_tensors_in_two_containers():
     assert t1.referees == {edge1}
     assert t2.referees == set()
 
-    assert edge1.tensors == {t1}
+    assert set(edge1.tensors) == {t1}
 
     assert updates.value_updates == set()
 
@@ -981,7 +981,7 @@ def test_match_four_tensors_in_two_nested_containers():
     assert t4.referees == set()
     assert t5.referees == set()
 
-    assert edge1.tensors == {t1}
+    assert set(edge1.tensors) == {t1}
 
     assert updates.value_updates == set()
 
@@ -1016,7 +1016,7 @@ def test_match_four_tensors_in_two_nested_containers_with_tbd():
     assert t3.referees == set()
     assert t4.referees == {edge1}
 
-    assert edge1.tensors == {t1, t4}
+    assert set(edge1.tensors) == {t1, t4}
 
     assert updates.value_updates == {edge1}
 
@@ -1054,7 +1054,7 @@ def test_list_of_tensors_with_three_hyperedges():
     assert t2.referees == set()
     assert t3.referees == {edge1}
 
-    assert edge1.tensors == {t1, t3}
+    assert set(edge1.tensors) == {t1, t3}
 
     assert updates.value_updates == {edge1}
 

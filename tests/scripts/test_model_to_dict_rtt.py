@@ -196,7 +196,7 @@ def test_set_cins_couts():
     assert (
         model_dict_created["assigned_couts"]  # type: ignore
         == model_dict_recreated["assigned_couts"]  # type: ignore
-        == [("m_1", 4)]
+        == [("m_1", 3)]
     )
     assert (
         model_dict_created["submodels"]["m_0"]["assigned_cins"]  # type: ignore
