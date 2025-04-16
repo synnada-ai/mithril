@@ -1069,3 +1069,106 @@ def test_list_of_tensors_with_three_hyperedges():
     assert t3.referees == {edge1}
 
     assert updates.value_updates == {edge1}
+
+
+def test_list_and_tuple_of_tensors_error():
+    """
+    Tests the following case:
+
+
+
+    edge1:  [[T1, TBD], -+
+             [T2, T3]]   |
+                         |-> expected: ValueError
+                         |
+    edge2:  [[T2, TBD], -+
+             (TBD, TBD)]
+
+
+    T1, T2, T3 are all different Tensor objects.
+
+    ValueError is expected from this test as
+    determined list and tuple are tried to be matched.
+    """
+    t1: Tensor[int] = Tensor(type=int | float)
+    t2: Tensor[int] = Tensor(type=int | float)
+    t3: Tensor[int] = Tensor(type=int | float)
+
+    edge1 = IOHyperEdge(value=[[t1, TBD], [t2, t3]])
+    edge2 = IOHyperEdge(value=[[t2, TBD], (TBD, TBD)])
+    with pytest.raises(ValueError) as err_info:
+        edge1.match(edge2)
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: [Tensor[int | float], Tensor[int | float]]\n"
+        "    Given value: (TBD, TBD)"
+    )
+
+
+def test_list_of_two_values_and_list_of_three_values_error():
+    """
+    Tests the following case:
+
+
+
+    edge1:  [[T1, TBD], -+
+             [T2, T3]]   |
+                         |-> expected: ValueError
+                         |
+    edge2:  [[T2, TBD], -+
+             TBD,
+             TBD]
+
+
+    T1, T2, T3 and T4 are all different Tensor objects.
+
+    ValueError is expected from this test as a list with
+    lenght 3 is tried to be matched with a list with lenght 2
+    """
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, TBD], [t2, t3]])
+    edge2 = IOHyperEdge(value=[[t2, TBD], TBD, TBD])
+    with pytest.raises(ValueError) as err_info:
+        edge1.match(edge2)
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: [[Tensor[int], TBD], [Tensor[int], Tensor[int]]]\n"
+        "    Given value: [[Tensor[int], TBD], TBD, TBD]"
+    )
+
+
+def test_list_of_two_values_and_list_of_one_value_error():
+    """
+    Tests the following case:
+
+
+
+    edge1:  [[T1, TBD], -+
+             [T2, T3]]   |
+                         |-> expected: VAlueError
+                         |
+    edge2:  [[T2, TBD], -+
+             [TBD]
+
+
+    T1, T2, T3 and T4 are all different Tensor objects.
+
+    ValueError is expected from this test as a list with
+    lenght 1 is tried to be matched with a list with lenght 2
+    """
+    t1: Tensor[bool] = Tensor(type=bool)
+    t2: Tensor[bool] = Tensor(type=bool)
+    t3: Tensor[bool] = Tensor(type=bool)
+
+    edge1 = IOHyperEdge(value=[[t1, TBD], [t2, t3]])
+    edge2 = IOHyperEdge(value=[[t2, TBD], [TBD]])
+    with pytest.raises(ValueError) as err_info:
+        edge1.match(edge2)
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: [Tensor[bool], Tensor[bool]]\n"
+        "    Given value: [TBD]"
+    )

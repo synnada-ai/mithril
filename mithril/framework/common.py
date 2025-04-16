@@ -106,6 +106,9 @@ class ToBeDetermined(SingletonObject):
     that no data is provided.
     """
 
+    def __repr__(self) -> str:
+        return "TBD"
+
     pass
 
 
@@ -1212,6 +1215,15 @@ class Tensor(Generic[TypeVarTensorType]):
             prev_node.referees = set()
         return updates
 
+    def __repr__(self) -> str:
+        if isinstance(self.type, UnionType):
+            _type = " | ".join(type_def.__name__ for type_def in get_args(self.type))
+        else:
+            assert isinstance(self.type, type)
+            _type = self.type.__name__
+
+        return f"Tensor[{_type}]"
+
 
 class IOHyperEdge:
     _type: type[Tensor[int | float | bool]] | ScalarType
@@ -1283,24 +1295,13 @@ class IOHyperEdge:
 
     @property
     def is_valued(self) -> bool:
-        return not self.initial_valued and self._is_valued
+        return not self.initial_valued and is_valued(self._value)
 
     @property
     def initial_valued(self) -> bool:
         if isinstance(self._value, Tensor):
             return self._value.initial_valued
         return self._initial_valued
-
-    @property
-    def _is_valued(self) -> bool:
-        # TODO: Update as it can handle mixed type values which contains
-        # both tensors and scalars.
-        tensors = self.tensors
-        return (
-            all(tensor.value is not TBD for tensor in tensors)
-            if tensors
-            else self._value is not TBD
-        )
 
     @property
     def all_constraints(self) -> set[Constraint]:
@@ -1429,13 +1430,13 @@ class IOHyperEdge:
                 value_2.is_used = True
                 return value_1
 
-            case (list(), list()):
+            case (list(), list()) if len(value) == len(self_value):
                 return [
                     self._match_values(val, self_val, updates, updated_tensors)
                     for val, self_val in zip(value, self_value, strict=True)
                 ]
 
-            case (tuple(), tuple()):
+            case (tuple(), tuple()) if len(value) == len(self_value):
                 return tuple(
                     self._match_values(val, self_val, updates, updated_tensors)
                     for val, self_val in zip(value, self_value, strict=True)
@@ -1464,7 +1465,9 @@ class IOHyperEdge:
 
             case _:
                 raise ValueError(
-                    f"Value is set before as {self._value}. A value can not be reset."
+                    f"Given value is not compatible with the current value\n"
+                    f"    Current value: {self_value}\n"
+                    f"    Given value: {value}"
                 )
 
     def update_tensor_values(
@@ -3710,3 +3713,17 @@ def is_index_type(
         is not None
         for val in index
     )
+
+
+def is_valued(
+    value: ScalarValueType | Tensor[int | float | bool] | ToBeDetermined,
+) -> bool:
+    if value is TBD:
+        return False
+    elif isinstance(value, Tensor):
+        return value.value is not TBD
+    elif isinstance(value, dict):
+        return all(is_valued(v) for v in value.values())
+    elif isinstance(value, list | tuple | set):
+        return all(is_valued(item) for item in value)
+    return True
