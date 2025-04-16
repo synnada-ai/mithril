@@ -81,4 +81,4 @@ mithril.egg-info
 
 # Submodules #
 ################
-mithril/cores/c/ggml/ggml
+mithril/cores/c/ggml/ggml/
