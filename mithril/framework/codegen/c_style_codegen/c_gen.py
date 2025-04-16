@@ -144,28 +144,30 @@ class CGen(CodeGen[PyArray]):
         # We need backend subtype
         lib = ctypes.CDLL(so_file_path)
 
+        struct_cls = self.backend.get_struct_cls()
+
         # Input and output structs
         class Inputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
+                (key, ctypes.POINTER(struct_cls))
                 for key in self.struct_keys.eval_input_keys
             ]
 
         class Outputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
+                (key, ctypes.POINTER(struct_cls))
                 for key in self.struct_keys.eval_output_keys
             ]
 
         class GradInputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
+                (key, ctypes.POINTER(struct_cls))
                 for key in self.struct_keys.eval_grad_input_keys
             ]
 
         class GradOutputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
+                (key, ctypes.POINTER(struct_cls))
                 for key in self.struct_keys.eval_grad_output_keys
             ]
 
@@ -206,7 +208,7 @@ class CGen(CodeGen[PyArray]):
                 **{
                     key: ctypes.cast(
                         ctypes.byref(inputs[key].arr),
-                        ctypes.POINTER(self.backend.get_struct_cls()),
+                        ctypes.POINTER(struct_cls),
                     )
                     for key in self.struct_keys.eval_input_keys
                     if key != FinalCost
@@ -289,7 +291,7 @@ class CGen(CodeGen[PyArray]):
                 **{
                     key: ctypes.cast(
                         ctypes.byref(inputs[key].arr),
-                        ctypes.POINTER(self.backend.get_struct_cls()),
+                        ctypes.POINTER(struct_cls),
                     )
                     for key in self.struct_keys.eval_grad_input_keys
                     if self.get_tensor_shape(key) is not None

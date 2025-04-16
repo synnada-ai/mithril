@@ -158,11 +158,11 @@ class GGMLCodeGen(CGen):
 
         # Input tensors will be stored in static variables
         # We will update their data pointers in every call
-        input_keys = (
-            self.struct_keys.eval_input_keys
-            if fn_ref_name == "eval"
-            else self.struct_keys.eval_grad_input_keys
-        )
+        if fn_ref_name == "eval":
+            input_keys = self.struct_keys.eval_input_keys
+        else:
+            input_keys = self.struct_keys.eval_grad_input_keys
+
         for key in input_keys:
             static_vars.append(
                 c_ast.StaticVariable(
