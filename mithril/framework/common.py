@@ -951,9 +951,9 @@ def squash_tensor_types_recursively(typ: Any) -> Any:
     return typ
 
 
-def replace_tensor(
-    current_tensor: Tensor[int | float | bool],
-    new_tensor: Tensor[int | float | bool],
+def replace_tensors(
+    tensor_map: dict[Tensor[int | float | bool], Tensor[int | float | bool]]
+    | None = None,
     value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined | None = None,
 ) -> Tensor[int | float | bool] | ScalarValueType:
     """
@@ -964,8 +964,8 @@ def replace_tensor(
     a list, a tuple, or a dictionary containing these types.
 
     Args:
-        current_tensor (Tensor[int | float | bool]): The tensor to be replaced.
-        new_tensor (Tensor[int | float | bool]): The tensor to replace with.
+        tensor_map (dict[Tensor[int | float | bool], Tensor[int | float | bool]] |None):
+            dict that holds the mapping of current tensor to new tensor.
         value (Tensor[int | float | bool] | ScalarValueType | ToBeDetermined | None):
             The value in which to replace the tensor. It can be a tensor, a scalar,
             a list, a tuple, a dictionary, or None. Defaults to None.
@@ -975,16 +975,15 @@ def replace_tensor(
         `current_tensor` replaced by `new_tensor`. The return type matches the
         type of the input `value`.
     """
-    if value is current_tensor:
+    if tensor_map is None:
+        tensor_map = {}
+    if isinstance(value, Tensor) and (new_tensor := tensor_map.get(value)):
         value = new_tensor
     elif isinstance(value, list | tuple):
-        new_value = [replace_tensor(current_tensor, new_tensor, item) for item in value]
+        new_value = [replace_tensors(tensor_map, item) for item in value]
         value = tuple(new_value) if isinstance(value, tuple) else new_value
     elif isinstance(value, dict):
-        value = {
-            key: replace_tensor(current_tensor, new_tensor, val)
-            for key, val in value.items()
-        }
+        value = {key: replace_tensors(tensor_map, val) for key, val in value.items()}
     return value
 
 
@@ -1323,7 +1322,7 @@ class IOHyperEdge:
         current_tensor: Tensor[int | float | bool],
         new_tensor: Tensor[int | float | bool],
     ) -> None:
-        self._value = replace_tensor(current_tensor, new_tensor, self._value)
+        self._value = replace_tensors({current_tensor: new_tensor}, self._value)
 
     def set_type(
         self,
@@ -1365,34 +1364,52 @@ class IOHyperEdge:
         value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         self_value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         updates: Updates,
+        updated_tensors: dict[Tensor[int | float | bool], Tensor[int | float | bool]]
+        | None = None,
     ) -> Tensor[int | float | bool] | ScalarValueType:
+        if updated_tensors is None:
+            updated_tensors = {}
+
         match (value, self_value):
             case (Tensor(), Tensor()):
-                updates |= self_value.match(value)
-                return self_value
+                # check if Tensors are already updated in previous iterations.
+                # If yes, replace them with updated ones.
+                value_1 = updated_tensors.get(self_value, self_value)
+                value_2 = updated_tensors.get(value, value)
+                if value_1 is not value_2:
+                    updates |= value_1.match(value_2)
+                    updated_tensors[value_2] = value_1
+                return value_1
 
             case (list(), list()):
                 return [
-                    self._match_values(val, self_val, updates)
+                    self._match_values(val, self_val, updates, updated_tensors)
                     for val, self_val in zip(value, self_value, strict=True)
                 ]
 
             case (tuple(), tuple()):
                 return tuple(
-                    self._match_values(val, self_val, updates)
+                    self._match_values(val, self_val, updates, updated_tensors)
                     for val, self_val in zip(value, self_value, strict=True)
                 )
 
-            case (dict(), dict()):
-                assert self_value.keys() == value.keys()
+            case (dict(), dict()) if self_value.keys() == value.keys():
                 return {
-                    key: self._match_values(value[key], self_value[key], updates)
+                    key: self._match_values(
+                        value[key], self_value[key], updates, updated_tensors
+                    )
                     for key in value
                 }
 
             case (val, ToBeDetermined()) | (ToBeDetermined(), val):
+                # add value to updates to inform constraints later on
                 updates.add(self, UpdateType.VALUE)
-                return val
+                updates.value_updates.add(self)
+
+                # if val is a tensor (or a container that includes Tensor)
+                # update Tensor's IOHyperEdge referees and also return
+                # updated tensors
+                return self.update_tensor_values(val, updates, updated_tensors)
 
             case (val1, val2) if val1 == val2:
                 return val1
@@ -1406,11 +1423,16 @@ class IOHyperEdge:
         self,
         value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         updates: Updates,
-    ) -> None:
+        updated_tensors: dict[Tensor[int | float | bool], Tensor[int | float | bool]]
+        | None = None,
+    ) -> ScalarValueType | Tensor[int | float | bool]:
+        if updated_tensors is None:
+            updated_tensors = {}
         # Updates all required fields of all tensor values in value and
         # update Updates object accordingly
         if isinstance(value, Tensor):
             # Add self to referees of value and shape.
+            value = updated_tensors.get(value, value)
             value.referees.add(self)
             # TODO: When two edges set to the same tensor value using
             # different Tensor objects, we need to merge their nodes into
@@ -1419,14 +1441,26 @@ class IOHyperEdge:
             for repr in value.shape.reprs:
                 for symbol in repr.prefix + repr.suffix:
                     updates.add(symbol)
-        elif isinstance(value, list | tuple):
-            # If value is a Sequence, update all its values.
-            for val in value:
-                self.update_tensor_values(val, updates)
+            return value
+        elif isinstance(value, list):
+            return [
+                self.update_tensor_values(val, updates, updated_tensors)
+                for val in value
+            ]
+
+        elif isinstance(value, tuple):
+            return tuple(
+                self.update_tensor_values(val, updates, updated_tensors)
+                for val in value
+            )
+
         elif isinstance(value, dict):
-            # If value is a dict, update all its values.
-            for val in value.values():
-                self.update_tensor_values(val, updates)
+            return {
+                key: self.update_tensor_values(val, updates, updated_tensors)
+                for key, val in value.items()
+            }
+        else:
+            return value
 
     def set_value(
         self,
@@ -1453,16 +1487,12 @@ class IOHyperEdge:
             # If they are incompatible, raises an error and value setting is
             # not performed. Else, type is updated, value is set and then
             # type is re-updated based on the final value.
+            updated_tensors: dict[
+                Tensor[int | float | bool], Tensor[int | float | bool]
+            ] = {}
             updates |= self.set_type(find_type(value), create_tensor=False)
-            if self._value is not TBD:
-                new_value = self._match_values(value, self._value, updates)
-                self._value = new_value
-            else:
-                self._value = value
-                self.update_tensor_values(value, updates)
-                # Add self to updates as value update.
-                updates.add(self, UpdateType.VALUE)
-                updates.value_updates.add(self)
+            new_value = self._match_values(value, self._value, updates, updated_tensors)
+            self._value = replace_tensors(updated_tensors, new_value)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(find_type(self._value), create_tensor=False)
         if self.is_tensor and self.is_valued:
