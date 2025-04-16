@@ -1734,6 +1734,11 @@ def test_tranpose_4():
     assert (backend.transpose(input_arr, axis) == out).all()
 
 
+@pytest.mark.skip(
+    "split model is not implemented as an extend template since it is "
+    "composite model now. This test will be enabled once composite "
+    "models can be also extend template models."
+)
 def test_split_direct():
     backend = JaxBackend()
     model = Model()
@@ -1741,7 +1746,7 @@ def test_split_direct():
     input_arr = jnp.ones((8, 16))
 
     input = IOKey("input", differentiable=True)
-    result = input.split(2, axis=1)
+    result = input.split(2, axis=1)  # type: ignore
     model |= Buffer()(input=result, output="output")
 
     pm = mithril.compile(model, backend)
@@ -1752,6 +1757,11 @@ def test_split_direct():
     assert (jnp.stack(jnp.split(input_arr, 2, axis=1)) == out).all()
 
 
+@pytest.mark.skip(
+    "split model is not implemented as an extend template since it is "
+    "composite model now. This test will be enabled once composite "
+    "models can be also extend template models."
+)
 def test_split_compare_with_explicit():
     backend = JaxBackend()
     data = {"input": backend.ones(8, 16)}

@@ -14,7 +14,7 @@
 
 import os
 import platform
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import jax
@@ -75,6 +75,7 @@ from mithril.models import (
     SiLU,
     Size,
     Slice,
+    Split,
     SquaredError,
     Squeeze,
     ToList,
@@ -86,7 +87,6 @@ from mithril.models import (
     Where,
     ZerosLike,
 )
-from tests.scripts.test_utils import convert_to_array
 
 
 def list_full(fill_value, *shapes):
@@ -98,6 +98,19 @@ def list_full(fill_value, *shapes):
 
 
 default_backends: list[Backend] = [TorchBackend(), NumpyBackend(), JaxBackend()]
+
+
+def finalize_value(
+    key: str,
+    value: list[int | float | bool] | Callable,
+    ignore_transform: set[str],
+    backend: Backend,
+):
+    if key not in ignore_transform and isinstance(value, Sequence | int | float):
+        return backend.array(value)
+    elif callable(value):
+        return value(backend.array)
+    return value
 
 
 def compile_and_compare(
@@ -133,18 +146,20 @@ def compile_and_compare(
 
     for backend in backends:
         statics = {
-            key: backend.array(value)
-            if key not in ignore_transform and isinstance(value, Sequence | int | float)
-            else value
+            key: finalize_value(key, value, ignore_transform, backend)
             for key, value in compile_kwargs.get("constant_keys", {}).items()
         }
         backend_data = {
-            key: backend.array(value) if key not in ignore_transform else value
+            key: finalize_value(key, value, ignore_transform, backend)
             for key, value in data.items()
         }
-        backend_params = {key: backend.array(value) for key, value in params.items()}  # type: ignore # (fix after DataType update)
+        backend_params = {
+            key: finalize_value(key, value, ignore_transform, backend)
+            for key, value in params.items()
+        }  # type: ignore # (fix after DataType update)
+
         backend_ref_outputs = {
-            key: backend.array(value) if key not in ignore_transform else value
+            key: finalize_value(key, value, ignore_transform, backend)
             for key, value in reference_outputs.items()
         }
 
@@ -182,29 +197,18 @@ def compile_and_compare(
             # We may not include any reference value for some keys for a certain test.
             # So we don't assert set(outputs.keys()) == set(reference_outputs) since
             # outputs can have some keys which reference_outputs does not include.
-            if not isinstance(out, backend.get_backend_array_type()):
+            if isinstance(out, list | tuple):
+                for idx, item in enumerate(out):
+                    if isinstance(item, backend.get_backend_array_type()):
+                        check_result(
+                            v[idx], item, tolerance, relative_tolerance, backend
+                        )
+                    else:
+                        assert v[idx] == item
+            elif not isinstance(out, backend.get_backend_array_type()):
                 assert v == out
             elif out is not None:
-                if tolerance is not None and relative_tolerance is not None:
-                    assert (
-                        (
-                            all(backend.flatten(backend.abs(v - out) < tolerance))
-                            or all(
-                                backend.flatten(
-                                    backend.abs(v - out)
-                                    < backend.abs(v) * relative_tolerance
-                                )
-                            )
-                        )
-                        and (
-                            out.shape == (() if isinstance(v, float) else v.shape)  # type: ignore
-                        )
-                        and (out.dtype == v.dtype)  # type: ignore
-                    )
-                else:
-                    if not isinstance(eq := (out == v), bool):
-                        eq = eq.all()
-                    assert eq
+                check_result(v, out, tolerance, relative_tolerance, backend)
             else:
                 raise Exception(
                     f"Output is supposed to return value for the {k} key, "
@@ -213,11 +217,11 @@ def compile_and_compare(
         if reference_gradients is not None:
             if (backend_output_gradients := output_gradients) is not None:
                 backend_output_gradients = {
-                    key: convert_to_array(backend, value)
+                    key: finalize_value(key, value, ignore_transform, backend)
                     for key, value in output_gradients.items()
                 }
             backend_ref_gradients = {
-                key: convert_to_array(backend, value)
+                key: finalize_value(key, value, ignore_transform, backend)
                 for key, value in reference_gradients.items()
             }
             _, gradients = pm.evaluate(
@@ -235,15 +239,30 @@ def compile_and_compare(
                 if grad is None:
                     assert v == grad
                 else:
-                    assert (
-                        all(backend.flatten(backend.abs(v - grad) < tolerance))
-                        or all(
-                            backend.flatten(
-                                backend.abs(v - grad)
-                                < backend.abs(v) * relative_tolerance
-                            )
-                        )
-                    ) and (grad.shape == (() if isinstance(v, float) else v.shape))
+                    check_result(v, grad, tolerance, relative_tolerance, backend)
+
+
+def check_result(result1, result2, tolerance, relative_tolerance, backend: Backend):
+    if tolerance is not None and relative_tolerance is not None:
+        assert (
+            (
+                all(backend.flatten(backend.abs(result1 - result2) < tolerance))
+                or all(
+                    backend.flatten(
+                        backend.abs(result1 - result2)
+                        < backend.abs(result1) * relative_tolerance
+                    )
+                )
+            )
+            and (
+                result2.shape == (() if isinstance(result1, float) else result1.shape)  # type: ignore
+            )
+            and (result2.dtype == result1.dtype)  # type: ignore
+        )
+    else:
+        if not isinstance(eq := (result2 == result1), bool):
+            eq = eq.all()
+        assert eq
 
 
 # TODO: Split functions below to 3 file (i.e. primitive_model_tests,
@@ -3830,11 +3849,11 @@ def test_groupnorm_1():
     model = GroupNorm(4, False, False)
     input = np.random.randn(4, 8, 16, 32) * 1e2
 
-    inputs = {"input": input}
+    inputs = {"input": input.tolist()}
     reference_out = torch.nn.functional.group_norm(
         torch.tensor(input, dtype=torch.float64), 4
     )
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -3855,17 +3874,17 @@ def test_groupnorm_2():
     input = np.arange(160, dtype=np.float32)
     input = input.reshape((1, 16, 10, 1))  # type: ignore
     input = np.broadcast_to(input, (2, 16, 10, 4))  # type: ignore
-    input = np.concatenate([input, 0.5 * input], axis=-1)
+    input = np.concatenate([input, 0.5 * input], axis=-1).tolist()
 
-    weight = np.random.randn(1, 16, 1, 1)
-    bias = np.random.randn(1, 16, 1, 1)
+    weight = np.random.randn(1, 16, 1, 1).tolist()
+    bias = np.random.randn(1, 16, 1, 1).tolist()
 
     inputs = {"input": input, "weight": weight, "bias": bias}
     input_t = torch.tensor(input, dtype=torch.float64)
     weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
     bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
     reference_out = torch.nn.functional.group_norm(input_t, 4, weight_t, bias_t)
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -3885,16 +3904,16 @@ def test_groupnorm_2():
 
 def test_groupnorm_3():
     model = GroupNorm(8)
-    input = np.random.randn(4, 8, 16, 32)
-    weight = np.random.randn(1, 8, 1, 1)
-    bias = np.random.randn(1, 8, 1, 1)
+    input = np.random.randn(4, 8, 16, 32).tolist()
+    weight = np.random.randn(1, 8, 1, 1).tolist()
+    bias = np.random.randn(1, 8, 1, 1).tolist()
 
     inputs = {"input": input, "weight": weight, "bias": bias}
     input_t = torch.tensor(input, dtype=torch.float64)
     weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
     bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
     reference_out = torch.nn.functional.group_norm(input_t, 8, weight_t, bias_t)
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -3914,16 +3933,16 @@ def test_groupnorm_3():
 
 def test_groupnorm_4():
     model = GroupNorm(3)
-    input = np.random.rand(3, 12, 16, 32)
-    weight = np.random.rand(1, 12, 1, 1)
-    bias = np.random.rand(1, 12, 1, 1)
+    input = np.random.rand(3, 12, 16, 32).tolist()
+    weight = np.random.rand(1, 12, 1, 1).tolist()
+    bias = np.random.rand(1, 12, 1, 1).tolist()
 
     inputs = {"input": input, "weight": weight, "bias": bias}
     input_t = torch.tensor(input, dtype=torch.float64)
     weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
     bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
     reference_out = torch.nn.functional.group_norm(input_t, 3, weight_t, bias_t)
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -3943,9 +3962,9 @@ def test_groupnorm_4():
 
 def test_batchnorm_1():
     model = BatchNorm2D(None, False, False, inference=True)
-    input = np.random.randn(4, 8, 16, 32)
-    mean = np.abs(np.random.randn(8))
-    var = np.abs(np.random.randn(8))
+    input = np.random.randn(4, 8, 16, 32).tolist()
+    mean = np.abs(np.random.randn(8)).tolist()
+    var = np.abs(np.random.randn(8)).tolist()
 
     inputs = {"input": input}
     data = {"running_mean": mean, "running_var": var}
@@ -3954,7 +3973,7 @@ def test_batchnorm_1():
         torch.tensor(mean, dtype=torch.float64),
         torch.tensor(var, dtype=torch.float64),
     )
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -3972,11 +3991,11 @@ def test_batchnorm_1():
 def test_batchnorm_2():
     model = BatchNorm2D(inference=True)
 
-    input = np.random.randn(1, 16, 10, 1)
-    weight = np.random.randn(1, 16, 1, 1)
-    bias = np.random.randn(1, 16, 1, 1)
-    running_mean = np.abs(np.random.randn(16))
-    running_var = np.abs(np.random.randn(16))
+    input = np.random.randn(1, 16, 10, 1).tolist()
+    weight = np.random.randn(1, 16, 1, 1).tolist()
+    bias = np.random.randn(1, 16, 1, 1).tolist()
+    running_mean = np.abs(np.random.randn(16)).tolist()
+    running_var = np.abs(np.random.randn(16)).tolist()
 
     inputs = {
         "input": input,
@@ -3995,7 +4014,7 @@ def test_batchnorm_2():
     reference_out = torch.nn.functional.batch_norm(
         input_t, running_mean_t, running_var_t, weight_t, bias_t
     )
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -4015,11 +4034,11 @@ def test_batchnorm_2():
 
 def test_batchnorm_3():
     model = BatchNorm2D()
-    input = np.random.randn(4, 8, 16, 4)
-    weight = np.random.randn(1, 8, 1, 1)
-    bias = np.random.randn(1, 8, 1, 1)
-    running_mean = np.abs(np.random.randn(8))
-    running_var = np.abs(np.random.randn(8))
+    input = np.random.randn(4, 8, 16, 4).tolist()
+    weight = np.random.randn(1, 8, 1, 1).tolist()
+    bias = np.random.randn(1, 8, 1, 1).tolist()
+    running_mean = np.abs(np.random.randn(8)).tolist()
+    running_var = np.abs(np.random.randn(8)).tolist()
 
     inputs = {"input": input, "weight": weight, "bias": bias}
     data = {
@@ -4034,7 +4053,7 @@ def test_batchnorm_3():
     reference_out = torch.nn.functional.batch_norm(
         input_t, running_mean_t, running_var_t, weight_t, bias_t
     )
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -4054,11 +4073,11 @@ def test_batchnorm_3():
 
 def test_batchnorm_4():
     model = BatchNorm2D()
-    input = np.random.rand(3, 12, 16, 32)
-    weight = np.random.rand(1, 12, 1, 1)
-    bias = np.random.rand(1, 12, 1, 1)
-    running_mean = np.abs(np.random.randn(12))
-    running_var = np.abs(np.random.randn(12))
+    input = np.random.rand(3, 12, 16, 32).tolist()
+    weight = np.random.rand(1, 12, 1, 1).tolist()
+    bias = np.random.rand(1, 12, 1, 1).tolist()
+    running_mean = np.abs(np.random.randn(12)).tolist()
+    running_var = np.abs(np.random.randn(12)).tolist()
 
     inputs = {"input": input, "weight": weight, "bias": bias}
     data = {
@@ -4073,7 +4092,7 @@ def test_batchnorm_4():
     reference_out = torch.nn.functional.batch_norm(
         input_t, running_mean_t, running_var_t, weight_t, bias_t
     )
-    reference_outputs = {"output": reference_out.numpy()}
+    reference_outputs = {"output": reference_out.tolist()}
 
     compile_and_compare(
         model=model,
@@ -4689,6 +4708,313 @@ def test_avg_pool_2d_3():
             "trainable_keys": {"input"},
             "inference": False,
             "jit": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_1():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= Split(split_size=2, axis=0)(input=input, output="output")
+
+    output = [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
+    output_grad = [[[1.0, 2.0], [5.0, 6.0]], [[3.0, 4.0], [0.0, 0.0]]]
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
+    ref_out = {"output": lambda fn: [fn(item) for item in output]}
+    out_grad = {"output": lambda fn: [fn(item) for item in output_grad]}
+    ref_grad = {"input": [[1.0, 2.0], [5.0, 6.0], [3.0, 4.0], [0.0, 0.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_with_concat():
+    model = Model()
+    input = IOKey("input", differentiable=True, shape=(4, 2))
+    model |= Split(split_size=2, axis=0)(input=input, output="split_output")
+    model |= Concat(axis=1)(input="split_output", output=IOKey("output"))
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
+    ref_out = {"output": [[1.0, 2.0, 5.0, 6.0], [3.0, 4.0, 7.0, 8.0]]}
+    out_grad = {"output": [[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 0.0, 0.0]]}
+    ref_grad = {"input": [[1.0, 2.0], [5.0, 6.0], [3.0, 4.0], [0.0, 0.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_with_2_concat():
+    model = Model()
+    input = IOKey("input", differentiable=True, shape=(4, 2))
+    model |= (split := Split(split_size=2, axis=0))(input=input, output="split_output")
+    model |= Concat(axis=1)(input=split.output[0:1], output=IOKey("output_1"))
+    model |= Concat(axis=1)(input=split.output[1:2], output=IOKey("output_2"))
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
+    ref_out = {
+        "output_1": [[1.0, 2.0], [3.0, 4.0]],
+        "output_2": [[5.0, 6.0], [7.0, 8.0]],
+    }
+    out_grad = {
+        "output_1": [[1.0, 0.0], [3.0, 4.0]],
+        "output_2": [[5.0, 6.0], [0.0, 8.0]],
+    }
+    ref_grad = {"input": [[1.0, 0.0], [3.0, 4.0], [5.0, 6.0], [0.0, 8.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_with_2_concat_4_split():
+    model = Model()
+    input = IOKey("input", differentiable=True, shape=(4, 2))
+    model |= (split := Split(split_size=4, axis=0))(input=input, output="split_output")
+    model |= Concat(axis=1)(input=split.output[0:2], output=IOKey("output_1"))
+    model |= Concat(axis=1)(input=split.output[2:4], output=IOKey("output_2"))
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
+    ref_out = {"output_1": [[1.0, 2.0, 3.0, 4.0]], "output_2": [[5.0, 6.0, 7.0, 8.0]]}
+    out_grad = {"output_1": [[1.0, 0.0, 3.0, 4.0]], "output_2": [[5.0, 6.0, 0.0, 8.0]]}
+    ref_grad = {"input": [[1.0, 0.0], [3.0, 4.0], [5.0, 6.0], [0.0, 8.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_2():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= Split(split_size=2, axis=0)(input=input, output="output")
+
+    output = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    output_grad = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+    params = {"input": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
+    ref_out = {"output": lambda fn: [fn(item) for item in output]}
+    out_grad = {"output": lambda fn: [fn(item) for item in output_grad]}
+    ref_grad = {"input": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_3():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= Split(split_size=1, axis=0)(input=input, output="output")
+
+    output = [[1.0]]
+    output_grad = [[0.5]]
+
+    params = {"input": [1.0]}
+    ref_out = {"output": lambda fn: [fn(item) for item in output]}
+    out_grad = {"output": lambda fn: [fn(item) for item in output_grad]}
+    ref_grad = {"input": [0.5]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_4():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= Split(split_size=1, axis=0)(input=input, output="output")
+
+    output: list[list[float]] = [[]]
+    output_grad: list[list[float]] = [[]]
+
+    params: dict[str, list[float]] = {"input": []}
+    ref_out = {"output": lambda fn: [fn(item) for item in output]}
+    out_grad = {"output": lambda fn: [fn(item) for item in output_grad]}
+    ref_grad: dict[str, list[float]] = {"input": []}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=None,
+    )
+
+
+def test_split_5():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= Split(split_size=2, axis=-1)(input=input, output="output")
+
+    output = [[[1.0], [3.0], [5.0]], [[2.0], [4.0], [6.0]]]
+    output_grad = [[[0.1], [0.2], [0.3]], [[0.4], [0.5], [0.6]]]
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]}
+    ref_out = {"output": lambda fn: [fn(item) for item in output]}
+    out_grad = {"output": lambda fn: [fn(item) for item in output_grad]}
+    ref_grad = {"input": [[0.1, 0.4], [0.2, 0.5], [0.3, 0.6]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_split_6():
+    model = Model()
+    input = IOKey("input", differentiable=True)
+    model |= (split := Split(split_size=2, axis=-1))(input=input, output="output")
+    model |= Concat(axis=0)(input=split.output[0:1], output="output_concat")
+
+    output = [[1.0], [3.0], [5.0]]
+    output_grad = [[0.1], [0.2], [0.3]]
+
+    params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]}
+    ref_out = {"output_concat": output}
+    out_grad = {"output_concat": output_grad}
+    ref_grad = {"input": [[0.1, 0.0], [0.2, 0.0], [0.3, 0.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_list_of_list_type_data_flow():
+    model = Model()
+    input_1 = IOKey("input_1", differentiable=True)
+    input_2 = IOKey("input_2", value=Tensor(2.0))
+    model |= (tl_1 := ToList(n=2))(input1=input_1, input2=input_2)
+    model |= (tl_2 := ToList(n=2))(input1=input_2, input2=input_2)
+    model |= (tl_3 := ToList(n=2))(input1=tl_1.output, input2=tl_2.output)
+    model |= Buffer()(tl_3.output[0][0], output=IOKey("output"))
+
+    output = [1.0]
+    output_grad = [0.1]
+
+    params = {"input_1": [1.0]}
+    ref_out = {"output": output}
+    out_grad = {"output": output_grad}
+    ref_grad = {"input_1": [0.1]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "inference": False,
+            "jit": False,
+            "use_short_namings": False,
         },
         data={},
         params=params,

@@ -77,7 +77,6 @@ from .operators import (
     SineOp,
     SizeOp,
     SliceOp,
-    SplitOp,
     SqrtOp,
     SubtractOp,
     SumOp,
@@ -160,7 +159,7 @@ class Connection(ConnectionData):
                     connections=[self, tuple_template], model=IndexerOp
                 )
 
-            case int() | EllipsisType() | None | Tensor() | Sequence():
+            case int() | EllipsisType() | None | Tensor() | Sequence() | IOKey():
                 output = create_provisional_model(
                     connections=[self, key],  # type: ignore
                     model=IndexerOp,
@@ -369,11 +368,6 @@ class Connection(ConnectionData):
     def T(self) -> Connection:  # noqa: N802
         return create_provisional_model(
             connections=[self], model=TransposeOp, defaults={"axes": None}
-        )
-
-    def split(self, split_size: int, axis: int) -> Connection:
-        return create_provisional_model(
-            connections=[self, split_size, axis], model=SplitOp
         )
 
     def item(self) -> Connection:

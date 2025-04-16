@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from itertools import product
 
 import numpy as np
@@ -718,6 +719,10 @@ def test_iokey_tensor_input_all_args():
         model = Model()
         sub_model = Add()
         sub_model.set_types(left=Tensor, right=Tensor)
+        if isinstance(value, Tensor):
+            # Since Tensor onjects are mutable, deepcopy is used to prevent
+            # any side effects.
+            value = deepcopy(value)
 
         try:
             # try to create an IOKey instance

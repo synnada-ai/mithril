@@ -18,6 +18,7 @@ import math
 from abc import abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
+from types import EllipsisType
 
 from .. import types
 from ..common import PaddingType
@@ -37,6 +38,7 @@ from ..framework.logical.model import (
     IOKey,
     Model,
 )
+from ..framework.logical.operator import Operator
 from ..types import Constant
 from ..utils.utils import convert_to_list, convert_to_tuple
 from .primitives import (
@@ -94,6 +96,7 @@ from .primitives import (
     Subtract,
     Sum,
     Tanh,
+    ToList,
     Transpose,
     TransposedDiagonal,
     Trapezoid,
@@ -150,6 +153,7 @@ __all__ = [
     "AUC",
     "SiLU",
     "AvgPool2D",
+    "Split",
     "Randn",
     "RandInt",
 ]
@@ -3762,3 +3766,75 @@ class RandInt(Model):
         return super().__call__(
             shape=shape, low=low, high=high, dtype=dtype, output=output
         )
+
+
+class Split(Model):
+    split_size: Connection
+    axis: Connection
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        split_size: int,  # TODO: should we add default for split_size?
+        axis: int,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ):
+        # TODO: Raise error if input is not exactly divisible by split_size.
+        # Think about if this will be a logical error block or a runtime error.
+
+        super().__init__(name=name, formula_key="split")
+
+        input_key = IOKey("input", value=input, type=Tensor[int | float | bool])
+        split_size_key = IOKey("split_size", value=split_size)
+        axis_key = IOKey("axis", value=axis)
+        # Find the length of the each tensor along the specified axis
+        # after splitting.
+        len_per_split = input_key.shape[axis_key] // split_size_key
+        to_list_kwargs = {}
+        for idx in range(split_size):
+            slc_model = Slice()
+            indexer = Indexer()
+            # Calculate start and stop indices for each split.
+            start_idx = len_per_split * idx
+            end_idx = start_idx + len_per_split
+            if axis < 0:
+                index_list: list[Connection | slice | EllipsisType] = [
+                    slc_model.output if i == -(axis + 1) else slice(None)
+                    for i in range(-axis)
+                ]
+                index_list.append(...)
+                index = tuple(index_list[::-1])
+            else:
+                index = tuple(
+                    slc_model.output if i == axis else slice(None)
+                    for i in range(axis + 1)
+                )
+            # Add corresponding Indexer model for each split using
+            # corresponding Slice model output.
+            self |= slc_model(start_idx, end_idx, None)
+            self |= indexer(
+                input=input_key,
+                index=index,
+            )
+            to_list_kwargs[f"input{idx+1}"] = indexer.output
+        # Finally collect all the split tensors into a list.
+        self |= ToList(n=split_size)(**to_list_kwargs, output=IOKey("output"))
+
+        self._freeze()
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+    def infer_differentiability(
+        self, values: dict[str, Tensor[int | float | bool]]
+    ) -> list[bool | None]:
+        val = values[Operator.output_key]
+        assert isinstance(val, list)
+        return [values["input"].differentiable] * len(val)

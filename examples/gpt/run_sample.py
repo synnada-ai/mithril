@@ -49,8 +49,9 @@ def run_sample(
     # TODO: This recursion limit is minimum we can have for now.
     # We may further improve this limit in the future.
     # NOTE: Recursion limit is set according to the pytest function call
-    # limit. If you run this script directly, limit can be set to 703.
-    sys.setrecursionlimit(727)
+    # limit. If you run this script without pytesr, most probably you can
+    # lower this limit.
+    sys.setrecursionlimit(739)
     # Model Configuration
     block_size = 100
     gpt = create_gpt(

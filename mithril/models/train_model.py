@@ -68,7 +68,7 @@ class LossModelDict(TypedDict):
 
 class RegModelDict(TypedDict):
     reg_model: BaseModel
-    coef: float | None
+    coef: Tensor[float] | float | None
     reg_key: str | Connection | None
     args: dict[str, str | Connection | re.Pattern[str]]
 

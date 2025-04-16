@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cached_property
@@ -106,7 +106,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self._output_keys: set[str] = set(model.conns.output_keys)
         flat_model = FlatModel(
             model,
-            set(backend.primitive_function_dict.keys()),
+            backend.primitive_function_dict,
             short_namings=use_short_namings,
         )
         self.external_key_mapping: dict[str, str] = flat_model.external_mapping
@@ -171,7 +171,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Initialize flat graph and data store.
         memo: dict[int, IOHyperEdge] = {}
-
         self.flat_graph: FlatGraph[DataType] = FlatGraph(
             self._input_keys,
             self._output_keys,
@@ -199,7 +198,8 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if global_key in self._non_differentiable_keys:
                     # TODO: Create an API for setting differentiability of a tensor.
-                    physical_data.set_differentiability(False)
+                    if physical_data.is_tensor:
+                        physical_data.set_differentiability(False)
                 elif global_key in self._trainable_tensor_inputs:
                     if physical_data.is_polymorphic:
                         # Set physical data type to Tensor.
@@ -228,7 +228,7 @@ class PhysicalModel(GenericDataType[DataType]):
             output = Operator.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
 
-            self._infer_differentiability(p_model, model_data)
+            self._infer_differentiability(p_model, model_data, updates)
             for inner_key in p_model.external_keys:
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
@@ -406,6 +406,7 @@ class PhysicalModel(GenericDataType[DataType]):
         """
         if (edge := self.data.get(key)) is None:
             edge = self.data[self.flat_graph.output_dict[key]]
+        assert edge is not None
         return any_differentiable(edge._value)
 
     def get_shapes(
@@ -453,21 +454,18 @@ class PhysicalModel(GenericDataType[DataType]):
         return self._input_keys
 
     def _infer_differentiability(
-        self, p_model: Operator, model_data: dict[str, IOHyperEdge]
+        self, p_model: Operator, model_data: dict[str, IOHyperEdge], updates: Updates
     ) -> None:
         # Infer output differentiability only for the models
         # that have a Tensor type output.
         output_key = Operator.output_key
         output_edge = model_data[output_key]
-        input_diffs = [
-            any_differentiable(value._value)
-            for key, value in model_data.items()
-            if key != output_key
-        ]
 
-        if output_edge.is_tensor:
-            diff = p_model.infer_differentiability(*input_diffs)
-            output_edge.set_differentiability(diff)
+        values = {key: value._value for key, value in model_data.items()}
+        diff = p_model.infer_differentiability(values)
+
+        if diff is not None:
+            updates |= output_edge.set_differentiability(diff)
 
     def randomize_params(
         self,
@@ -901,49 +899,6 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         return conn_info
 
-    def _replace_with_primitive(
-        self, model: Model, key_mappings: dict[str, str]
-    ) -> tuple[Operator, dict[str, str]]:
-        assert model.formula_key is not None
-        formula = self.backend.primitive_function_dict[model.formula_key]
-        primitive_input_keys = formula.__code__.co_varnames[
-            : formula.__code__.co_argcount
-        ]  # make function?
-
-        # Remove unnecessary keys
-        unnecessary_keys = {
-            key: key_mappings.get(key, key)
-            for key in (set(model.input_keys) - set(primitive_input_keys))
-        }
-        input_keys = list(model.input_keys)
-        external_keys = list(model.external_keys)
-
-        for key, val in unnecessary_keys.items():
-            # self.static_keys.pop(val)
-            # self.non_differentiables.pop(val)
-            self.flat_graph.remove_key_from_store(val, label_as_unused=False)
-            self.data.pop(val)
-            self._input_keys.discard(val)
-            input_keys.remove(key)
-            external_keys.remove(key)
-
-        for key in list(self.data):
-            if key[0] == "$":
-                self.data.pop(key)
-
-        kwargs = {key: model.conns.all[key].metadata for key in external_keys}
-
-        primitive = Operator(formula_key=model.formula_key, name=model.name, **kwargs)
-        primitive.parent = model.parent
-
-        p_key_mappings: dict[str, str] = {}
-        # for key in model._input_keys | model.output_keys:
-        for key in model.external_keys:
-            if key[0] != "$":
-                p_key_mappings[key] = key_mappings.get(key, key)
-
-        return primitive, p_key_mappings
-
     @cached_property
     def initial_state_dict(self) -> DataEvalType[DataType]:
         # Realize dependent initial state values using shape info.
@@ -1112,7 +1067,7 @@ class FlatModel:
     def __init__(
         self,
         model: BaseModel,
-        reserved_keys: set[str] | None = None,
+        primitive_lut: dict[str, Callable[..., DataType | Any]],
         short_namings: bool = True,
     ):
         """
@@ -1128,7 +1083,8 @@ class FlatModel:
         self.external_edges: dict[IOHyperEdge, str] = {}
         self.used_edges: set[IOHyperEdge] = set()
         self.key_origins: dict[str, int] = {}
-        self.reserved_keys: set[str] = reserved_keys if reserved_keys else set()
+        self.primitive_lut: dict[str, Callable[..., DataType | Any]] = primitive_lut
+        self.reserved_keys: set[str] = set(primitive_lut.keys())
         self.queued_models: dict[
             IOHyperEdge, list[tuple[Operator, dict[str, str], str]]
         ] = {}
@@ -1177,6 +1133,54 @@ class FlatModel:
             self._update_defined_names(target_name, new_target_key)
 
         self._update_defined_names(source_name, target_name)
+
+    def _replace_with_primitive(
+        self, model: Model, key_mappings: dict[str, str], parent_name: str
+    ) -> None:
+        assert model.formula_key is not None
+
+        formula = self.primitive_lut[model.formula_key]
+        primitive_input_keys = formula.__code__.co_varnames[
+            : formula.__code__.co_argcount
+        ]  # make function?
+
+        # Remove unnecessary keys
+        unnecessary_keys = {
+            key: key_mappings.get(key, key)
+            for key in (set(model.input_keys) - set(primitive_input_keys))
+        }
+        external_keys = [
+            key for key in model.external_keys if key not in unnecessary_keys
+        ]
+
+        kwargs: dict[str, ConnectionData] = {}
+        origins: dict[str, str | None] = {}
+
+        all_conns = model.conns.all
+        for key in external_keys:
+            kwargs[key] = all_conns[key]
+            origins[key] = model.conns.all[key].metadata.key_origin
+
+        primitive = Operator(formula_key=model.formula_key, name=model.name, **kwargs)
+        # TODO: We re-set key origins here with the stored origins since
+        # "attach_connection" method overwrites the key origins in Operator init.
+        # Find more elegant way to do this.
+        for key, value in primitive.conns.all.items():
+            value.metadata.key_origin = origins[key]
+
+        # If the model has "infer_differentiability" method, transfer it
+        # to the primitive model.
+        if hasattr(model, "infer_differentiability"):
+            primitive.infer_differentiability = model.infer_differentiability  # type: ignore
+
+        primitive.parent = model.parent
+
+        p_key_mappings: dict[str, str] = {}
+        # for key in model._input_keys | model.output_keys:
+        for key in model.external_keys:
+            if key[0] != "$":
+                p_key_mappings[key] = key_mappings.get(key, f"{parent_name}_{key}")
+        self.generate_keys(primitive, p_key_mappings, parent_name=parent_name)
 
     def _update_defined_names(self, old_key: str, new_key: str) -> None:
         old_name = self.assigned_names[old_key]
@@ -1304,7 +1308,13 @@ class FlatModel:
             self._process_primitive_model(model, mappings, parent_name)
 
         elif isinstance(model, Model):
-            self._process_model(model, mappings, parent_name)
+            if model.formula_key and model.formula_key in self.primitive_lut:
+                # If corresponding primitive exists in the primitive_lut, replace
+                # the model with the primitive version
+                self._replace_with_primitive(model, mappings, parent_name)
+            else:
+                self._process_model(model, mappings, parent_name)
+
         else:
             raise ValueError("Model must be either Operator or Model")
 
@@ -1377,7 +1387,6 @@ class FlatModel:
                         )
                 else:
                     name_mapping[key] = mappings[conn.key]
-
             self.generate_keys(m, name_mapping, parent_name=name)
 
     def _check_for_queue(self, hyperedge: IOHyperEdge) -> None:
