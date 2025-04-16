@@ -993,8 +993,8 @@ def logical_xor(left: mx.array, right: mx.array) -> mx.array:
     return mx.bitwise_xor(left, right)
 
 
-def split(input: mx.array, split_size: int | list[int], axis: int = 0) -> mx.array:
-    return mx.stack(mx.split(input, split_size, axis=axis))  # type: ignore
+def split(input: mx.array, split_size: int, axis: int = 0) -> list[mx.array]:
+    return mx.split(input, split_size, axis=axis)  # type: ignore
 
 
 def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]) -> mx.array:

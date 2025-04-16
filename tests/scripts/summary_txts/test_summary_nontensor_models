@@ -5,7 +5,6 @@ Model Name   |                                   Model Keys
              |             Keys    : Shapes                     : Connections   
 ================================================================================
 Linear       |   Inputs  : weight  :     [       u2,        u1] : 'weight'      
-             |             $axes   :                         -- : None          
              |             input   : [u3, (V1, ...),        u1] : 'input'       
              |             bias    :                [       u2] : 'b'           
              |   ---------------------------------------------------------------

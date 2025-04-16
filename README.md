@@ -129,8 +129,18 @@ In addition to input parallelization flexibility, any input of any model can be 
 Install Mithril from [PyPI](https://pypi.org/project/mithril/):
 
 ```
-pip install mithril --upgrade
+pip install mithril
 ```
+### Build From Source
+To build and install the Mithril library from source, first, clone Mithril from its GitHub repo:
+```
+git clone --recurse-submodules https://github.com/synnada-ai/mithril.git && cd mithril
+```
+Then build and install Mithril using pip
+```
+pip install .
+```
+
 
 For more detailed examples of different models and APIs, please refer to the `examples` directory in the repository.
 

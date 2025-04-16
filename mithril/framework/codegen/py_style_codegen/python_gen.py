@@ -268,7 +268,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
     def is_static_scalar(self, key: str) -> bool:
         return (
             key in self.pm.flat_graph.cached_data
-            and not self.pm.data[key].is_tensor
+            and not bool(self.pm.data[key].tensors)
             and self.pm.data[key].edge_type != Dtype
             and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
         )

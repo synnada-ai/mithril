@@ -251,22 +251,3 @@ def sort_type(
 
     else:
         return type1
-
-
-def recursive_sum(data1: Any, data2: Any) -> Any:
-    assert type(data1) is type(data2), "Both data types must match"
-    # TODO: Move this to the codegen module.
-    if isinstance(data1, dict):
-        # Both are dictionaries, sum values recursively
-        return {
-            key: recursive_sum(data1[key], data2[key])
-            for key in data1.keys() & data2.keys()
-        }
-    elif isinstance(data1, tuple | list):
-        # Both are lists or tuples, sum elements recursively
-        return type(data1)(
-            recursive_sum(a, b) for a, b in zip(data1, data2, strict=True)
-        )
-    else:
-        # Both are scalars or tensors, sum them directly
-        return data1 + data2

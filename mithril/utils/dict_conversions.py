@@ -19,7 +19,7 @@ from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
 from functools import reduce
 from types import EllipsisType, UnionType
-from typing import Any, TypedDict, get_args, get_origin
+from typing import Any, Literal, TypedDict, get_args, get_origin
 
 from mithril.framework.logical.base import ConnectionData
 
@@ -89,13 +89,13 @@ class ConnectionDict(TypedDict, total=False):
 class LossDict(TypedDict):
     model: ModelDict
     reduce_steps: list[BaseModel] | None
-    args: dict[str, str | Connection]
+    args: dict[str, str | Connection | Tensor[int | float | bool]]
     coef: float | None
 
 
 class RegDict(TypedDict):
     model: ModelDict
-    coef: float | None
+    coef: float | None | dict[Literal["tensor"], float]
     reg_key: str | Connection | None
     args: dict[str, str | Connection | re.Pattern[str]]
 
@@ -742,9 +742,6 @@ def connection_to_dict(
         if key_value is not None:
             connection_dict[key] = key_value
 
-    # if submodel.cin.key not in connection_dict:
-    #     connection_dict[submodel.cin.key] = ""
-
     return connection_dict  # type: ignore
 
 
@@ -762,20 +759,22 @@ def train_model_to_dict(context: TrainModel) -> TrainModelDict:
             model_to_dict(reduce_step) for reduce_step in loss["reduce_steps"]
         ]
         # TODO: check if get_local_key to get keys required?
+        loss_dict["args"] = {}
         for key, value in loss["args"].items():
             if isinstance(value, Connection):
-                # local_key = get_local_key(context._model, value)
-                # loss["args"][key] = local_key
-                loss["args"][key] = value.key
+                loss_dict["args"][key] = value.key
+            elif isinstance(value, Tensor):
+                loss_dict["args"][key] = {"tensor": value.value}
+            else:
+                loss_dict["args"][key] = value
 
-        if len(loss["args"]) > 0:
-            loss_dict["args"] = loss["args"]
         losses.append(loss_dict)
 
     for regularization in context._regularizations:
+        coef = regularization["coef"]
         regularization_dict: RegDict = {  # type: ignore
             "model": model_to_dict(regularization["reg_model"]),
-            "coef": regularization["coef"],
+            "coef": {"tensor": coef.value} if isinstance(coef, Tensor) else coef,
             "reg_key": regularization["reg_key"],
         }
         for key, value in regularization["args"].items():  # type: ignore
@@ -806,19 +805,31 @@ def dict_to_trainmodel(context_dict: TrainModelDict) -> TrainModel:
             dict_to_model(reduce_step)  # type: ignore
             for reduce_step in loss_dict["reduce_steps"]  # type: ignore
         ]
-        loss_args = loss_dict["args"]
+        loss_args = loss_dict["args"].copy()
+        for key, value in loss_args.items():
+            if isinstance(value, dict):
+                # Means tensor value.
+                loss_args[key] = Tensor(value["tensor"])
         context.add_loss(loss_model, reduce_steps, **loss_args)
 
     for regularization_dict in context_dict["regularizations"]:
         regularization_model = dict_to_model(regularization_dict["model"])
-        coef = regularization_dict["coef"]
+        coef: Tensor[float] | float | None | dict[Literal["tensor"], float] = (
+            regularization_dict["coef"]
+        )
         reg_key = regularization_dict["reg_key"]
         regularization_args = {}
-        for key, value in regularization_dict["args"].items():
-            if isinstance(value, dict):
-                regularization_args[key] = re.compile(value["pattern"])
+
+        for key, val in regularization_dict["args"].items():
+            if isinstance(val, dict):
+                regularization_args[key] = re.compile(val["pattern"])
             else:
-                regularization_args[key] = value
+                regularization_args[key] = val
+
+        if isinstance(coef, dict):
+            # Means coef is a tensor.
+            coef = Tensor(coef["tensor"])
+
         context.add_regularization(
             regularization_model, coef, reg_key, **regularization_args
         )

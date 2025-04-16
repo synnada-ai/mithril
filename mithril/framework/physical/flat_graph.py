@@ -115,6 +115,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         self.data_store: StaticDataStore[DataType] = StaticDataStore(backend)
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
+        self.multi_node_keys: dict[str, list[str]] = {}
 
     @property
     def hanging_keys(self) -> set[str]:
@@ -228,6 +229,38 @@ class FlatGraph(GenericDataType[DataType]):
 
     def add_value(self, model: Operator, keys: dict[str, str]) -> None:
         output_key = keys[Operator.output_key]
+        # If output/input is of list, tuple or dict type, find indexes of
+        # corresponding inputs/outputs when it is flattened to a list.
+        # These indices will be used for gradient calculations.
+        if self.backend.is_manualgrad:
+            all_conns = model.conns.all
+            out = all_conns[Operator.output_key]
+            out_tensors = out.metadata.tensors
+            # Check if any tensor in output also is an input to the operator
+            # model.
+            for tensor in out_tensors:
+                for key, outer_key in keys.items():
+                    # Skip output key and cache key.
+                    if key in (Operator.output_key, "cache"):
+                        continue
+                    # Get the index of the tensor in the output.
+                    key_conn = all_conns[key]
+                    if (
+                        key_tensors := key_conn.metadata.tensors
+                    ) and tensor in key_tensors:
+                        if outer_key in self.multi_node_keys:
+                            # If outer_key already exists in multi_node_keys,
+                            # then find the index of the tensor in the outer_key and
+                            # find corresponding sub_key in corresponding list.
+                            sub_index = key_tensors.index(tensor)
+                            sub_key = self.multi_node_keys[outer_key][sub_index]
+                            self.multi_node_keys.setdefault(output_key, []).append(
+                                sub_key
+                            )
+                        else:
+                            self.multi_node_keys.setdefault(output_key, []).append(
+                                outer_key
+                            )
 
         # Create output connection of the new Connection.
         out_conn = GConnection(output_key, model, [], [])
@@ -301,6 +334,16 @@ class FlatGraph(GenericDataType[DataType]):
             if value_str == output_key:
                 self.output_dict[key_str] = new_reference_key
 
+        # Update the multi_node_keys with the new reference key if it is used.
+        if output_key in self.multi_node_keys:
+            self.multi_node_keys[new_reference_key] = self.multi_node_keys.pop(
+                output_key
+            )
+        else:
+            for _key, _value in self.multi_node_keys.items():
+                if output_key in _value:
+                    _value[_value.index(output_key)] = new_reference_key
+
     def _update_output_keys(self, output_key: str, new_reference_key: str) -> bool:
         if output_key not in self.output_dict:
             return False
@@ -352,7 +395,7 @@ class FlatGraph(GenericDataType[DataType]):
             key = conn.key
             op = self.get_op(key)
 
-            # The connection is allready calculated
+            # The connection is already calculated
             if key in self.data_store.data_values:
                 # Unlink source connections
                 for source_key in list(conn.source_keys):
@@ -930,7 +973,7 @@ class FlatGraph(GenericDataType[DataType]):
                     "output": shape_out_key,
                 }
                 kwargs = {
-                    "input": self.all_data[left_key],
+                    "input": left_data,
                     "shape": self.all_data[key],
                     "output": self.all_data[shape_out_key],
                 }
