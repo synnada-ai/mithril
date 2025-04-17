@@ -15,6 +15,7 @@
 
 import sys
 from copy import deepcopy
+from typing import Any
 
 from mithril.framework.common import (
     NOT_GIVEN,
@@ -23,6 +24,7 @@ from mithril.framework.common import (
 )
 from mithril.framework.logical.base import BaseKey
 from mithril.models import (
+    MLP,
     Add,
     BaseModel,
     Buffer,
@@ -1552,7 +1554,15 @@ def test_deleted_dependency_map():
     assert add_2.dependency_map._global_output_dependency_map is None
     assert add_2.dependency_map._global_output_dependency_map_cache is None
     assert add_2.dependency_map._local_input_dependency_map is None
-    ...
+
+
+def test_total_object_count_ten_layer_mlp():
+    model = MLP(
+        activations=[Relu() for _ in range(10)], dimensions=[10 for _ in range(10)]
+    )
+    memo: dict[Any, Any] = {}
+    deepcopy(model, memo)
+    assert len(memo) <= 9000
 
 
 def test_simple_test():
