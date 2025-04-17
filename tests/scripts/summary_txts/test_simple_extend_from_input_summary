@@ -5,14 +5,12 @@ Model Name   |                               Model Keys
              |             Keys   : Shapes              : Connections    
 =========================================================================
 Linear_1     |   Inputs  : weight :     [        3, u2] : '$weight_0'    
-             |             $axes  :                  -- : None           
              |             input  : [u1, (V1, ...), u2] : 'input'        
              |             bias   :                [ 3] : '$bias_0'      
              |   --------------------------------------------------------
              |   Outputs : output : [u1, (V1, ...),  3] : Linear_0.input 
 -------------------------------------------------------------------------
 Linear_0     |   Inputs  : weight :     [        5,  3] : '$weight_1'    
-             |             $axes  :                  -- : None           
              |             input  : [u1, (V1, ...),  3] : Linear_1.output
              |             bias   :                [ 5] : '$bias_1'      
              |   --------------------------------------------------------

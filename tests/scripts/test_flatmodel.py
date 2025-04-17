@@ -30,14 +30,17 @@ from mithril.models import (
     Tanh,
 )
 
+# NOTE: We need primitive_lut just for testing purposes here.
+primitive_lut = JaxBackend().primitive_function_dict
+
 
 def test_with_all_defined():
     model = Model()
     model += (add := Add())(left="a", right="b", output="c")
-    f_model = FlatModel(model, short_namings=True)
+    f_model = FlatModel(model, primitive_lut, short_namings=True)
     _add = add.submodel
     assert f_model.mappings == {_add: {"left": "a", "right": "b", "output": "c"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {_add: {"left": "a", "right": "b", "output": "c"}}
 
 
@@ -46,9 +49,9 @@ def test_with_some_undefined():
     model += (add := Add())(right="b", output="c")
     _add = add.submodel
 
-    f_model = FlatModel(model, short_namings=True)
+    f_model = FlatModel(model, primitive_lut, short_namings=True)
     assert f_model.mappings == {_add: {"left": "left", "right": "b", "output": "c"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {_add: {"left": "add_left", "right": "b", "output": "c"}}
 
 
@@ -56,7 +59,7 @@ def test_with_all_undefined():
     model = Model()
     model += (add := Add())()
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {
         add.submodel: {"left": "left", "right": "right", "output": "output"}
     }
@@ -72,9 +75,9 @@ def test_multi_level_name_with_lowest_definition():
     model = Model()
     model += model1
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {_add: {"left": "a", "right": "b", "output": "c"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _add: {
             "left": "model_adder_a",
@@ -94,9 +97,9 @@ def test_multi_level_name_with_lowest_definition_higher_redefinition_1():
     model = Model()
     model += model1(e="f")
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {_add: {"left": "d", "right": "f", "output": "c"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _add: {"left": "namer_d", "right": "f", "output": "namer_adder_c"}
     }
@@ -112,9 +115,12 @@ def test_multi_level_name_with_lowest_definition_higher_redefinition_2():
     model = Model(name="upper")
     model += model1
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     assert f_model.mappings == {_add: {"left": "d", "right": "e", "output": "c"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _add: {"left": "middle_d", "right": "middle_e", "output": "middle_model_c"}
     }
@@ -130,9 +136,12 @@ def test_collision_from_different_levels():
     model = Model(name="upper")
     model += model1
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     assert f_model.mappings == {_add: {"left": "d", "right": "e", "output": "e_0"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _add: {"left": "middle_d", "right": "middle_e", "output": "middle_model_e"}
     }
@@ -151,9 +160,9 @@ def test_collision_from_different_levels_2():
 
     model = Model(name="upper")
     model += model3()
-    f_model = FlatModel(model)
+    f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {_add: {"left": "d", "right": "e", "output": "e_0"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _add: {
             "left": "middle1_d",
@@ -173,9 +182,12 @@ def test_collision_from_different_levels_3():
     model = Model()
     model += model1(e="e")
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     assert f_model.mappings == {_add: {"left": "d", "right": "e", "output": "e_0"}}
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _add: {"left": "model_d", "right": "e", "output": "model_model_e"}
     }
@@ -194,7 +206,10 @@ def test_collision_from_different_models():
     model |= model1
     model |= model2(l=add1.output)
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     expected_mapping = {
         _add1: {"left": "l", "right": "r_0", "output": "o_0"},
         _add2: {"left": "o_0", "right": "r_1", "output": "o_1"},
@@ -210,7 +225,10 @@ def test_output_first_1():
     _sig = sig.submodel
     _relu = relu.submodel
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     assert f_model.mappings == {
         _sig: {
             "input": "in2",
@@ -219,7 +237,7 @@ def test_output_first_1():
         _relu: {"input": "output", "output": "out1"},
     }
 
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _sig: {
             "input": "in2",
@@ -236,7 +254,10 @@ def test_output_first_2():
     _sig = sig.submodel
     _relu = relu.submodel
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     assert f_model.mappings == {
         _sig: {
             "input": "in2",
@@ -245,7 +266,7 @@ def test_output_first_2():
         _relu: {"input": "output", "output": "out1"},
     }
 
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _sig: {
             "input": "in2",
@@ -262,12 +283,15 @@ def test_output_first_3():
     _sig = next(iter(sig.dag))
     _relu = next(iter(relu.dag))
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     assert f_model.mappings == {
         _sig: {"input": "in2", "output": "output"},
         _relu: {"input": "output", "output": "out1"},
     }
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     assert f_model.mappings == {
         _sig: {"input": "in2", "output": "sigmoid_output"},
         _relu: {"input": "sigmoid_output", "output": "out1"},
@@ -292,7 +316,10 @@ def test_output_first_4():
         output2=IOKey("output"),
     )
 
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     expected_mapping = {
         relu.submodel: {"input": "input", "output": "output1_0"},
         softp.submodel: {"input": "output1_0", "output": "output1_1"},
@@ -301,7 +328,7 @@ def test_output_first_4():
     }
     assert f_model.mappings == expected_mapping
 
-    f_model = FlatModel(model, short_namings=False)
+    f_model = FlatModel(model, primitive_lut, short_namings=False)
     expected_mapping = {
         relu.submodel: {"input": "input", "output": "model_0_output1"},
         softp.submodel: {"input": "model_0_output1", "output": "model_1_output1"},
@@ -314,7 +341,10 @@ def test_output_first_4():
 def test_linear_flat():
     model = Model()
     model |= (lin := Linear(21))(output="qwe")
-    f_model = FlatModel(model)
+    f_model = FlatModel(
+        model,
+        primitive_lut,
+    )
     next(iter(lin.dag.keys()))
     expected_mapping = {
         list(lin.dag.keys())[0]: {

@@ -17,7 +17,8 @@ from collections.abc import Callable
 
 from ....cores.c.array import PyArray
 from ....cores.c.ggml.ggml_core import ggml_struct
-from ....cores.c.raw_c.array import Array, lib, zeros
+from ....cores.c.raw_c.array import lib, zeros
+from ..raw_c.definitions import Array
 
 __all__ = ["add", "multiplication"]
 

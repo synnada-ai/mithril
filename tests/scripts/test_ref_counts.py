@@ -1533,6 +1533,28 @@ def test_deleted_edge_ref_count() -> None:
     assert sys.getrefcount(ref_var1) == 2 or sys.getrefcount(ref_var2) == 2
 
 
+def test_deleted_dependency_map():
+    model = Model()
+    add_1 = Add()
+    add_2 = Add()
+    model |= add_1(left="left1", right="right1", output="output1")
+
+    assert add_1.dependency_map._global_input_dependency_map is None
+    assert add_1.dependency_map._global_input_dependency_map_cache is None
+    assert add_1.dependency_map._global_output_dependency_map is None
+    assert add_1.dependency_map._global_output_dependency_map_cache is None
+    assert add_1.dependency_map._local_input_dependency_map is None
+
+    model |= add_2(left="left2", right="right2", output="output2")
+
+    assert add_2.dependency_map._global_input_dependency_map is None
+    assert add_2.dependency_map._global_input_dependency_map_cache is None
+    assert add_2.dependency_map._global_output_dependency_map is None
+    assert add_2.dependency_map._global_output_dependency_map_cache is None
+    assert add_2.dependency_map._local_input_dependency_map is None
+    ...
+
+
 def test_simple_test():
     all_reprs = set()
     buff = Buffer()

@@ -138,10 +138,8 @@ def residual_attention_block(
 
     block |= mlp(input=block.ln_2, output="mlp_output")  # type: ignore
 
-    block |= Buffer()(
-        input + block.attention + block.mlp_output,  # type: ignore
-        output=IOKey("output"),
-    )
+    result = input + block.attention + block.mlp_output  # type: ignore
+    block |= Buffer()(result, output=IOKey("output"))
     return block
 
 

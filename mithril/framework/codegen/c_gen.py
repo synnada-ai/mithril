@@ -22,7 +22,6 @@ from ...backends.with_manualgrad.c_backend import CBackend, backend
 from ...backends.with_manualgrad.ggml_backend import GGMLBackend
 from ...common import CGenConfig
 from ...cores.c.array import PyArray
-from ...cores.c.raw_c import array
 from ...framework.common import (
     EvaluateAllType,
     EvaluateType,
@@ -34,6 +33,7 @@ from ..logical.operator import Operator
 from ..physical.model import PhysicalModel
 from . import c_ast
 from .code_gen import CodeGen
+from .utils import check_repr_inequality
 
 ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
 
@@ -133,7 +133,7 @@ class CGen(CodeGen[PyArray]):
 
         so_file_path = self.file_path.replace(".c", ".so")
 
-        default_compile_flags = ["cc", self.file_path, "-shared", "-fPIC"]
+        default_compile_flags = ["cc", self.file_path, "-shared", "-fPIC", "-g"]
         if compile_flags:
             default_compile_flags = compile_flags
 
@@ -218,14 +218,19 @@ class CGen(CodeGen[PyArray]):
                 for arg_key in self.determined_struct_keys["eval_input_keys"]:
                     if arg_key in inputs:
                         continue
-
+                    if self._get_tensor_shape(arg_key) is None:
+                        continue
                     arr_shape = self._get_array_shape(arg_key)
                     inputs[arg_key] = self.backend.empty(*arr_shape)
-
             inputs_struct = Inputs(
                 **{
-                    key: ctypes.pointer(inputs[key].arr)
+                    key: ctypes.cast(
+                        ctypes.byref(inputs[key].arr),
+                        ctypes.POINTER(self.backend.get_struct_cls()),
+                    )
                     for key in self.determined_struct_keys["eval_input_keys"]
+                    if key != FinalCost
+                    if self._get_tensor_shape(key) is not None
                 }
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
@@ -239,10 +244,22 @@ class CGen(CodeGen[PyArray]):
                 else self.pm.output_keys
             )
             for key in return_keys:
+                if key == FinalCost and not self.backend.CODEGEN_CONFIG.RETURN_OUTPUT:
+                    continue
+                if key != FinalCost and self._get_tensor_shape(key) is None:
+                    continue
                 array_ptr = getattr(output_struct, key)
-                outputs[key] = PyArray(
-                    array_ptr.contents, shape=self._get_tensor_shape(key)
-                )
+
+                if (
+                    FinalCost in self.pm.flat_graph.output_dict
+                    and key == self.pm.flat_graph.output_dict[FinalCost]
+                ):
+                    outputs[FinalCost] = PyArray(array_ptr.contents, shape=[1])
+                    outputs[key] = PyArray(array_ptr.contents, shape=[1])
+                else:
+                    outputs[key] = PyArray(
+                        array_ptr.contents, shape=self._get_tensor_shape(key)
+                    )
 
             return outputs
 
@@ -259,9 +276,13 @@ class CGen(CodeGen[PyArray]):
                     "Requires output gradients if final loss is not attached!"
                 )
             elif output_gradients is None:
-                output_gradients = {FinalCost: array.ones((1,))}
+                output_gradients = {FinalCost: self.backend.ones((1,))}
 
             gradients = {key: value for key, value in output_gradients.items()}
+            if FinalCost in output_gradients:
+                gradients[self.pm.flat_graph.output_dict[FinalCost]] = output_gradients[
+                    FinalCost
+                ]
             forward_pass = evaluate_wrapper(
                 params=params,
                 data=data,
@@ -282,19 +303,21 @@ class CGen(CodeGen[PyArray]):
             gradients = {
                 key + self.BACKWARD_FN_SUFFIX: value for key, value in gradients.items()
             }
-
             inputs = params | data | gradients | forward_pass
-
             inputs_struct = GradInputs(
                 **{
-                    key: ctypes.pointer(inputs[key].arr)
+                    key: ctypes.cast(
+                        ctypes.byref(inputs[key].arr),
+                        ctypes.POINTER(self.backend.get_struct_cls()),
+                    )
                     for key in self.determined_struct_keys["eval_grad_input_keys"]
+                    if self._get_tensor_shape(key) is not None
                 }
             )
+
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
 
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)
-
             gradients = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
                 key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
@@ -341,6 +364,8 @@ class CGen(CodeGen[PyArray]):
 
     def create_key_ref(self, key: str, context: str, load: bool = True) -> c_ast.Expr:
         if key in self.determined_struct_keys["eval_cache_keys"]:
+            if key == FinalCost and FinalCost in self.pm.flat_graph.output_dict:
+                key = self.pm.flat_graph.output_dict[FinalCost]
             return c_ast.Variable(f"{self.CACHE_NAME}.{key}")
 
         elif (
@@ -467,13 +492,18 @@ class CGen(CodeGen[PyArray]):
                 continue
 
             op = self.pm.flat_graph.get_op(output_key)
+
             inputs = self.pm.flat_graph.get_source_keys(output_key)
 
             # Assume all inputs are Array
             for idx in range(len(inputs)):
                 if not self._has_grad(inputs[idx]):
                     continue
-
+                if (
+                    FinalCost in self.pm.flat_graph.output_dict
+                    and output_key == self.pm.flat_graph.output_dict[FinalCost]
+                ):
+                    output_key = FinalCost
                 fn_inputs: list[str | int] = [
                     output_key + self.BACKWARD_FN_SUFFIX,
                     idx,
@@ -495,7 +525,27 @@ class CGen(CodeGen[PyArray]):
                     fn_inputs,
                     context="eval_grad",
                 )
+                if output_key is FinalCost:
+                    out_shape = self.pm.data[
+                        self.pm.flat_graph.output_dict[FinalCost]
+                    ].shape
+                else:
+                    out_shape = self.pm.data[output_key].shape
 
+                if (
+                    (in_shape := self.pm.data[inputs[idx]].shape) is not None
+                    and (out_shape) is not None
+                    and check_repr_inequality(in_shape, out_shape)
+                    and not self.configs.USE_OUTPUT_AS_INPUT
+                ):
+                    p_call = c_ast.Call(
+                        "accumulate_grads",
+                        [
+                            "eval_grad_static_ctx",
+                            p_call,
+                            self.create_key_ref(inputs[idx], context="eval_grad"),
+                        ],
+                    )
                 p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
                     inputs[idx] + self.BACKWARD_FN_SUFFIX, p_call, context="eval_grad"
                 )
@@ -522,6 +572,8 @@ class CGen(CodeGen[PyArray]):
         return backend_path[: backend_path.rindex("/")]
 
     def _get_array_shape(self, key: str) -> tuple[int, ...]:
+        if key == FinalCost:
+            return (1,)
         array_data = self.pm.data[key]
         assert array_data.shape is not None
         shape = array_data.shape.reprs[0].get_shapes()
@@ -616,6 +668,8 @@ class CGen(CodeGen[PyArray]):
         return determined_struct_keys
 
     def _get_tensor_shape(self, key: str) -> tuple[int, ...]:
+        if key.startswith(FinalCost):
+            return (1,)
         if key in self.pm.shapes:
             return self.pm.shapes[key]  # type: ignore
         elif key.replace(self.BACKWARD_FN_SUFFIX, "") in self.pm.shapes:
