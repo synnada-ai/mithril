@@ -17,6 +17,7 @@ import os
 import subprocess
 import tempfile
 from collections.abc import Callable, Sequence
+from functools import partial
 
 from ....backends.with_manualgrad.c_backend import CBackend
 from ....backends.with_manualgrad.ggml_backend import GGMLBackend
@@ -65,9 +66,18 @@ class CGen(CodeGen[PyArray]):
         self.pre_processors: dict[
             str,
             Callable[
-                [Operator, Sequence[str | int | float], str],
-                tuple[Operator, Sequence[str | int | float]],
+                [Operator, Sequence[str | int | float | bool | None], str],
+                tuple[
+                    Operator,
+                    Sequence[str | int | float | bool | None],
+                    list[c_ast.Stmt],
+                ],
             ],
+        ] = {}
+
+        self.post_processors: dict[
+            str,
+            Callable[[Operator, c_ast.Expr, str], tuple[c_ast.Expr, list[c_ast.Stmt]]],
         ] = {}
 
     def generate_code(self, file_path: str | None = None) -> None:
@@ -343,16 +353,8 @@ class CGen(CodeGen[PyArray]):
                 inputs = [output_key] + inputs
 
             # Create primitive call
-            op_call = self.generate_op(
-                op,
-                inputs,
-                context="eval",
-            )
-
-            # Assign op call to output
-            op_ast = self.assign_primitive_output(output_key, op_call, context="eval")
-
-            operations.append(op_ast)  # type: ignore
+            op_ast = self.generate_op(op, inputs, output_key, context="eval")
+            operations.extend(op_ast)  # type: ignore
 
         # Prepare output
         post_process.append(self.create_output_struct(context="eval"))  # type: ignore
@@ -415,14 +417,8 @@ class CGen(CodeGen[PyArray]):
                         if self._has_grad(input_key)
                         else "NULL"
                         for input_key in inputs
+                        if self.pm.flat_graph.all_data[input_key].is_tensor
                     ]
-
-                # Create primitive call
-                p_call = self.generate_op(
-                    op,
-                    fn_inputs,
-                    context="eval_grad",
-                )
 
                 if output_key is FinalCost:
                     out_shape = self.pm.data[
@@ -431,26 +427,45 @@ class CGen(CodeGen[PyArray]):
                 else:
                     out_shape = self.pm.data[output_key].shape
 
+                post_process_op: (
+                    Callable[
+                        [Operator, c_ast.Expr, str], tuple[c_ast.Expr, list[c_ast.Stmt]]
+                    ]
+                    | None
+                ) = None
+
                 if (
                     (in_shape := self.pm.data[inputs[idx]].shape) is not None
                     and (out_shape) is not None
                     and check_repr_inequality(in_shape, out_shape)
                     and not self.configs.USE_OUTPUT_AS_INPUT
                 ):
-                    p_call = c_ast.Call(
-                        "accumulate_grads",
-                        [
-                            "eval_grad_static_ctx",
-                            p_call,
-                            self.create_key_ref(inputs[idx], context="eval_grad"),
-                        ],
+                    post_process_op = lambda op, op_call, context, input_key: (  # type: ignore #noqa: E731
+                        c_ast.Call(
+                            "accumulate_grads",
+                            [
+                                "eval_grad_static_ctx",
+                                op_call,
+                                self.create_key_ref(input_key, context="eval_grad"),
+                            ],
+                        ),
+                        [],
+                    )
+                    post_process_op = partial(  # type: ignore
+                        post_process_op,  # type: ignore
+                        input_key=inputs[idx],
                     )
 
-                p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
-                    inputs[idx] + utils.BACKWARD_FN_SUFFIX, p_call, context="eval_grad"
+                # Create primitive call
+                op_ast = self.generate_op(
+                    op,
+                    fn_inputs,
+                    inputs[idx] + utils.BACKWARD_FN_SUFFIX,
+                    context="eval_grad",
+                    post_processor=post_process_op,
                 )
 
-                operations.append(p_call_stmts)  # type: ignore
+                operations.extend(op_ast)  # type: ignore
 
         # Prepare output
         post_process.append(self.create_output_struct(context="eval_grad"))  # type: ignore
@@ -470,13 +485,26 @@ class CGen(CodeGen[PyArray]):
     def generate_op(
         self,
         op: Operator,
-        inputs: Sequence[str | int | float],
+        inputs: Sequence[str | int | float | bool | None],
+        output_key: str,
         context: str,
-    ) -> c_ast.Expr:
-        # Create input variables
-        input_vars: list[c_ast.Expr] = []
-        if op.formula_key in self.pre_processors:
-            op, inputs = self.pre_processors[op.formula_key](op, inputs, context)
+        pre_processor: Callable[
+            [Operator, Sequence[str | int | float | bool | None], str],
+            tuple[
+                Operator, Sequence[str | int | float | bool | None], list[c_ast.Stmt]
+            ],
+        ]
+        | None = None,
+        post_processor: Callable[
+            [Operator, c_ast.Expr, str], tuple[c_ast.Expr, list[c_ast.Stmt]]
+        ]
+        | None = None,
+    ) -> list[c_ast.Stmt]:
+        pre_op_call: list[c_ast.Stmt] = []
+        post_op_call: list[c_ast.Stmt] = []
+
+        op, inputs, pre_lines = self.pre_process_op(op, inputs, context, pre_processor)
+        pre_op_call.extend(pre_lines)
 
         input_vars = [
             self.create_key_ref(key, context=context, load=True)
@@ -494,7 +522,14 @@ class CGen(CodeGen[PyArray]):
         # Create op call
         op_call = self.call_op(formula_key, input_vars, context)
 
-        return op_call
+        op_call, post_lines = self.post_process_op(op, op_call, context, post_processor)
+        post_op_call += post_lines
+
+        op_ast = self.assign_primitive_output(output_key, op_call, context=context)
+
+        op_lines = pre_op_call + [op_ast] + post_op_call
+
+        return op_lines
 
     def call_op(
         self, formula_key: str, input_vars: list[c_ast.Expr], context: str
@@ -673,6 +708,60 @@ class CGen(CodeGen[PyArray]):
                 static=True,
             )
             self.globals.append(grad_struct)
+
+    def pre_process_op(
+        self,
+        op: Operator,
+        inputs: Sequence[str | int | float | bool | None],
+        context: str,
+        pre_processor: Callable[
+            [Operator, Sequence[str | int | float | bool | None], str],
+            tuple[
+                Operator, Sequence[str | int | float | bool | None], list[c_ast.Stmt]
+            ],
+        ]
+        | None = None,
+    ) -> tuple[Operator, Sequence[str | int | float | bool | None], list[c_ast.Stmt]]:
+        # Default pre-processor will always be applied
+        default_pre_processor = self.pre_processors.get(op.formula_key)
+
+        pre_op_stmts: list[c_ast.Stmt] = []
+        if default_pre_processor:
+            op, inputs, default_pre_op_stmts = default_pre_processor(
+                op, inputs, context
+            )
+            pre_op_stmts.extend(default_pre_op_stmts)
+
+        if pre_processor:
+            op, inputs, custom_pre_op_stmts = pre_processor(op, inputs, context)
+            pre_op_stmts.extend(custom_pre_op_stmts)
+        return op, inputs, pre_op_stmts
+
+    def post_process_op(
+        self,
+        op: Operator,
+        op_call: c_ast.Expr,
+        context: str,
+        post_processor: Callable[
+            [Operator, c_ast.Expr, str], tuple[c_ast.Expr, list[c_ast.Stmt]]
+        ]
+        | None = None,
+    ) -> tuple[c_ast.Expr, list[c_ast.Stmt]]:
+        # Default post-processor will always be applied
+        default_post_processor = self.post_processors.get(op.formula_key)
+
+        post_op_stmts: list[c_ast.Stmt] = []
+        if default_post_processor:
+            op_call, default_post_op_stmts = default_post_processor(
+                op, op_call, context
+            )
+            post_op_stmts.extend(default_post_op_stmts)
+
+        if post_processor:
+            op_call, custom_post_op_stmts = post_processor(op, op_call, context)
+            post_op_stmts.extend(custom_post_op_stmts)
+
+        return op_call, post_op_stmts
 
     def get_tensor_shape(self, key: str) -> tuple[int, ...]:
         if key.startswith(FinalCost):

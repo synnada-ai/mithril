@@ -99,6 +99,7 @@ class FlatGraph(GenericDataType[DataType]):
         ] = {}  # Assumed connections added in topological order.
         self._all_source_keys: set[str] = set()
         self._all_target_keys: set[str] = set(output_keys)
+        self._all_keys: set[str] = set()
 
         self._input_keys = input_keys
 
@@ -270,6 +271,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         # Create input connections
         for inner_key, outer_key in keys.items():
+            self._all_keys.add(outer_key)
             if inner_key == Operator.output_key:
                 continue
 
@@ -986,6 +988,14 @@ class FlatGraph(GenericDataType[DataType]):
 
     def get_key_shape(self, key: str) -> list[int]:
         return self.data_store.get_key_shape(key)
+
+    def get_next_unique_key(self, prefix: str) -> str:
+        i = 0
+        while f"{prefix}_{i}" in self._all_keys:
+            i += 1
+
+        self._all_keys.add(f"{prefix}_{i}")
+        return f"{prefix}_{i}"
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False

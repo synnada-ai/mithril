@@ -62,7 +62,7 @@ class Call(Expr):
 
 @dataclass
 class Constant(Expr):
-    value: int | float | str
+    value: int | float | str | bool | None
 
 
 @dataclass
@@ -131,6 +131,29 @@ class StructInit(Expr):
     struct_name: str
     field_values: Mapping[str, Expr | str]
     static: bool = False
+    struct_type: str = "struct"
+
+
+@dataclass
+class InitializerList(Expr):
+    values: tuple[Expr, ...]
+
+
+@dataclass
+class AddressOf(Expr):
+    target: Expr
+
+
+@dataclass
+class InitializerDict(Expr):
+    keys: tuple[str, ...]
+    values: tuple[Expr, ...]
+
+
+@dataclass
+class CompoundLiteral(Expr):
+    type: str | Expr
+    initializer: InitializerList
 
 
 @dataclass
@@ -138,6 +161,13 @@ class StaticVariable(Stmt):
     type: str | Expr
     name: str
     initial_value: Expr | None = None
+
+
+@dataclass
+class ConstantVariable(Stmt):
+    type: str | Expr
+    name: str
+    value: Expr
 
 
 @dataclass
@@ -171,6 +201,24 @@ class BinaryOp(Expr):
     op: str
     left: Expr
     right: Expr
+
+
+@dataclass
+class Cast(Expr):
+    target_type: str
+    value: Expr
+
+
+@dataclass
+class ArrayDecl(Stmt):
+    """Array declaration (e.g., int arr[10]; or const int arr[] = {1, 2};)."""
+
+    type: str | Expr
+    name: str
+    size: Expr | None = None
+    initializer: InitializerList | None = None
+    is_const: bool = False
+    is_static: bool = False
 
 
 class CStyleCodeGenerator(NodeVisitor):
@@ -212,6 +260,10 @@ class CStyleCodeGenerator(NodeVisitor):
         return f"{node.name}({args_str})"
 
     def visit_constant(self, node: Constant) -> str:
+        if node.value is None:
+            return "NULL"
+        if isinstance(node.value, bool):
+            return str(node.value).lower()
         return str(node.value)
 
     def visit_variable(self, node: Variable) -> str:
@@ -301,17 +353,37 @@ class CStyleCodeGenerator(NodeVisitor):
         ]
         fields_str = ", ".join(field_inits)
 
-        stmt = f"struct {node.struct_name} = {{ {fields_str} }};"
+        stmt = f"{node.struct_type} {node.struct_name} = {{ {fields_str} }};"
         if node.static:
             stmt = f"static {stmt}"
 
         return stmt
+
+    def visit_initializerlist(self, node: InitializerList) -> str:
+        return f"{{{', '.join(self.visit(value) for value in node.values)}}}"
+
+    def visit_initializerdict(self, node: InitializerDict) -> str:
+        fields_strs = []
+        for key, value in zip(node.keys, node.values, strict=False):
+            fields_strs.append(f".{key} = {self.visit(value)}")
+        fields_str = ", ".join(fields_strs)
+
+        return f"{{{fields_str}}}"
+
+    def visit_compoundliteral(self, node: CompoundLiteral) -> str:
+        type_str = self._format_type(node.type)
+        initializer_str = self.visit(node.initializer)
+        return f"({type_str}[]) {initializer_str}"
 
     def visit_staticvariable(self, node: StaticVariable) -> str:
         type_str = self.visit(node.type) if isinstance(node.type, Expr) else node.type
         if node.initial_value is None:
             return f"static {type_str} {node.name};"
         return f"static {type_str} {node.name} = {self.visit(node.initial_value)};"
+
+    def visit_constantvariable(self, node: ConstantVariable) -> str:
+        type_str = self.visit(node.type) if isinstance(node.type, Expr) else node.type
+        return f"const {type_str} {node.name} = {self.visit(node.value)};"
 
     def visit_if(self, node: If) -> str:
         condition = self.visit(node.condition)
@@ -340,11 +412,43 @@ class CStyleCodeGenerator(NodeVisitor):
         )
         return f"{target_str} *"
 
+    def visit_addressof(self, node: AddressOf) -> str:
+        return f"&{self.visit(node.target)}"
+
+    def visit_cast(self, node: Cast) -> str:
+        return f"({node.target_type}) {self.visit(node.value)}"
+
     def visit_binaryop(self, node: BinaryOp) -> str:
         """Visit a binary operation node."""
         left = self.visit(node.left)
         right = self.visit(node.right)
         return f"{left} {node.op} {right}"
+
+    def visit_arraydecl(self, node: ArrayDecl) -> str:
+        """Visit an array declaration node."""
+        type_str = self._format_type(node.type)
+        decl = ""
+        if node.is_static:
+            decl += "static "
+        if node.is_const:
+            decl += "const "
+        decl += f"{type_str} {node.name}"
+        size_str = ""
+        if node.size:
+            size_str = f"[{self.visit(node.size)}]"
+        elif node.initializer:
+            size_str = "[]"
+        decl += size_str
+
+        if node.initializer:
+            decl += f" = {self.visit(node.initializer)}"
+        decl += ";"
+        return decl
+
+    def _format_type(self, node: str | Expr) -> str:
+        if isinstance(node, Expr):
+            return self.visit(node)
+        return node
 
 
 def generate_code(ast_node: AST) -> str:
