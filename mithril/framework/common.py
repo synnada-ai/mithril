@@ -531,11 +531,17 @@ class Updates:
 
     def _add_uniadic(self, symbol: Uniadic) -> None:
         self.uniadic_updates.add(symbol)
-        for repr in symbol.metadata.reprs_dict:
-            for tensor in repr.node.referees:
-                self.shape_updates.add(tensor)
-                for edge in tensor.referees:
-                    self.constraints |= edge.constraints[UpdateType.SHAPE]
+        all_tensors = {
+            tensor for repr in symbol.metadata.reprs for tensor in repr.node.referees
+        }
+        self.shape_updates.update(all_tensors)
+        self.constraints |= set().union(
+            *(
+                edge.constraints[UpdateType.SHAPE]
+                for tensor in all_tensors
+                for edge in tensor.referees
+            )
+        )
 
     def _add_variadic(self, symbol: Variadic) -> None:
         for repr in symbol.reprs:

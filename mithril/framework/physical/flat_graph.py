@@ -631,7 +631,7 @@ class FlatGraph(GenericDataType[DataType]):
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
                 if (
-                    value in static_keys
+                    value in self.data_store.data_values
                     or value in self.unused_keys
                     or value in state_outputs
                 ):
@@ -640,7 +640,7 @@ class FlatGraph(GenericDataType[DataType]):
                 value_mapping = self.get_source_keys(value)
 
                 # To infer a model, all of its input keys should be in statics.
-                if not set(value_mapping).issubset(static_keys):
+                if not all(key in self.data_store.data_values for key in value_mapping):
                     continue
 
                 model = self.get_op(value)
@@ -693,8 +693,10 @@ class FlatGraph(GenericDataType[DataType]):
                 static_value = fn(*args, **kwargs)
 
                 # Check astype needed
-                if self.backend.is_manualgrad and is_type_adjustment_required(
-                    self.all_data, value_mapping
+                if (
+                    self.backend.is_manualgrad
+                    and is_type_adjustment_required(self.all_data, value_mapping)
+                    and isinstance(static_value, self.backend.get_backend_array_type())
                 ):
                     static_value = self.backend.array(static_value)
 
@@ -704,7 +706,6 @@ class FlatGraph(GenericDataType[DataType]):
                         static_value = self.backend.array(static_value)
 
                 _queue, _updates = self.add_static_data(value, static_value)
-                static_keys = set(self.data_store.data_values.keys())
                 queue |= _queue
                 updates |= _updates
         return updates
@@ -766,8 +767,9 @@ class FlatGraph(GenericDataType[DataType]):
                     updates |= data.set_value(value)
             else:
                 # Convert value to logical representaiton and set accordingly.
-                x = self.data_store.convert_phys_value_to_logical(value)
-                updates |= data.set_value(x)
+                if key in self.runtime_static_keys:
+                    x = self.data_store.convert_phys_value_to_logical(value)
+                    updates |= data.set_value(x)
 
             self.cached_data[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)
