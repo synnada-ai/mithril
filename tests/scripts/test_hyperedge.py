@@ -1172,3 +1172,31 @@ def test_list_of_two_values_and_list_of_one_value_error():
         "    Current value: [Tensor[bool], Tensor[bool]]\n"
         "    Given value: [TBD]"
     )
+
+
+def test_three_edge_set_values():
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge()
+
+    edge1.set_value(value=[[t1, TBD], [t2, t3]])
+    edge1.set_value(value=[[t2, TBD], TBD])
+
+    assert edge1._type == list[list[Tensor[int] | ToBeDetermined]]
+    assert edge1._value == [[t1, TBD], [t1, t3]]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == {edge1}
+
+    assert set(edge1.tensors) == {t1, t3}
+    edge1.set_value(value=[[TBD, t3], TBD])
+
+    assert edge1._type == list[list[Tensor[int]]]
+    assert edge1._value == [[t1, t3], [t1, t3]]
+
+    assert t1.referees == {edge1}
+    assert t2.referees == set()
+    assert t3.referees == {edge1}
