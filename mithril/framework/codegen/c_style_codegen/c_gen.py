@@ -16,38 +16,28 @@ import ctypes
 import os
 import subprocess
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
-from ...backends.with_manualgrad.c_backend import CBackend, backend
-from ...backends.with_manualgrad.ggml_backend import GGMLBackend
-from ...common import CGenConfig
-from ...cores.c.array import PyArray
-from ...framework.common import (
+from ....backends.with_manualgrad.c_backend import CBackend
+from ....backends.with_manualgrad.ggml_backend import GGMLBackend
+from ....common import CGenConfig
+from ....cores.c.array import PyArray
+from ...common import (
     EvaluateAllType,
     EvaluateType,
     FinalCost,
     Tensor,
 )
-from ...utils.type_utils import is_list_int
-from ..logical.operator import Operator
-from ..physical.model import PhysicalModel
-from . import c_ast
-from .code_gen import CodeGen
-from .utils import check_repr_inequality
+from ...logical.operator import Operator
+from ...physical.model import PhysicalModel
+from ..code_gen import CodeGen
+from ..utils import check_repr_inequality
+from . import c_ast, utils
 
 ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
 
 
 class CGen(CodeGen[PyArray]):
-    BACKWARD_FN_SUFFIX = "_grad"
-    EVALUATE_INPUT_STRUCT_NAME = "eval_inputs"
-    EVALUATE_GRAD_INPUT_STRUCT_NAME = "eval_grad_inputs"
-    EVALUATE_OUTPUT_STRUCT_NAME = "eval_outputs"
-    EVALUATE_GRAD_OUTPUT_STRUCT_NAME = "eval_grad_outputs"
-    CACHE_STRUCT_NAME = "cache_keys"
-    GRAD_STRUCT_NAME = "grad_keys"
-    CACHE_NAME = "cache"
-
     dynamic_links: list[str] = []
 
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:
@@ -58,57 +48,43 @@ class CGen(CodeGen[PyArray]):
             " or GGMLBackend"
         )
 
-        self.backend: CBackend | GGMLBackend = self.pm.backend
-
+        # File sub-sections
         self.imports: list[c_ast.AST] = []
         self.globals: list[c_ast.AST] = []
         self.functions: list[c_ast.AST] = []
 
         # This will be used to store the keys of the argument of the functions
-        self.func_arg_keys: dict[str, list[str]] = {}
+        self.backend: CBackend | GGMLBackend = self.pm.backend
         self.configs: CGenConfig = self.backend.CODEGEN_CONFIG
 
         # Determine struct keys
-        self.determined_struct_keys: dict[str, list[str]] = (
-            self._determine_struct_keys()
-        )
+        self.struct_keys: utils.StructKeys = self.determine_struct_keys()
+
+        # Pre-processors for customizing operator code generation
+        # Maps operator keys to functions that transform (op, inputs, context)
+        self.pre_processors: dict[
+            str,
+            Callable[
+                [Operator, Sequence[str | int | float], str],
+                tuple[Operator, Sequence[str | int | float]],
+            ],
+        ] = {}
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
 
-        self.imports += self.generate_imports()
-
-        # Functions
-        eval_fn = self.generate_evaluate()
-        self.functions.append(eval_fn)
-        self.func_arg_keys["evaluate"] = sorted(self.pm.input_keys)
-
+        self.imports.extend(self.generate_imports())
+        self.functions.append(self.generate_evaluate())
         if not self.pm.inference:
-            eval_grad_fn = self.generate_evaluate_gradients()
-            self.functions.append(eval_grad_fn)
+            self.functions.append(self.generate_evaluate_gradients())
 
-        # Structs
-        self._generate_structs()
+        # Generate functions input/output structs
+        self.generate_structs()
 
-        # Init cache struct
-        cache_struct = c_ast.StructInit(
-            f"{self.CACHE_STRUCT_NAME} {self.CACHE_NAME}",
-            {key: "NULL" for key in self.determined_struct_keys["eval_cache_keys"]},
-            static=True,
-        )
-        self.globals.append(cache_struct)
-
-        if not self.pm.inference:
-            # Init grad struct
-            grad_struct = c_ast.StructInit(
-                f"{self.EVALUATE_GRAD_OUTPUT_STRUCT_NAME} {self.GRAD_STRUCT_NAME}",
-                {
-                    key: "NULL"
-                    for key in self.determined_struct_keys["eval_grad_output_keys"]
-                },
-                static=True,
-            )
-            self.globals.append(grad_struct)
+        # Initialize global structs
+        # These structs are used to store the intermediate results
+        # of the model and the gradients
+        self.initialize_global_structs()
 
         generated_code = c_ast.FILE(self.imports, self.globals, self.functions).accept(  # type: ignore
             c_ast.CStyleCodeGenerator()
@@ -131,12 +107,14 @@ class CGen(CodeGen[PyArray]):
         assert not jit, "JIT is not yet supported for CBackend"
         assert self.file_path is not None, "Code has not been generated yet!"
 
+        # For now we are only supporting .so files
         so_file_path = self.file_path.replace(".c", ".so")
 
         default_compile_flags = ["cc", self.file_path, "-shared", "-fPIC", "-g"]
         if compile_flags:
             default_compile_flags = compile_flags
 
+        # Compile the code and link the dynamic links
         subprocess.check_output(
             [
                 *default_compile_flags,
@@ -148,6 +126,8 @@ class CGen(CodeGen[PyArray]):
             ]
         )
 
+        # If the given file path is not absolute, make it relative to the current
+        # working directory
         if so_file_path[0] != "/":
             so_file_path = "./" + so_file_path
 
@@ -164,29 +144,31 @@ class CGen(CodeGen[PyArray]):
         # We need backend subtype
         lib = ctypes.CDLL(so_file_path)
 
+        struct_cls = self.backend.get_struct_cls()
+
         # Input and output structs
         class Inputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
-                for key in self.determined_struct_keys["eval_input_keys"]
+                (key, ctypes.POINTER(struct_cls))
+                for key in self.struct_keys.eval_input_keys
             ]
 
         class Outputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
-                for key in self.determined_struct_keys["eval_output_keys"]
+                (key, ctypes.POINTER(struct_cls))
+                for key in self.struct_keys.eval_output_keys
             ]
 
         class GradInputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
-                for key in self.determined_struct_keys["eval_grad_input_keys"]
+                (key, ctypes.POINTER(struct_cls))
+                for key in self.struct_keys.eval_grad_input_keys
             ]
 
         class GradOutputs(ctypes.Structure):
             _fields_ = [
-                (key, ctypes.POINTER(self.backend.get_struct_cls()))
-                for key in self.determined_struct_keys["eval_grad_output_keys"]
+                (key, ctypes.POINTER(struct_cls))
+                for key in self.struct_keys.eval_grad_output_keys
             ]
 
         # Set the return type and argument types
@@ -215,22 +197,22 @@ class CGen(CodeGen[PyArray]):
 
             if self.configs.ALLOCATE_INTERNALS:
                 # Allocate output arrays
-                for arg_key in self.determined_struct_keys["eval_input_keys"]:
+                for arg_key in self.struct_keys.eval_input_keys:
                     if arg_key in inputs:
                         continue
-                    if self._get_tensor_shape(arg_key) is None:
+                    if self.get_tensor_shape(arg_key) is None:
                         continue
-                    arr_shape = self._get_array_shape(arg_key)
+                    arr_shape = self.get_tensor_shape(arg_key)
                     inputs[arg_key] = self.backend.empty(*arr_shape)
             inputs_struct = Inputs(
                 **{
                     key: ctypes.cast(
                         ctypes.byref(inputs[key].arr),
-                        ctypes.POINTER(self.backend.get_struct_cls()),
+                        ctypes.POINTER(struct_cls),
                     )
-                    for key in self.determined_struct_keys["eval_input_keys"]
+                    for key in self.struct_keys.eval_input_keys
                     if key != FinalCost
-                    if self._get_tensor_shape(key) is not None
+                    if self.get_tensor_shape(key) is not None
                 }
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
@@ -239,14 +221,14 @@ class CGen(CodeGen[PyArray]):
 
             outputs = {}
             return_keys = (
-                self.determined_struct_keys["eval_output_keys"]
+                self.struct_keys.eval_output_keys
                 if include_internals
                 else self.pm.output_keys
             )
             for key in return_keys:
                 if key == FinalCost and not self.backend.CODEGEN_CONFIG.RETURN_OUTPUT:
                     continue
-                if key != FinalCost and self._get_tensor_shape(key) is None:
+                if key != FinalCost and self.get_tensor_shape(key) is None:
                     continue
                 array_ptr = getattr(output_struct, key)
 
@@ -258,7 +240,7 @@ class CGen(CodeGen[PyArray]):
                     outputs[key] = PyArray(array_ptr.contents, shape=[1])
                 else:
                     outputs[key] = PyArray(
-                        array_ptr.contents, shape=self._get_tensor_shape(key)
+                        array_ptr.contents, shape=self.get_tensor_shape(key)
                     )
 
             return outputs
@@ -297,21 +279,22 @@ class CGen(CodeGen[PyArray]):
                 ):
                     # In CBackend we are creating all internal gradients with zeros.
                     if self._has_grad(key) and key not in gradients:
-                        arr_shape = self._get_array_shape(key)
+                        arr_shape = self.get_tensor_shape(key)
                         gradients[key] = self.backend.zeros(*arr_shape)
 
             gradients = {
-                key + self.BACKWARD_FN_SUFFIX: value for key, value in gradients.items()
+                key + utils.BACKWARD_FN_SUFFIX: value
+                for key, value in gradients.items()
             }
             inputs = params | data | gradients | forward_pass
             inputs_struct = GradInputs(
                 **{
                     key: ctypes.cast(
                         ctypes.byref(inputs[key].arr),
-                        ctypes.POINTER(self.backend.get_struct_cls()),
+                        ctypes.POINTER(struct_cls),
                     )
-                    for key in self.determined_struct_keys["eval_grad_input_keys"]
-                    if self._get_tensor_shape(key) is not None
+                    for key in self.struct_keys.eval_grad_input_keys
+                    if self.get_tensor_shape(key) is not None
                 }
             )
 
@@ -319,11 +302,11 @@ class CGen(CodeGen[PyArray]):
 
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)
             gradients = {}
-            for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
-                key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
+            for grad_key in self.struct_keys.eval_grad_output_keys:
+                key = grad_key.replace(utils.BACKWARD_FN_SUFFIX, "")
                 array_ptr = getattr(output_struct, grad_key)
                 gradients[key] = PyArray(
-                    array_ptr.contents, shape=self._get_tensor_shape(key)
+                    array_ptr.contents, shape=self.get_tensor_shape(key)
                 )
 
             outputs = {}
@@ -338,21 +321,184 @@ class CGen(CodeGen[PyArray]):
         header_path = os.path.join(self.backend.SRC_PATH, self.configs.HEADER_NAME)
         return [c_ast.Include(header_path, system=False)]
 
-    def create_primitive_call(
-        self, op: Operator, args: Sequence[str | int | float], context: str
+    def generate_evaluate(self) -> c_ast.FunctionDef:
+        # Function body
+        pre_process: ast_block_type = []
+        operations: ast_block_type = []
+        post_process: ast_block_type = []
+
+        # Define function arguments
+        arguments = [
+            c_ast.Parameter(
+                c_ast.Pointer(f"struct {utils.EVALUATE_INPUT_STRUCT_NAME}"), "inputs"
+            )
+        ]
+
+        for output_key in self.pm.flat_graph.topological_order:
+            op = self.pm.flat_graph.get_op(output_key)
+            inputs = self.pm.flat_graph.get_source_keys(output_key)
+
+            # In some backends the output is used as input
+            if self.configs.USE_OUTPUT_AS_INPUT:
+                inputs = [output_key] + inputs
+
+            # Create primitive call
+            op_call = self.generate_op(
+                op,
+                inputs,
+                context="eval",
+            )
+
+            # Assign op call to output
+            op_ast = self.assign_primitive_output(output_key, op_call, context="eval")
+
+            operations.append(op_ast)  # type: ignore
+
+        # Prepare output
+        post_process.append(self.create_output_struct(context="eval"))  # type: ignore
+        post_process.append(c_ast.Return(c_ast.Variable("output_struct")))  # type: ignore
+
+        evaluate_fn = self.define_function(
+            f"struct {utils.EVALUATE_OUTPUT_STRUCT_NAME}",
+            "evaluate",
+            arguments,
+            pre_process,
+            operations,
+            post_process,
+        )
+
+        return evaluate_fn
+
+    def generate_evaluate_gradients(self) -> c_ast.FunctionDef:
+        # Function body
+        pre_process: ast_block_type = []
+        operations: ast_block_type = []
+        post_process: ast_block_type = []
+
+        # Define function arguments
+        arguments = [
+            c_ast.Parameter(
+                c_ast.Pointer(f"struct {utils.EVALUATE_GRAD_INPUT_STRUCT_NAME}"),
+                "inputs",
+            )
+        ]
+
+        for output_key in reversed(list(self.pm.flat_graph.topological_order)):
+            # Staticly infered and unused model will not be added
+            if not self._has_grad(output_key):
+                continue
+
+            op = self.pm.flat_graph.get_op(output_key)
+
+            inputs = self.pm.flat_graph.get_source_keys(output_key)
+
+            # Assume all inputs are Array
+            for idx in range(len(inputs)):
+                if not self._has_grad(inputs[idx]):
+                    continue
+                if (
+                    FinalCost in self.pm.flat_graph.output_dict
+                    and output_key == self.pm.flat_graph.output_dict[FinalCost]
+                ):
+                    output_key = FinalCost
+
+                fn_inputs: list[str | int] = [
+                    output_key + utils.BACKWARD_FN_SUFFIX,
+                    idx,
+                    output_key,
+                    *inputs,
+                ]
+
+                if self.configs.USE_OUTPUT_AS_INPUT:
+                    fn_inputs += [
+                        input_key + utils.BACKWARD_FN_SUFFIX
+                        if self._has_grad(input_key)
+                        else "NULL"
+                        for input_key in inputs
+                    ]
+
+                # Create primitive call
+                p_call = self.generate_op(
+                    op,
+                    fn_inputs,
+                    context="eval_grad",
+                )
+
+                if output_key is FinalCost:
+                    out_shape = self.pm.data[
+                        self.pm.flat_graph.output_dict[FinalCost]
+                    ].shape
+                else:
+                    out_shape = self.pm.data[output_key].shape
+
+                if (
+                    (in_shape := self.pm.data[inputs[idx]].shape) is not None
+                    and (out_shape) is not None
+                    and check_repr_inequality(in_shape, out_shape)
+                    and not self.configs.USE_OUTPUT_AS_INPUT
+                ):
+                    p_call = c_ast.Call(
+                        "accumulate_grads",
+                        [
+                            "eval_grad_static_ctx",
+                            p_call,
+                            self.create_key_ref(inputs[idx], context="eval_grad"),
+                        ],
+                    )
+
+                p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
+                    inputs[idx] + utils.BACKWARD_FN_SUFFIX, p_call, context="eval_grad"
+                )
+
+                operations.append(p_call_stmts)  # type: ignore
+
+        # Prepare output
+        post_process.append(self.create_output_struct(context="eval_grad"))  # type: ignore
+        post_process.append(c_ast.Return(c_ast.Variable("output_struct")))  # type: ignore
+
+        evaluate_grad_fn = self.define_function(
+            f"struct {utils.EVALUATE_GRAD_OUTPUT_STRUCT_NAME}",
+            "evaluate_gradients",
+            arguments,
+            pre_process,
+            operations,
+            post_process,
+        )
+
+        return evaluate_grad_fn
+
+    def generate_op(
+        self,
+        op: Operator,
+        inputs: Sequence[str | int | float],
+        context: str,
     ) -> c_ast.Expr:
-        input_vars: list[c_ast.Expr] = [
-            self.create_key_ref(arg, context=context, load=True)
-            if isinstance(arg, str)
-            else c_ast.Constant(arg)
-            for arg in args
+        # Create input variables
+        input_vars: list[c_ast.Expr] = []
+        if op.formula_key in self.pre_processors:
+            op, inputs = self.pre_processors[op.formula_key](op, inputs, context)
+
+        input_vars = [
+            self.create_key_ref(key, context=context, load=True)
+            if isinstance(key, str)
+            else c_ast.Constant(key)
+            for key in inputs
         ]
 
         formula_key = (
             op.formula_key
             if context == "eval"
-            else op.formula_key + self.BACKWARD_FN_SUFFIX
+            else op.formula_key + utils.BACKWARD_FN_SUFFIX
         )
+
+        # Create op call
+        op_call = self.call_op(formula_key, input_vars, context)
+
+        return op_call
+
+    def call_op(
+        self, formula_key: str, input_vars: list[c_ast.Expr], context: str
+    ) -> c_ast.Expr:
         return c_ast.Call(formula_key, input_vars)
 
     def assign_primitive_output(
@@ -363,23 +509,22 @@ class CGen(CodeGen[PyArray]):
         )
 
     def create_key_ref(self, key: str, context: str, load: bool = True) -> c_ast.Expr:
-        if key in self.determined_struct_keys["eval_cache_keys"]:
+        # TODO: This is a bit of a hack, we should have a better way to handle this
+        if key in self.struct_keys.eval_cache_keys:
             if key == FinalCost and FinalCost in self.pm.flat_graph.output_dict:
                 key = self.pm.flat_graph.output_dict[FinalCost]
-            return c_ast.Variable(f"{self.CACHE_NAME}.{key}")
+            return c_ast.Variable(f"{utils.CACHE_NAME}.{key}")
 
-        elif (
-            context == "eval" and key in self.determined_struct_keys["eval_input_keys"]
-        ):
+        elif context == "eval" and key in self.struct_keys.eval_input_keys:
             return c_ast.Arrow(c_ast.Variable("inputs"), key)
 
         elif context == "eval_grad":
-            if key in self.determined_struct_keys["eval_grad_input_keys"]:
+            if key in self.struct_keys.eval_grad_input_keys:
                 return c_ast.Arrow(c_ast.Variable("inputs"), key)
 
             if (
                 key in self.pm.flat_graph.all_keys
-                or key.replace(self.BACKWARD_FN_SUFFIX, "")
+                or key.replace(utils.BACKWARD_FN_SUFFIX, "")
                 in self.pm.flat_graph.all_keys
             ) and not load:
                 return c_ast.Variable(f"{self.configs.ARRAY_NAME} * {key}")
@@ -403,219 +548,67 @@ class CGen(CodeGen[PyArray]):
         body = pre_process + operations + post_process
         return c_ast.FunctionDef(return_type, name, params, body)
 
+    def init_struct(
+        self,
+        struct_name: str,
+        declaration_list: dict[str, c_ast.Expr],
+        static: bool = True,
+    ) -> c_ast.StructInit:
+        return c_ast.StructInit(struct_name, declaration_list, static)
+
     def create_output_struct(self, context: str) -> c_ast.StructInit:
         output_keys = (
-            self.determined_struct_keys["eval_output_keys"]
+            self.struct_keys.eval_output_keys
             if context == "eval"
-            else self.determined_struct_keys["eval_grad_output_keys"]
+            else self.struct_keys.eval_grad_output_keys
         )
         output_struct_init: dict[str, c_ast.Expr] = {
             key: self.create_key_ref(key, context=context) for key in output_keys
         }
 
         output_struct_name = (
-            self.EVALUATE_OUTPUT_STRUCT_NAME
+            utils.EVALUATE_OUTPUT_STRUCT_NAME
             if context == "eval"
-            else self.EVALUATE_GRAD_OUTPUT_STRUCT_NAME
+            else utils.EVALUATE_GRAD_OUTPUT_STRUCT_NAME
         )
 
         return c_ast.StructInit(
             f"{output_struct_name} output_struct", output_struct_init
         )
 
-    def generate_evaluate(self) -> c_ast.FunctionDef:
-        # Function body
-        pre_process: ast_block_type = []
-        operations: ast_block_type = []
-        post_process: ast_block_type = []
-
-        # Define function arguments
-        arguments = [
-            c_ast.Parameter(
-                c_ast.Pointer(f"struct {self.EVALUATE_INPUT_STRUCT_NAME}"), "inputs"
-            )
-        ]
-
-        for output_key in self.pm.flat_graph.topological_order:
-            op = self.pm.flat_graph.get_op(output_key)
-            inputs = self.pm.flat_graph.get_source_keys(output_key)
-
-            if self.configs.USE_OUTPUT_AS_INPUT:
-                # In raw_c backend we need to pass output array as first argument
-                inputs = [output_key] + inputs
-
-            # Create primitive call
-            p_call = self.create_primitive_call(
-                op,
-                inputs,
-                context="eval",
-            )
-
-            p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
-                output_key, p_call, context="eval"
-            )
-
-            operations.append(p_call_stmts)  # type: ignore
-
-        # Prepare output
-        post_process.append(self.create_output_struct(context="eval"))  # type: ignore
-        post_process.append(c_ast.Return(c_ast.Variable("output_struct")))  # type: ignore
-
-        evaluate_fn = self.define_function(
-            f"struct {self.EVALUATE_OUTPUT_STRUCT_NAME}",
-            "evaluate",
-            arguments,
-            pre_process,
-            operations,
-            post_process,
-        )
-
-        return evaluate_fn
-
-    def generate_evaluate_gradients(self) -> c_ast.FunctionDef:
-        # Function body
-        pre_process: ast_block_type = []
-        operations: ast_block_type = []
-        post_process: ast_block_type = []
-
-        # Define function arguments
-        arguments = [
-            c_ast.Parameter(
-                c_ast.Pointer(f"struct {self.EVALUATE_GRAD_INPUT_STRUCT_NAME}"),
-                "inputs",
-            )
-        ]
-
-        for output_key in reversed(list(self.pm.flat_graph.topological_order)):
-            # Staticly infered and unused model will not be added
-            if not self._has_grad(output_key):
-                continue
-
-            op = self.pm.flat_graph.get_op(output_key)
-
-            inputs = self.pm.flat_graph.get_source_keys(output_key)
-
-            # Assume all inputs are Array
-            for idx in range(len(inputs)):
-                if not self._has_grad(inputs[idx]):
-                    continue
-                if (
-                    FinalCost in self.pm.flat_graph.output_dict
-                    and output_key == self.pm.flat_graph.output_dict[FinalCost]
-                ):
-                    output_key = FinalCost
-                fn_inputs: list[str | int] = [
-                    output_key + self.BACKWARD_FN_SUFFIX,
-                    idx,
-                    output_key,
-                    *inputs,
-                ]
-
-                if self.configs.USE_OUTPUT_AS_INPUT:
-                    fn_inputs += [
-                        input_key + self.BACKWARD_FN_SUFFIX
-                        if self._has_grad(input_key)
-                        else "NULL"
-                        for input_key in inputs
-                    ]
-
-                # Create primitive call
-                p_call = self.create_primitive_call(
-                    op,
-                    fn_inputs,
-                    context="eval_grad",
-                )
-                if output_key is FinalCost:
-                    out_shape = self.pm.data[
-                        self.pm.flat_graph.output_dict[FinalCost]
-                    ].shape
-                else:
-                    out_shape = self.pm.data[output_key].shape
-
-                if (
-                    (in_shape := self.pm.data[inputs[idx]].shape) is not None
-                    and (out_shape) is not None
-                    and check_repr_inequality(in_shape, out_shape)
-                    and not self.configs.USE_OUTPUT_AS_INPUT
-                ):
-                    p_call = c_ast.Call(
-                        "accumulate_grads",
-                        [
-                            "eval_grad_static_ctx",
-                            p_call,
-                            self.create_key_ref(inputs[idx], context="eval_grad"),
-                        ],
-                    )
-                p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
-                    inputs[idx] + self.BACKWARD_FN_SUFFIX, p_call, context="eval_grad"
-                )
-
-                operations.append(p_call_stmts)  # type: ignore
-
-        # Prepare output
-        post_process.append(self.create_output_struct(context="eval_grad"))  # type: ignore
-        post_process.append(c_ast.Return(c_ast.Variable("output_struct")))  # type: ignore
-
-        evaluate_grad_fn = self.define_function(
-            f"struct {self.EVALUATE_GRAD_OUTPUT_STRUCT_NAME}",
-            "evaluate_gradients",
-            arguments,
-            pre_process,
-            operations,
-            post_process,
-        )
-
-        return evaluate_grad_fn
-
-    def _get_backend_path(self) -> str:
-        backend_path = backend.__file__
-        return backend_path[: backend_path.rindex("/")]
-
-    def _get_array_shape(self, key: str) -> tuple[int, ...]:
-        if key == FinalCost:
-            return (1,)
-        array_data = self.pm.data[key]
-        assert array_data.shape is not None
-        shape = array_data.shape.reprs[0].get_shapes()
-
-        if is_list_int(shape):
-            return tuple(shape)
-        else:
-            raise ValueError(f"Unexpected shape: {shape}")
-
-    def _generate_structs(self) -> None:
+    def generate_structs(self) -> None:
         # Generate structs
-        eval_input_struct = self._generate_struct(
-            self.EVALUATE_INPUT_STRUCT_NAME,
-            self.determined_struct_keys["eval_input_keys"],
+        eval_input_struct = self.generate_struct(
+            utils.EVALUATE_INPUT_STRUCT_NAME,
+            self.struct_keys.eval_input_keys,
         )
-        eval_outputs_struct = self._generate_struct(
-            self.EVALUATE_OUTPUT_STRUCT_NAME,
-            self.determined_struct_keys["eval_output_keys"],
+        eval_outputs_struct = self.generate_struct(
+            utils.EVALUATE_OUTPUT_STRUCT_NAME,
+            self.struct_keys.eval_output_keys,
         )
 
-        cache_struct = self._generate_struct(
-            self.CACHE_STRUCT_NAME, self.determined_struct_keys["eval_cache_keys"]
+        cache_struct = self.generate_struct(
+            utils.CACHE_STRUCT_NAME, self.struct_keys.eval_cache_keys
         )
 
         structs = [eval_input_struct, eval_outputs_struct, cache_struct]
 
         if not self.pm.inference:
-            eval_grad_input_struct = self._generate_struct(
-                self.EVALUATE_GRAD_INPUT_STRUCT_NAME,
-                self.determined_struct_keys["eval_grad_input_keys"],
+            eval_grad_input_struct = self.generate_struct(
+                utils.EVALUATE_GRAD_INPUT_STRUCT_NAME,
+                self.struct_keys.eval_grad_input_keys,
             )
 
-            eval_grad_outputs_struct = self._generate_struct(
-                self.EVALUATE_GRAD_OUTPUT_STRUCT_NAME,
-                self.determined_struct_keys["eval_grad_output_keys"],
+            eval_grad_outputs_struct = self.generate_struct(
+                utils.EVALUATE_GRAD_OUTPUT_STRUCT_NAME,
+                self.struct_keys.eval_grad_output_keys,
             )
 
             structs += [eval_grad_input_struct, eval_grad_outputs_struct]
 
         self.globals = structs + self.globals
 
-    def _generate_struct(self, name: str, field_keys: list[str]) -> c_ast.Stmt:
+    def generate_struct(self, name: str, field_keys: list[str]) -> c_ast.Stmt:
         fields = [
             c_ast.StructField(
                 c_ast.Pointer(c_ast.Variable(self.configs.ARRAY_NAME)), key
@@ -625,8 +618,10 @@ class CGen(CodeGen[PyArray]):
         struct = c_ast.StructDef(name, fields)
         return struct
 
-    def _determine_struct_keys(self) -> dict[str, list[str]]:
-        eval_input_keys = sorted(
+    def determine_struct_keys(self) -> utils.StructKeys:
+        struct_keys = utils.StructKeys()
+
+        struct_keys.eval_input_keys = sorted(
             {
                 key
                 for key in self.pm.input_keys
@@ -635,44 +630,56 @@ class CGen(CodeGen[PyArray]):
             }
         )
         if self.configs.USE_OUTPUT_AS_INPUT:
-            eval_input_keys = sorted(self.pm.flat_graph.all_keys)
+            struct_keys.eval_input_keys = sorted(self.pm.flat_graph.all_keys)
 
-        eval_output_keys = sorted(self.pm.output_keys)
-        eval_cache_keys = sorted(self.pm.flat_graph.all_keys - self.pm.input_keys)
+        struct_keys.eval_output_keys = sorted(self.pm.output_keys)
+        struct_keys.eval_cache_keys = sorted(
+            self.pm.flat_graph.all_keys - self.pm.input_keys
+        )
 
-        eval_grad_input_keys = sorted(
+        struct_keys.eval_grad_input_keys = sorted(
             (
                 self.pm.input_keys
                 | set(self.pm.output_keys)
-                | {key + self.BACKWARD_FN_SUFFIX for key in self.pm.cotangent_keys}
+                | {key + utils.BACKWARD_FN_SUFFIX for key in self.pm.cotangent_keys}
             )
-            - set(eval_cache_keys)
+            - set(struct_keys.eval_cache_keys)
         )
 
-        eval_grad_output_keys = sorted(
+        struct_keys.eval_grad_output_keys = sorted(
             [
-                key + self.BACKWARD_FN_SUFFIX
+                key + utils.BACKWARD_FN_SUFFIX
                 for key in set(self.pm.input_keys)
                 if self._has_grad(key)
             ]
         )
 
-        determined_struct_keys = {
-            "eval_input_keys": eval_input_keys,
-            "eval_output_keys": eval_output_keys,
-            "eval_cache_keys": eval_cache_keys,
-            "eval_grad_input_keys": eval_grad_input_keys,
-            "eval_grad_output_keys": eval_grad_output_keys,
-        }
+        return struct_keys
 
-        return determined_struct_keys
+    def initialize_global_structs(self) -> None:
+        # Init cache struct
+        cache_struct = c_ast.StructInit(
+            f"{utils.CACHE_STRUCT_NAME} {utils.CACHE_NAME}",
+            {key: "NULL" for key in self.struct_keys.eval_cache_keys},
+            static=True,
+        )
+        self.globals.append(cache_struct)
 
-    def _get_tensor_shape(self, key: str) -> tuple[int, ...]:
+        if not self.pm.inference:
+            # Init grad struct
+            grad_struct = c_ast.StructInit(
+                f"{utils.EVALUATE_GRAD_OUTPUT_STRUCT_NAME} {utils.GRAD_STRUCT_NAME}",
+                {key: "NULL" for key in self.struct_keys.eval_grad_output_keys},
+                static=True,
+            )
+            self.globals.append(grad_struct)
+
+    def get_tensor_shape(self, key: str) -> tuple[int, ...]:
         if key.startswith(FinalCost):
             return (1,)
         if key in self.pm.shapes:
             return self.pm.shapes[key]  # type: ignore
-        elif key.replace(self.BACKWARD_FN_SUFFIX, "") in self.pm.shapes:
-            return self.pm.shapes[key.replace(self.BACKWARD_FN_SUFFIX, "")]  # type: ignore
+        elif key.replace(utils.BACKWARD_FN_SUFFIX, "") in self.pm.shapes:
+            return self.pm.shapes[key.replace(utils.BACKWARD_FN_SUFFIX, "")]  # type: ignore
         else:
             raise ValueError(f"Shape for key {key} not found")
