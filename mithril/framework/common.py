@@ -106,6 +106,9 @@ class ToBeDetermined(SingletonObject):
     that no data is provided.
     """
 
+    def __repr__(self) -> str:
+        return "TBD"
+
     pass
 
 
@@ -951,9 +954,9 @@ def squash_tensor_types_recursively(typ: Any) -> Any:
     return typ
 
 
-def replace_tensor(
-    current_tensor: Tensor[int | float | bool],
-    new_tensor: Tensor[int | float | bool],
+def replace_tensors(
+    tensor_map: dict[Tensor[int | float | bool], Tensor[int | float | bool]]
+    | None = None,
     value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined | None = None,
 ) -> Tensor[int | float | bool] | ScalarValueType:
     """
@@ -964,8 +967,8 @@ def replace_tensor(
     a list, a tuple, or a dictionary containing these types.
 
     Args:
-        current_tensor (Tensor[int | float | bool]): The tensor to be replaced.
-        new_tensor (Tensor[int | float | bool]): The tensor to replace with.
+        tensor_map (dict[Tensor[int | float | bool], Tensor[int | float | bool]] |None):
+            dict that holds the mapping of current tensor to new tensor.
         value (Tensor[int | float | bool] | ScalarValueType | ToBeDetermined | None):
             The value in which to replace the tensor. It can be a tensor, a scalar,
             a list, a tuple, a dictionary, or None. Defaults to None.
@@ -975,17 +978,16 @@ def replace_tensor(
         `current_tensor` replaced by `new_tensor`. The return type matches the
         type of the input `value`.
     """
-    if value is current_tensor:
-        new_tensor.is_used = current_tensor.is_used
+    if tensor_map is None:
+        tensor_map = {}
+    if isinstance(value, Tensor) and (new_tensor := tensor_map.get(value)):
+        new_tensor.is_used = value.is_used
         value = new_tensor
     elif isinstance(value, list | tuple):
-        new_value = [replace_tensor(current_tensor, new_tensor, item) for item in value]
+        new_value = [replace_tensors(tensor_map, item) for item in value]
         value = tuple(new_value) if isinstance(value, tuple) else new_value
     elif isinstance(value, dict):
-        value = {
-            key: replace_tensor(current_tensor, new_tensor, val)
-            for key, val in value.items()
-        }
+        value = {key: replace_tensors(tensor_map, val) for key, val in value.items()}
     return value
 
 
@@ -1213,6 +1215,15 @@ class Tensor(Generic[TypeVarTensorType]):
             prev_node.referees = set()
         return updates
 
+    def __repr__(self) -> str:
+        if isinstance(self.type, UnionType):
+            _type = " | ".join(type_def.__name__ for type_def in get_args(self.type))
+        else:
+            assert isinstance(self.type, type)
+            _type = self.type.__name__
+
+        return f"Tensor[{_type}]"
+
 
 class IOHyperEdge:
     _type: type[Tensor[int | float | bool]] | ScalarType
@@ -1284,24 +1295,13 @@ class IOHyperEdge:
 
     @property
     def is_valued(self) -> bool:
-        return not self.initial_valued and self._is_valued
+        return not self.initial_valued and is_valued(self._value)
 
     @property
     def initial_valued(self) -> bool:
         if isinstance(self._value, Tensor):
             return self._value.initial_valued
         return self._initial_valued
-
-    @property
-    def _is_valued(self) -> bool:
-        # TODO: Update as it can handle mixed type values which contains
-        # both tensors and scalars.
-        tensors = self.tensors
-        return (
-            all(tensor.value is not TBD for tensor in tensors)
-            if tensors
-            else self._value is not TBD
-        )
 
     @property
     def all_constraints(self) -> set[Constraint]:
@@ -1370,7 +1370,7 @@ class IOHyperEdge:
         current_tensor: Tensor[int | float | bool],
         new_tensor: Tensor[int | float | bool],
     ) -> None:
-        self._value = replace_tensor(current_tensor, new_tensor, self._value)
+        self._value = replace_tensors({current_tensor: new_tensor}, self._value)
 
     def set_type(
         self,
@@ -1407,45 +1407,83 @@ class IOHyperEdge:
             self._type = new_type
         return updates
 
-    def _set_value_recursively(
+    def _match_values(
         self,
         value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         self_value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         updates: Updates,
-    ) -> None:
-        # Traverses over the value and sets the value of each item
-        # in self._value recursively.
-        if isinstance(value, Tensor):
-            assert isinstance(self_value, Tensor)
-            # If both values are Tensor, match them.
-            updates |= self_value.match(value)
-            value.is_used = True
-        elif isinstance(value, list | tuple):
-            # TODO: Update below assertion type!!!
-            assert isinstance(self_value, list | tuple)
-            for val, self_val in zip(value, self_value, strict=False):
-                self._set_value_recursively(val, self_val, updates)
-        elif isinstance(value, dict):
-            assert isinstance(self_value, dict)
-            for key in value:
-                if key not in self_value:
-                    raise ValueError("Incompatible value types.")
-                self._set_value_recursively(value[key], self_value[key], updates)
-        elif value != self_value:
-            # Simply compare values. If not equal, raise ValueError.
-            raise ValueError(
-                f"Value is set before as {self._value}. A value can not be reset."
-            )
+        updated_tensors: dict[Tensor[int | float | bool], Tensor[int | float | bool]]
+        | None = None,
+    ) -> Tensor[int | float | bool] | ScalarValueType:
+        if updated_tensors is None:
+            updated_tensors = {}
+
+        match (value, self_value):
+            case (Tensor(), Tensor()):
+                # check if Tensors are already updated in previous iterations.
+                # If yes, replace them with updated ones.
+                value_1 = updated_tensors.get(self_value, self_value)
+                value_2 = updated_tensors.get(value, value)
+                if value_1 is not value_2:
+                    updates |= value_1.match(value_2)
+                    updated_tensors[value_2] = value_1
+                value_2.is_used = True
+                return value_1
+
+            case (list(), list()) if len(value) == len(self_value):
+                return [
+                    self._match_values(val, self_val, updates, updated_tensors)
+                    for val, self_val in zip(value, self_value, strict=True)
+                ]
+
+            case (tuple(), tuple()) if len(value) == len(self_value):
+                return tuple(
+                    self._match_values(val, self_val, updates, updated_tensors)
+                    for val, self_val in zip(value, self_value, strict=True)
+                )
+
+            case (dict(), dict()) if self_value.keys() == value.keys():
+                return {
+                    key: self._match_values(
+                        value[key], self_value[key], updates, updated_tensors
+                    )
+                    for key in value
+                }
+
+            case (val, ToBeDetermined()) | (ToBeDetermined(), val):
+                # add value to updates to inform constraints later on
+                updates.add(self, UpdateType.VALUE)
+                updates.value_updates.add(self)
+
+                # if val is a tensor (or a container that includes Tensor)
+                # update Tensor's IOHyperEdge referees and also return
+                # updated tensors
+                return self.update_tensor_values(val, updates, updated_tensors)
+
+            case (val1, val2) if val1 == val2:
+                return val1
+
+            case _:
+                raise ValueError(
+                    f"Given value is not compatible with the current value\n"
+                    f"    Current value: {self_value}\n"
+                    f"    Given value: {value}"
+                )
 
     def update_tensor_values(
         self,
         value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
         updates: Updates,
-    ) -> None:
+        updated_tensors: dict[Tensor[int | float | bool], Tensor[int | float | bool]]
+        | None = None,
+    ) -> ScalarValueType | Tensor[int | float | bool]:
+        if updated_tensors is None:
+            updated_tensors = {}
         # Updates all required fields of all tensor values in value and
         # update Updates object accordingly
         if isinstance(value, Tensor):
             # Add self to referees of value and shape.
+            value = updated_tensors.get(value, value)
             value.referees.add(self)
             value.is_used = True
             # TODO: When two edges set to the same tensor value using
@@ -1455,14 +1493,22 @@ class IOHyperEdge:
             for repr in value.shape.reprs:
                 for symbol in repr.prefix + repr.suffix:
                     updates.add(symbol)
-        elif isinstance(value, list | tuple):
-            # If value is a Sequence, update all its values.
-            for val in value:
-                self.update_tensor_values(val, updates)
+            return value
+
+        elif isinstance(value, tuple | list):
+            _value = [
+                self.update_tensor_values(val, updates, updated_tensors)
+                for val in value
+            ]
+            return tuple(value) if isinstance(value, tuple) else _value
+
         elif isinstance(value, dict):
-            # If value is a dict, update all its values.
-            for val in value.values():
-                self.update_tensor_values(val, updates)
+            return {
+                key: self.update_tensor_values(val, updates, updated_tensors)
+                for key, val in value.items()
+            }
+        else:
+            return value
 
     def set_value(
         self,
@@ -1489,15 +1535,12 @@ class IOHyperEdge:
             # If they are incompatible, raises an error and value setting is
             # not performed. Else, type is updated, value is set and then
             # type is re-updated based on the final value.
+            updated_tensors: dict[
+                Tensor[int | float | bool], Tensor[int | float | bool]
+            ] = {}
             updates |= self.set_type(find_type(value), create_tensor=False)
-            if self._value is not TBD:
-                self._set_value_recursively(value, self._value, updates)
-            else:
-                self._value = value
-                self.update_tensor_values(value, updates)
-                # Add self to updates as value update.
-                updates.add(self, UpdateType.VALUE)
-                updates.value_updates.add(self)
+            new_value = self._match_values(value, self._value, updates, updated_tensors)
+            self._value = replace_tensors(updated_tensors, new_value)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(find_type(self._value), create_tensor=False)
         if self.is_tensor and self.is_valued:
@@ -3666,3 +3709,19 @@ def is_index_type(
         is not None
         for val in index
     )
+
+
+def is_valued(
+    value: ScalarValueType | Tensor[int | float | bool] | ToBeDetermined,
+) -> bool:
+    match value:
+        case ToBeDetermined():
+            return False
+        case Tensor():
+            return value.value is not TBD
+        case dict():
+            return all(is_valued(v) for v in value.values())
+        case list() | tuple():
+            return all(is_valued(item) for item in value)
+        case _:
+            return True

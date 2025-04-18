@@ -6115,7 +6115,11 @@ def test_multi_write_4():
     with pytest.raises(ValueError) as err_info:
         model |= mean_model_2(input="input2", output="output2", axis=mean_model_1.axis)
 
-    assert str(err_info.value) == "Value is set before as 3. A value can not be reset."
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: 3\n"
+        "    Given value: 2"
+    )
 
 
 def test_multi_write_6():

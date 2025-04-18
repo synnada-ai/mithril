@@ -199,23 +199,10 @@ def test_set_values_scalar_5():
     model.set_values(axis=(0, 1))
     with pytest.raises(ValueError) as err_info:
         model.set_values(axis=(0, 2))
-    assert (
-        str(err_info.value)
-        == "Value is set before as (0, 1). A value can not be reset."
-    )
-
-
-def test_set_values_scalar_6():
-    model = Model()
-    mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", axis="axis", output="output")
-    with pytest.raises(ValueError) as err_info:
-        # First set a value then attempt to reset it.
-        model.set_values(axis=(0, 1))
-        model.set_values(axis=(0, 2))
-    assert (
-        str(err_info.value)
-        == "Value is set before as (0, 1). A value can not be reset."
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: 1\n"
+        "    Given value: 2"
     )
 
 
@@ -227,9 +214,11 @@ def test_set_values_scalar_6_kwargs_arg():
         # Setting once then trying to override.
         model.set_values(axis=(0, 2))
         model.set_values(axis=(0, 1))
-    assert (
-        str(err_info.value)
-        == "Value is set before as (0, 2). A value can not be reset."
+
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: 2\n"
+        "    Given value: 1"
     )
 
 
@@ -239,9 +228,10 @@ def test_set_values_scalar_6_same_conn_in_config():
     model += mean_model(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
         model.set_values({mean_model.axis: (0, 2)}, axis=(0, 1))
-    assert (
-        str(err_info.value)
-        == "Value is set before as (0, 2). A value can not be reset."
+    assert str(err_info.value) == (
+        "Given value is not compatible with the current value\n"
+        "    Current value: 2\n"
+        "    Given value: 1"
     )
 
 

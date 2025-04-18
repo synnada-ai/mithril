@@ -23,6 +23,7 @@ from mithril.framework.common import (
 )
 from mithril.framework.logical.base import BaseKey
 from mithril.models import (
+    TBD,
     Add,
     BaseModel,
     Buffer,
@@ -30,6 +31,7 @@ from mithril.models import (
     ConnectionType,
     Convolution1D,
     ExtendInfo,
+    IOHyperEdge,
     Linear,
     MatrixMultiply,
     MaxPool1D,
@@ -1533,13 +1535,56 @@ def test_deleted_edge_ref_count() -> None:
     assert sys.getrefcount(ref_var1) == 2 or sys.getrefcount(ref_var2) == 2
 
 
-def test_simple_test():
-    all_reprs = set()
-    buff = Buffer()
-    buff.set_types(input=Tensor)
-    assert buff.input.metadata.shape is not None
-    print("bbbuuufff: ", sys.getrefcount(list(buff.input.metadata.shape.reprs)[0]))
-    all_reprs |= get_all_reprs(buff)
-    while all_reprs:
-        obj = all_reprs.pop()
-        print("bbbuuufff: ", sys.getrefcount(obj))
+def test_hyperedges_match_list_of_tensors_with_tbd():
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], TBD])
+
+    edge1.match(edge2)
+
+    assert sys.getrefcount(t2) == 2
+    assert sys.getrefcount(t3) == 2
+
+
+def test_hyperedges_match_list_of_tensors():
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+    t5: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
+
+    edge1.match(edge2)
+
+    assert sys.getrefcount(t1) != 2
+    assert sys.getrefcount(t2) == 2
+    assert sys.getrefcount(t3) == 2
+    assert sys.getrefcount(t4) == 2
+    assert sys.getrefcount(t5) == 2
+
+
+def test_hyperedges_match_list_of_tensors_with_one_edge_free():
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+    t5: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
+
+    IOHyperEdge(value=[[t2, TBD], [TBD, t3]])
+
+    edge1.match(edge2)
+
+    assert sys.getrefcount(t1) != 2
+    assert sys.getrefcount(t2) == 2
+    assert sys.getrefcount(t3) == 2
+    assert sys.getrefcount(t4) == 2
+    assert sys.getrefcount(t5) == 2
