@@ -211,7 +211,7 @@ class TorchParallel(Parallel[torch.Tensor]):
         base_mesh: DeviceMesh,
         device_mesh: tuple[int, ...] | tuple[tuple[int, int], ...] | None = None,
     ) -> STensor:
-        # TODO: The name `device_mesh` is suck, it should be renamed
+        # TODO: Rename device_mesh argument
 
         assert (
             type(tensor) is torch.Tensor
@@ -220,11 +220,9 @@ class TorchParallel(Parallel[torch.Tensor]):
             isinstance(device_mesh, tuple) or device_mesh is None
         ), "device_mesh must be a tuple or None."
 
-        n_device_mesh = utils.normalize_device_mesh(base_mesh.shape, device_mesh)
+        n_device_mesh = utils.normalize_device_mesh(base_mesh, device_mesh)
 
         if n_device_mesh is not None:
-            utils.check_device_mesh(base_mesh, n_device_mesh)
-
             # Check if the tensor shape is divisible by the device mesh dims
             for axis, shard_dim in n_device_mesh:
                 if tensor.shape[axis] % shard_dim != 0:
@@ -521,7 +519,7 @@ class TorchParallel(Parallel[torch.Tensor]):
                         Shard(dim) if placement == Instructions.SHARD else Replicate()
                         for placement, dim in args[1:]
                     ]
-                    print(placements)
+
                     dtensor = distribute_tensor(tensor, base_mesh, placements)
                     self.tensor_ref[self.tensor_id_counter] = dtensor
                     self.tensor_id_counter += 1

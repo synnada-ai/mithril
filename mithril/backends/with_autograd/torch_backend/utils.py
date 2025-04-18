@@ -479,21 +479,25 @@ def check_device_mesh(
 
 
 def normalize_device_mesh(
-    base_mesh_shape: tuple[int, ...],
+    base_mesh: DeviceMesh,
     device_mesh: tuple[int, ...] | tuple[tuple[int, int], ...] | None,
 ) -> tuple[tuple[int, int], ...] | None:
     # Normalizes device mesh to a tuple of tuples
     # Assume given (2, 3) as device mesh, it will be normalized to ((0, 2), (1, 3))
+    base_mesh_shape = base_mesh.shape
 
     n_device_mesh: tuple[tuple[int, int], ...] | None = ()
     if is_tuple_int(device_mesh):
         n_device_mesh = tuple((idx, dim) for idx, dim in enumerate(device_mesh))
     else:
-        n_device_mesh = device_mesh  #  type: ignore
+        n_device_mesh = device_mesh  # type: ignore
 
     if n_device_mesh is not None and len(n_device_mesh) < len(base_mesh_shape):
         for idx in range(len(base_mesh_shape) - len(n_device_mesh)):
             n_device_mesh += ((idx, 1),)
+
+    if n_device_mesh is not None:
+        check_device_mesh(base_mesh, n_device_mesh)
 
     return n_device_mesh
 
