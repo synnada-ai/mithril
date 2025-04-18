@@ -1148,10 +1148,10 @@ def test_list_of_two_values_and_list_of_one_value_error():
 
     edge1:  [[T1, TBD], -+
              [T2, T3]]   |
-                         |-> expected: VAlueError
+                         |-> expected: ValueError
                          |
     edge2:  [[T2, TBD], -+
-             [TBD]
+             [TBD]]
 
 
     T1, T2, T3 and T4 are all different Tensor objects.
@@ -1174,7 +1174,7 @@ def test_list_of_two_values_and_list_of_one_value_error():
     )
 
 
-def test_three_edge_set_values():
+def test_edge_set_values_three_times():
     t1: Tensor[int] = Tensor(type=int)
     t2: Tensor[int] = Tensor(type=int)
     t3: Tensor[int] = Tensor(type=int)

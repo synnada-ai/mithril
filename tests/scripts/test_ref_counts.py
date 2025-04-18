@@ -1578,6 +1578,7 @@ def test_hyperedges_match_list_of_tensors_with_one_edge_free():
 
     edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
     edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
+
     IOHyperEdge(value=[[t2, TBD], [TBD, t3]])
 
     edge1.match(edge2)

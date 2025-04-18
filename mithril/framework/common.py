@@ -3714,12 +3714,14 @@ def is_index_type(
 def is_valued(
     value: ScalarValueType | Tensor[int | float | bool] | ToBeDetermined,
 ) -> bool:
-    if value is TBD:
-        return False
-    elif isinstance(value, Tensor):
-        return value.value is not TBD
-    elif isinstance(value, dict):
-        return all(is_valued(v) for v in value.values())
-    elif isinstance(value, list | tuple):
-        return all(is_valued(item) for item in value)
-    return True
+    match value:
+        case ToBeDetermined():
+            return False
+        case Tensor():
+            return value.value is not TBD
+        case dict():
+            return all(is_valued(v) for v in value.values())
+        case list() | tuple():
+            return all(is_valued(item) for item in value)
+        case _:
+            return True
