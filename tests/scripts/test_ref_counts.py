@@ -1567,3 +1567,23 @@ def test_hyperedges_match_list_of_tensors():
     assert sys.getrefcount(t3) == 2
     assert sys.getrefcount(t4) == 2
     assert sys.getrefcount(t5) == 2
+
+
+def test_hyperedges_match_list_of_tensors_with_one_edge_free():
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+    t5: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
+    IOHyperEdge(value=[[t2, TBD], [TBD, t3]])
+
+    edge1.match(edge2)
+
+    assert sys.getrefcount(t1) != 2
+    assert sys.getrefcount(t2) == 2
+    assert sys.getrefcount(t3) == 2
+    assert sys.getrefcount(t4) == 2
+    assert sys.getrefcount(t5) == 2

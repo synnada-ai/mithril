@@ -1494,17 +1494,13 @@ class IOHyperEdge:
                 for symbol in repr.prefix + repr.suffix:
                     updates.add(symbol)
             return value
-        elif isinstance(value, list):
-            return [
+
+        elif isinstance(value, tuple | list):
+            _value = [
                 self.update_tensor_values(val, updates, updated_tensors)
                 for val in value
             ]
-
-        elif isinstance(value, tuple):
-            return tuple(
-                self.update_tensor_values(val, updates, updated_tensors)
-                for val in value
-            )
+            return tuple(value) if isinstance(value, tuple) else _value
 
         elif isinstance(value, dict):
             return {
@@ -3724,6 +3720,6 @@ def is_valued(
         return value.value is not TBD
     elif isinstance(value, dict):
         return all(is_valued(v) for v in value.values())
-    elif isinstance(value, list | tuple | set):
+    elif isinstance(value, list | tuple):
         return all(is_valued(item) for item in value)
     return True

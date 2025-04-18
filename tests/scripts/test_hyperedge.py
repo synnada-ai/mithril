@@ -1200,3 +1200,39 @@ def test_three_edge_set_values():
     assert t1.referees == {edge1}
     assert t2.referees == set()
     assert t3.referees == {edge1}
+
+
+def test_three_edge_reference():
+    """
+    Tests the following case:
+
+    edge1:  [[T1, T2], -+
+             [T3, T4]]  |
+                        |-> expected result: [[T1, T1],
+                        |                     [T1, T1]]
+    edge2:  [[T2, T3], -+
+             [T4, T5]]
+
+    edge3:  [[TBD, T3],   --->  [[TBD, T1],
+             [T4, TBD]]          [T1, TBD]]
+
+    T1, T2, T3, T4 and T5 are all different Tensor objects.
+    """
+
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+    t3: Tensor[int] = Tensor(type=int)
+    t4: Tensor[int] = Tensor(type=int)
+    t5: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
+    edge3 = IOHyperEdge(value=[[TBD, t3], [t4, TBD]])
+
+    edge1.match(edge2)
+    assert edge3._value == [[TBD, t1], [t1, TBD]]
+    assert t1.referees == {edge3, edge1}
+    assert t2.referees == set()
+    assert t3.referees == set()
+    assert t4.referees == set()
+    assert t5.referees == set()
