@@ -108,11 +108,9 @@ def test_primitives_c_backends():
     )
 
     # Compile the model
-    np_pm = ml.compile(model=tm, backend=backend, jit=False)
-
-    ggml_pm = ml.compile(model=tm, backend=ggml_backend, jit=False)
-
     c_pm = ml.compile(model=tm, backend=cbackend, jit=False)
+    np_pm = ml.compile(model=tm, backend=backend, jit=False)
+    ggml_pm = ml.compile(model=tm, backend=ggml_backend, jit=False)
 
     params = np_pm.randomize_params()
     c_params = {}

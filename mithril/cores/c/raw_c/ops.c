@@ -14,7 +14,7 @@
 
 #include "stdio.h"
 #include "ops.h"
-#include "utils.h"
+
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -53,7 +53,7 @@ void subtract(Array *output, Array *left, Array *right)
     binary_array_iterator(left, right, output, subtract_lambda);
 }
 
-void transpose(Array *output, const Array *input, void *axes)
+void transpose(Array *output, const Array *input, const c_tuple * axes)
 {
     if (!axes) {
         // Default 2D transpose
@@ -142,7 +142,7 @@ void matrix_multiplication(Array *output, const Array *left, const Array *right)
     free(rstrides);
 }
 
-void reduce_sum(const Array *input, Array *output, const int *axes, int num_axes) 
+void reduce_sum(const Array *input, Array *output, const c_tuple * axes) 
 {
     // Initialize output to zero
     for (size_t i = 0; i < output->size; i++) {
@@ -157,9 +157,9 @@ void reduce_sum(const Array *input, Array *output, const int *axes, int num_axes
         }
     } else {
         // Mark specified axes for reduction
-        for (int i = 0; i < num_axes; i++) {
-            if (axes[i] >= 0 && axes[i] < input->ndim) {
-                reduce_mask[axes[i]] = 1;
+        for (int i = 0; i < axes->size; i++) {
+            if (axes->data[i] >= 0 && axes->data[i] < input->ndim) {
+                reduce_mask[axes->data[i]] = 1;
             }
         }
     }
@@ -203,37 +203,23 @@ void squared_error(Array *output, Array *input, Array *target)
     binary_array_iterator(input, target, output, squared_diff);
 }
 
-void reduce_mean(Array *output, Array *input, Array *axes, void *keepdim) 
+void reduce_mean(Array *output, Array *input, const c_tuple * axes, bool keepdim) 
 {
-    int num_axes = 0;
-    if (axes != NULL) {
-        num_axes = axes->ndim;
-    }
-    else {
-        num_axes = input->ndim;
-    }
-    // TODO: keepdim is NULL, add keepdim support.
     size_t N = 1;
     if (axes == NULL) {
         N = input->size;
     } else {
-        for (int i=0; i<axes->ndim; i++) {
-            N *= input->shape[(int) axes->data[i]];
+        for (int i=0; i<axes->size; i++) {
+            N *= input->shape[axes->data[i]];
         }
     }
-    // Convert float axes to int
-    int *int_axes = NULL;
-    if (axes != NULL) {
-        int_axes = (int *)malloc(num_axes * sizeof(int));
-        for (int i = 0; i < num_axes; i++) {
-            int_axes[i] = (int)(axes->data[i]);
-        }
-    }
-    reduce_sum(input, output, int_axes, num_axes);
+    // TODO: Keepdim
+    reduce_sum(input, output, axes);
     for (size_t i=0; i<output->size; i++) {
         output->data[i] /= N;
     }
 }
+
 
 
 void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right, Array *leftGradient, Array *rightGradient) 
@@ -250,8 +236,12 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
             for (int i = 0; i < ndim_diff; i++) {
                 reduce_axes[i] = i;
             }
-            reduce_sum(gradient, leftGradient, reduce_axes, ndim_diff);
+            c_tuple * axes = (c_tuple *)malloc(ndim_diff * sizeof(c_tuple));
+            axes->size = ndim_diff;
+            axes->data = reduce_axes;
+            reduce_sum(gradient, leftGradient, axes);
             free(reduce_axes);
+            free(axes);
         }
     } else {
         // Determine broadcasted dimensions for right
@@ -265,8 +255,12 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
             for (int i = 0; i < ndim_diff; i++) {
                 reduce_axes[i] = i;
             }
-            reduce_sum(gradient, rightGradient, reduce_axes, ndim_diff);
+            c_tuple * axes = (c_tuple *)malloc(ndim_diff * sizeof(c_tuple));
+            axes->size = ndim_diff;
+            axes->data = reduce_axes;
+            reduce_sum(gradient, rightGradient, axes);
             free(reduce_axes);
+            free(axes);
         }
     }
 }
@@ -288,9 +282,13 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
             int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
             for (int i = 0; i < ndim_diff; i++) 
                 reduce_axes[i] = i;
-            reduce_sum(temp, leftGradient, reduce_axes, ndim_diff);
+
+            c_tuple * axes = (c_tuple *)malloc(ndim_diff * sizeof(c_tuple));
+            axes->size = ndim_diff;
+            axes->data = reduce_axes;
+            reduce_sum(temp, leftGradient, axes);
             free(reduce_axes);
-            //add(leftGradient, temp, leftGradient);
+            free(axes);
         }
     } else {
         temp = create_full_struct(0.0f, gradient->ndim, gradient->shape);
@@ -306,8 +304,13 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
             int *reduce_axes = malloc(ndim_diff * sizeof(int));
             for (int i = 0; i < ndim_diff; i++) 
                 reduce_axes[i] = i;
-            reduce_sum(temp, rightGradient, reduce_axes, ndim_diff);
+
+            c_tuple * axes = (c_tuple *)malloc(ndim_diff * sizeof(c_tuple));
+            axes->size = ndim_diff;
+            axes->data = reduce_axes;
+            reduce_sum(temp, rightGradient, axes);
             free(reduce_axes);
+            free(axes);
         }
     }
     free(temp->data);
@@ -316,18 +319,18 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
     free(temp);
 }
 
-void transpose_grad(const Array *gradient, int idx, Array *output, const Array *left, const Array *right, Array *leftGradient, void *axes)
+void transpose_grad(const Array *gradient, int idx, Array *output, const Array *input, const c_tuple * axes, Array *inputGradient)
 {
     if (axes == NULL) {
         // For the standard 2D transpose, the gradient is just the transpose.
-        transpose(leftGradient, gradient, axes);
+        transpose(inputGradient, gradient, axes);
     } else {
         int ndim = gradient->ndim;
         int *axes_int = (int *)axes;
         int *inv_axes = (int *)malloc(ndim * sizeof(int));
         invert_permutation(axes_int, inv_axes, ndim);
         // Use the inverse permutation in the transpose.
-        transpose(leftGradient, gradient, (void *)inv_axes);
+        transpose(inputGradient, gradient, (void *)inv_axes);
         free(inv_axes);
     }
 }
@@ -396,28 +399,33 @@ void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *in
     free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *axes, bool keepdim, Array *inputGradient, Array *num_axes, bool keepdimGradient) 
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input, const c_tuple * axes, bool keepdim, Array *inputGradient) 
 {
-    // Target is not differentiable
-    if (idx != 0) 
+    if (idx != 0)
         return;
-    size_t N;
+
+    size_t N = 1;
     if (axes == NULL) {
         N = input->size;
     } else {
-        N = 1;
-        for (int i=0; i<num_axes->data[0]; i++) {
-            N *= input->shape[(int) axes->data[i]];
+        for (int i=0; i<axes->size; i++) {
+            // Ensure axes are valid before accessing shape
+            if (axes->data[i] < 0 || axes->data[i] >= input->ndim) {
+                 return;
+            }
+            N *= input->shape[axes->data[i]];
         }
     }
 
     int *bcast_strides = broadcastStride(outputGradient, input->shape, input->ndim);
+
     for (size_t i=0; i<input->size; i++) {
         size_t grad_idx = loc(i, input->shape, bcast_strides, input->ndim);
-        inputGradient->data[i] += outputGradient->data[grad_idx] / N;
+        inputGradient->data[i] += outputGradient->data[grad_idx] / (float)N; // Explicit cast to float for clarity if data is float
     }
     free(bcast_strides);
 }
+
 void matrix_multiplication_grad(const Array *gradient, int idx, Array *output ,const Array *left, const Array *right, Array *leftGradient, Array *rightGradient) 
 {
     // Get batch dimensions.

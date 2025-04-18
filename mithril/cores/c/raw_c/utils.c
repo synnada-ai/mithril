@@ -19,41 +19,27 @@
     a = b;              \
     b = temp;           \
 } while (0)
+#include <stdio.h>
 
-
-int *broadcastStride(const Array *t1, const int *shape, const int ndim) 
-{
-    int diff = ndim - t1->ndim;
-    int *oldStrides = t1->strides;
-    int *newStrides = (int *)malloc(ndim * sizeof(int));
-
-    for (size_t i = 0; i < ndim; i++)
-        newStrides[i] = 0;
-    if (t1->ndim == 1) 
-    {
-        // Handle 1D arrays
-        int target_dim = ndim - 1; 
-        int input_size = t1->shape[0];
-        int output_size = shape[target_dim];
-
-        if (input_size == 1 && output_size > 1) {
-            newStrides[target_dim] = 0;
-        } else {
-            newStrides[target_dim] = oldStrides[0];
-        }
-    } 
-    else 
-    {
-        for (size_t i = diff; i < t1->ndim; i++)
-        {
-            if (shape[i] == 1  || t1->shape[i - diff] == 1)
-                newStrides[i] = 0;
-            else
-                newStrides[i] = oldStrides[i - diff];
-        }
-    }
-    return newStrides;
-}
+int *broadcastStride(const Array *t1, const int *shape, const int ndim)
+ {
+     int diff = ndim - t1->ndim;
+     int *oldStrides = t1->strides;
+     int *newStrides = (int *)malloc(ndim * sizeof(int));
+ 
+     for (size_t i = 0; i < ndim; i++)
+         newStrides[i] = 0;
+ 
+     for (size_t i = diff; i < ndim; i++)
+     {
+        if (shape[i] == 1 || t1->shape[i - diff] == 1)
+            newStrides[i] = 0;
+        else
+            newStrides[i] = oldStrides[i - diff];
+     }
+ 
+     return newStrides;
+ }
 
 size_t loc(size_t idx, const int *shapes, const int *strides, const int ndim) 
 {

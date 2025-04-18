@@ -25,6 +25,11 @@
 
 typedef void (*Op)(float *output, float input);
 
+typedef struct {
+    size_t size;
+    int *data;
+} c_tuple;
+
 int *broadcastStride(const Array *t1, const int *shape, const int ndim);
 size_t loc(size_t idx, const int *shapes, const int *strides, const int ndim);
 void binary_array_iterator(const Array *left, const Array *right, Array *out, float (*op)(float, float));
@@ -38,5 +43,7 @@ void invert_permutation(const int *axes, int *inv_axes, int ndim);
 void scalar_add(Array *output, Array *input, float scalar);
 void scalar_multiply(Array *output, Array *input, float scalar);
 void scalar_subtract(Array *output, Array *input, float scalar);
+
+
 
 #endif

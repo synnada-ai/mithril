@@ -291,17 +291,6 @@ class GGMLCodeGen(CGen):
             ]
         )
 
-        # Create and build graph
-        init_block.extend(
-            [
-                c_ast.Comment("Create graph object only once"),  # type: ignore
-                c_ast.Assign(  # type: ignore
-                    c_ast.Variable(f"{fn_ref_name}_static_gf"),
-                    c_ast.Call("ggml_new_graph", [ctx_name]),
-                ),
-            ]
-        )
-
         # Add the original body operations
         init_block += operations  # type: ignore
 
@@ -369,8 +358,11 @@ class GGMLCodeGen(CGen):
         return struct_keys
 
     def pre_broadcast_to(
-        self, op: Operator, args: Sequence[str | int | float], context: str
-    ) -> tuple[Operator, list[str | int | float]]:
+        self,
+        op: Operator,
+        args: Sequence[str | int | float | bool | None],
+        context: str,
+    ) -> tuple[Operator, list[str | int | float | bool | None], list[c_ast.Stmt]]:
         shape_key = args[1]
         assert isinstance(shape_key, str), "Shape key must be a string"
         shape: tuple[int, ...] = self.pm.flat_graph.data_store.data_values[shape_key]  # type: ignore
@@ -378,7 +370,7 @@ class GGMLCodeGen(CGen):
         # GGML expects 4 dimensions for shape
         shape = shape + (1,) * (4 - len(shape))
 
-        return op, [*args[:-1], *shape]
+        return op, [*args[:-1], *shape], []
 
     def _generate_update_tensor_pointers(
         self, input_keys: list[str], context: str
