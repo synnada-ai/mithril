@@ -19,7 +19,7 @@ import multiprocessing as mp
 import socket
 from collections.abc import Callable, Sequence
 from functools import partial
-from multiprocessing.context import SpawnContext, SpawnProcess
+from multiprocessing.context import SpawnProcess
 from typing import Any
 
 import torch
@@ -75,21 +75,27 @@ class TorchParallel(Parallel[torch.Tensor]):
         self.is_alive = True
         self.initialized = False
         self.device = device
-        self.tensor_counter = (
-            0  # Syncs newly created tensors between main and child processes
-        )
+
+        # Stores the latest tensor id
+        # This is used to assign a unique id to each tensor
+        self.tensor_id_counter = 0
 
         self._init_processes()
 
     def _init_processes(self) -> None:
         self.op_list = dir(torch_ops.aten)
+        # Instruction queue sends instructions to the child processes
+        # These instructions does not contain any tensor data
+        # It only contains the instruction id, op_name, and args
         self.instruction_queue = SharedCyclicQueue(self.n_devices)
 
-        # Handles instruction communication between main and child processes
+        # The communication group is used to send heavy data that cannot be sended
+        # through the instruction queue (e.g. Tensor)
         self.communication_group: Any = None
 
         # Create data_queue for each child process
-        ctx: SpawnContext = mp.get_context("spawn")
+        # The data_queue is used to send the callable to the child processes
+        ctx = mp.get_context("spawn")
         data_queues = [ctx.Queue() for _ in range(self.n_devices - 1)]
 
         # Spawn child processes
@@ -103,7 +109,11 @@ class TorchParallel(Parallel[torch.Tensor]):
         self.data_queues: list[mp.Queue[str | Callable[..., torch.Tensor]]] = (
             data_queues
         )
+        # Tensor id reference is used to store the tensor id of the tensor
+        # that is created in the main process
+        # It maps the tensor id to the tensor id counter
         self.tensor_id_ref: dict[int, int] = {}
+
         while not self.initialized:
             port_name = self.get_portname()
             for data_queue in self.data_queues:
@@ -199,8 +209,10 @@ class TorchParallel(Parallel[torch.Tensor]):
         self,
         tensor: torch.Tensor,
         base_mesh: DeviceMesh,
-        device_mesh: tuple[int, ...] | None = None,
+        device_mesh: tuple[int, ...] | tuple[tuple[int, int], ...] | None = None,
     ) -> STensor:
+        # TODO: The name `device_mesh` is suck, it should be renamed
+
         assert (
             type(tensor) is torch.Tensor
         ), f"shard_tensor expects a torch.Tensor, but got a {type(tensor).__name__}"
@@ -208,24 +220,18 @@ class TorchParallel(Parallel[torch.Tensor]):
             isinstance(device_mesh, tuple) or device_mesh is None
         ), "device_mesh must be a tuple or None."
 
-        if device_mesh is not None:
-            utils.check_device_mesh(base_mesh, device_mesh)
-            if len(device_mesh) > len(tensor.shape):
-                raise ValueError(
-                    "Device mesh must have the same or less dimensions than the tensor."
-                )
+        n_device_mesh = utils.normalize_device_mesh(base_mesh.shape, device_mesh)
+
+        if n_device_mesh is not None:
+            utils.check_device_mesh(base_mesh, n_device_mesh)
 
             # Check if the tensor shape is divisible by the device mesh dims
-            for tensor_shape, mesh_shape in zip(
-                tensor.shape, device_mesh, strict=False
-            ):
-                if tensor_shape % mesh_shape != 0:
+            for axis, shard_dim in n_device_mesh:
+                if tensor.shape[axis] % shard_dim != 0:
                     raise ValueError(
                         "Sharding requires all dimensions to be divisible by"
                         " the device mesh dims."
                     )
-
-            device_mesh = device_mesh + (1,) * (base_mesh.ndim - len(device_mesh))
 
         tensor_dtype = tensor.dtype.__str__().split(".")[1]
         self._send_instrcs(
@@ -236,32 +242,36 @@ class TorchParallel(Parallel[torch.Tensor]):
             async_op=False,
         )
         dist.broadcast(tensor, src=0, group=self.communication_group)
-        self.tensor_id_ref[id(tensor)] = self.tensor_counter
+        self.tensor_id_ref[id(tensor)] = self.tensor_id_counter
 
-        if device_mesh is None:
-            placement_args = [Instructions.REPLICATE for _ in base_mesh.shape]
+        if n_device_mesh is None:
+            placement_args = [
+                (Instructions.REPLICATE, idx) for idx in range(len(base_mesh.shape))
+            ]
         else:
             placement_args = [
-                Instructions.SHARD if n_device > 1 else Instructions.REPLICATE
-                for n_device in device_mesh
+                (Instructions.SHARD, dim)
+                if shard_size > 1
+                else (Instructions.REPLICATE, dim)
+                for dim, shard_size in n_device_mesh
             ]
 
         self._send_instrcs(
             Instructions.PARALELLIZE,
             None,
-            (self.tensor_counter, *placement_args),
+            (self.tensor_id_counter, *placement_args),
             {"base_mesh": base_mesh.shape},
             async_op=False,
         )
         placements = [
-            Shard(idx) if placement == Instructions.SHARD else Replicate()
-            for idx, placement in enumerate(placement_args)
+            Shard(dim) if placement == Instructions.SHARD else Replicate()
+            for placement, dim in placement_args
         ]
         dtensor = distribute_tensor(tensor, base_mesh, placements=placements)
         stensor = STensor.from_dtensor(dtensor)
 
-        self.tensor_id_ref[id(stensor)] = self.tensor_counter + 1
-        self.tensor_counter += 2
+        self.tensor_id_ref[id(stensor)] = self.tensor_id_counter + 1
+        self.tensor_id_counter += 2
         return stensor
 
     def _send_instrcs(
@@ -310,8 +320,8 @@ class TorchParallel(Parallel[torch.Tensor]):
             case STensor():
                 self._save_result_callback(id(data))
             case DTensor():
-                self.tensor_ref[self.tensor_counter] = data
-                self.tensor_counter += 1
+                self.tensor_ref[self.tensor_id_counter] = data
+                self.tensor_id_counter += 1
 
         return data
 
@@ -343,15 +353,15 @@ class TorchParallel(Parallel[torch.Tensor]):
             return None
 
     def _save_result_callback(self, result_id: int) -> None:
-        self.tensor_id_ref[result_id] = self.tensor_counter
-        self.tensor_counter += 1
+        self.tensor_id_ref[result_id] = self.tensor_id_counter
+        self.tensor_id_counter += 1
 
     def _run_method(
         self, method_name: str, tensor: DTensor, args: tuple[DTensor, ...]
     ) -> None:
         res = getattr(tensor, method_name)(*args)
-        self.tensor_id_ref[self.tensor_counter] = res
-        self.tensor_counter += 1
+        self.tensor_id_ref[self.tensor_id_counter] = res
+        self.tensor_id_counter += 1
 
     def _initilize_parallel(self, rank: int, device: str, port_name: str) -> None:
         init_dist_group(
@@ -422,10 +432,10 @@ class TorchParallel(Parallel[torch.Tensor]):
                         kwargs,
                     )
                     result = getattr(torch_ops.aten, op_name)(*_args, **_kwargs)
-                    self.tensor_ref[self.tensor_counter] = (
+                    self.tensor_ref[self.tensor_id_counter] = (
                         result  # Result directly saved
                     )
-                    self.tensor_counter += 1
+                    self.tensor_id_counter += 1
                 case Instructions.FULL_TENSOR:
                     _tensor = apply_to_all_elems(
                         lambda x: self.tensor_ref[x.id]
@@ -493,8 +503,8 @@ class TorchParallel(Parallel[torch.Tensor]):
                     )
 
                     dist.broadcast(tensor, src=0, group=self.communication_group)
-                    self.tensor_ref[self.tensor_counter] = tensor
-                    self.tensor_counter += 1
+                    self.tensor_ref[self.tensor_id_counter] = tensor
+                    self.tensor_id_counter += 1
 
                 case Instructions.PARALELLIZE:
                     tensor = self.tensor_ref[args[0]]
@@ -508,12 +518,13 @@ class TorchParallel(Parallel[torch.Tensor]):
                     base_mesh = TorchParallel.device_meshes.get(base_mesh)
 
                     placements = [
-                        Shard(idx) if placement == Instructions.SHARD else Replicate()
-                        for idx, placement in enumerate(args[1:])
+                        Shard(dim) if placement == Instructions.SHARD else Replicate()
+                        for placement, dim in args[1:]
                     ]
+                    print(placements)
                     dtensor = distribute_tensor(tensor, base_mesh, placements)
-                    self.tensor_ref[self.tensor_counter] = dtensor
-                    self.tensor_counter += 1
+                    self.tensor_ref[self.tensor_id_counter] = dtensor
+                    self.tensor_id_counter += 1
 
                 case Instructions.INIT_MESH:
                     mesh_shape = tuple(args)
