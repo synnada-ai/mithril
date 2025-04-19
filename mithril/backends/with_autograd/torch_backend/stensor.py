@@ -19,15 +19,21 @@ from typing import Any
 
 import torch
 from torch.distributed._tensor import DTensor
+from torch.library import Library
 
-from .utils import Instructions, TensorRef
+from .utils import Instructions, TensorRef, register_async_matmul
+from ....cores.python.torch.ops import async_matmul_dtensor_handler
 
+aten = torch.ops.aten
 
 class STensor(DTensor):
     # STensor works exactly like PyTorch Dtensor except one main difference,
     # for every operation it is going to it will send a message via callback
     # function to the distribution center.
     _callback: Callable[..., Any]
+
+    register_async_matmul()
+    DTensor._op_dispatcher._custom_op_handlers[aten.mm.default] = async_matmul_dtensor_handler
 
     @staticmethod
     def extract_ref(data: Any) -> Any:
