@@ -28,12 +28,14 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch.distributed._tensor import DeviceMesh
+from torch.library import Library
 
 from .... import types
 from ....common import PythonGenConfig, find_dominant_type
 from ....cores.python.torch.utils import dtype_map
 from ....utils.type_utils import is_tuple_int
 from ...utils import DtypeSubTypes
+from ....cores.python.torch.ops import async_matmul_dtensor
 
 CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
 
@@ -529,3 +531,16 @@ def get_type(input: NestedTensorType, precision: int) -> torch.dtype:
         return torch.bool
 
     return getattr(torch, type + str(precision))
+
+def register_async_matmul():
+     #Construct the library
+     distributed_lib = Library("async_distributed", "DEF")
+     distributed_lib.define("matmul(Tensor self, Tensor other) -> Tensor")
+     
+     @torch.library.impl(distributed_lib, "matmul", "CPU")
+     def async_matmul(x, y):
+          return async_matmul_dtensor(x, y)
+     
+     @torch.library.impl(distributed_lib, "matmul", "CompositeImplicitAutograd")
+     def async_matmul_composite(x, y):
+          return torch.matmul(x, y)
