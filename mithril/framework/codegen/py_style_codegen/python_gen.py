@@ -79,11 +79,16 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         super().__init__(pm)
 
         self.module = ast.parse("")
+
+        # Tracks generated partial functions (e.g., for array creation)
+        # to avoid passing redundant device/dtype arguments in the generated code.
         self.defined_partial_fns: set[str] = set()
 
+        # Subsections of the generated file
         self.imports: list[ast.stmt] = []
         self.globals: list[ast.stmt] = []
         self.functions: list[ast.stmt] = []
+
         self.backend = self.pm.backend
 
         assert isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig)
@@ -91,6 +96,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
+
         self.imports += self.generate_imports()
         self.functions += self.generate_functions()
 
@@ -130,6 +136,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
 
         if self.file_path is not None:
+            # We are loading the generated code from a file
+            # This allows to debug from the generated code
             module_name = splitext(basename(self.file_path))[0]
 
             module_spec = importlib.util.spec_from_file_location(
@@ -145,8 +153,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
             return eval_fn, eval_grad_fn
 
+        # If the file path is not provided, we compile the code
+        # and execute it to define the function
+
         compiled_code = compile(self.code, "<string>", "exec")
-        # Execute the compiled code to define the function
         result: dict[str, Any] = {}
         exec(compiled_code, result)
         evaluate_fn = result["evaluate"]
@@ -162,6 +172,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             "source": self.code,
         }
 
+        # Wrap the generated function in a class that can be pickled
         eval_fn = GeneratedFunction(evaluate_fn, evaluate_metadata)
         grad_fn = (
             GeneratedFunction(evaluate_grad_fn, evaluate_grad_metadata)
@@ -231,6 +242,19 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return backend
 
+    def add_registered_primitives(self, func_name: str) -> ast.stmt:
+        assignment_target = ast.Name(id=func_name, ctx=ast.Store())
+        assignment_value = ast.Subscript(
+            value=ast.Attribute(
+                value=ast.Name(id="Backend", ctx=ast.Load()),
+                attr="registered_primitives",
+                ctx=ast.Load(),
+            ),
+            slice=ast.Constant(value=func_name),
+            ctx=ast.Load(),
+        )
+        return ast.Assign(targets=[assignment_target], value=assignment_value)
+
     def generate_imports(self) -> list[ast.stmt]:
         imports: list[ast.stmt] = []
         # Add import primitive functions
@@ -242,46 +266,17 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
         )
 
-        # Add registered primitives
+        # To be able to use the registered primitives, we need to import the backend
         if len(self.pm.backend.registered_primitives.keys()) > 0:
-            backend = self.import_backend()
-            imports.append(backend)
+            imports.append(self.import_backend())
 
+        # User can register a custom primitive into the backend
+        # we are using the registered primitive in the generated code
+        # by creating an object of the registered primitive
         for func_name in self.pm.backend.registered_primitives:
-            # Add function definition
-            assignment_target = ast.Name(id=func_name, ctx=ast.Store())
-            assignment_value = ast.Subscript(
-                value=ast.Attribute(
-                    value=ast.Name(id="Backend", ctx=ast.Load()),
-                    attr="registered_primitives",
-                    ctx=ast.Load(),
-                ),
-                slice=ast.Constant(value=func_name),
-                ctx=ast.Load(),
-            )
-            imports.append(
-                ast.Assign(targets=[assignment_target], value=assignment_value)
-            )
+            imports.append(self.add_registered_primitives(func_name))
 
         return imports
-
-    def is_static_scalar(self, key: str) -> bool:
-        return (
-            key in self.pm.flat_graph.cached_data
-            and not bool(self.pm.data[key].tensors)
-            and self.pm.data[key].edge_type != Dtype
-            and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
-        )
-
-    def get_primitive_details(
-        self, output_key: str
-    ) -> tuple[Operator, list[str], list[str]]:
-        model = self.pm.flat_graph.get_op(output_key)
-
-        global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
-        local_input_keys = list(model.input_keys)
-
-        return model, global_input_keys, local_input_keys
 
     def call_primitive(
         self,
@@ -292,6 +287,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         output_key: str,
         formula_key: str,
     ) -> tuple[ast.Assign, set[str]]:
+        # We divided operation generation into two parts:
+        # 1. Create the primitive call
+        # 2. Create the targets
+        # This is done because we need to add partial function for array creation
+        # but we need to do it after creating the targets
         generated_fn, used_keys = self.create_primitive_call(
             fn, l_input_keys, g_input_keys
         )
@@ -320,19 +320,25 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         determined_keys = cached_data_keys | unused_keys | discarded_keys
 
-        # Iterate over Primitive models in topological order to add their formula.
+        # Iterate over ops in topological order to add their formula.
         for output_key in self.pm.flat_graph.topological_order:
-            model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
-            formula_key = model.formula_key
-            primitive_function = (
-                self.pm.backend.primitive_function_dict[formula_key]
-                if formula_key in self.pm.backend.primitive_function_dict
-                else self.pm.backend.registered_primitives[formula_key]
-            )
+            # Get operator details
+            op, g_input_keys, l_input_keys = self.get_op_details(output_key)
+            formula_key = op.formula_key
+
+            if formula_key in self.pm.backend.op_function_dict:
+                primitive_function = self.pm.backend.op_function_dict[formula_key]
+            elif formula_key in self.pm.backend.registered_primitives:
+                primitive_function = self.pm.backend.registered_primitives[formula_key]
+            else:
+                raise ValueError(
+                    f"Formula key {formula_key} not found in primitive function dict or"
+                    " registered primitives"
+                )
 
             # Create primitive call
             primitive_call, _used_keys = self.call_primitive(
-                model,
+                op,
                 primitive_function,
                 l_input_keys,
                 g_input_keys,
@@ -345,27 +351,21 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             assigned_output_keys.add(output_key)
             function_body.append(primitive_call)
 
+            # Add deletion logic for intermediate variables
             for used_key in g_input_keys:
-                if (
-                    used_key in self.pm.flat_graph.output_dict.values()
-                    or used_key in deleted_vars
-                    or (
-                        used_key in self.pm.input_keys  # Inputs shouldn't deleted
-                        or self.pm.flat_graph.is_key_static(used_key)
-                    )
+                if not self._check_deletable(
+                    used_key,
+                    deleted_vars,
+                    determined_keys,
+                    assigned_output_keys,
                 ):
                     continue
 
-                keys = (
-                    set(self.pm.flat_graph.get_target_keys(used_key, False))
-                    - determined_keys
+                delete_stmt = ast.Delete(
+                    targets=[self._var_ref_ast(used_key, ast.Del())]
                 )
-
-                if keys.issubset(assigned_output_keys):
-                    function_body.append(
-                        ast.Delete(targets=[ast.Name(id=used_key, ctx=ast.Del())])
-                    )
-                    deleted_vars.add(used_key)
+                function_body.append(delete_stmt)
+                deleted_vars.add(used_key)
 
         for key in sorted(used_keys):
             if key in cached_data_keys:
@@ -385,7 +385,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         for output_key in self.pm.output_keys:
             # TODO: give an api to get outputdict
             if self.is_static_scalar(output_key):
-                self.is_static_scalar(output_key)
                 return_values.append(
                     ast.Constant(self.pm.flat_graph.cached_data[output_key])
                 )
@@ -432,6 +431,19 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         )
         return ast.fix_missing_locations(func_def)
 
+    def add_partial_function(self, formula_key: str) -> None:
+        # Simply creates partial functions for array creation fns
+        # To avoid redundant argument passing for array creation fns
+        # We are creating a partial function and adding it to the global scope
+        # This partial function will be used in the generated code
+        # instead of the original function definition
+
+        if formula_key in self.defined_partial_fns:
+            return
+
+        self.defined_partial_fns.add(formula_key)
+        self.globals.append(partial_array_creation_func(self.pm.backend, formula_key))
+
     def append_inputs(
         self, input_body: list[ast.stmt], key: str, dict_type: str
     ) -> None:
@@ -439,7 +451,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         # data (local variables and outputs) for the corresponding function.
         # So if the key is not directly an output of a function get it from
         # cache with the key itself.
-        if keyword.iskeyword(key) or key in self.pm.backend.primitive_function_dict:
+        if keyword.iskeyword(key) or key in self.pm.backend.op_function_dict:
             val = f"_{key}"
         else:
             val = key
@@ -506,6 +518,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         # Convert to AST nodes
         """Types that should be added inline are defined and appended 
         to code with their corresponding value."""
+
+        # Create args and kwargs
         args = []
         for arg_key in fn_arg_keys:
             if self.is_static_scalar(arg_key):
@@ -518,6 +532,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                         defaults=default_args,  # type:ignore
                     )
                 )
+
         kwargs = []
         for key, name in fn_kwarg_dict.items():
             if self.is_static_scalar(name):
@@ -544,7 +559,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
     ) -> tuple[list[ast.expr], set[str]]:
         if (
             keyword.iskeyword(output_key)
-            or output_key in self.pm.backend.primitive_function_dict
+            or output_key in self.pm.backend.op_function_dict
         ):
             target_name = "_" + output_key
         else:
@@ -553,13 +568,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         targets: list[ast.expr] = [self._var_ref_ast(target_name, ast.Store())]
 
         return targets, {target_name}
-
-    def add_partial_function(self, formula_key: str) -> None:
-        if formula_key in self.defined_partial_fns:
-            return
-
-        self.defined_partial_fns.add(formula_key)
-        self.globals.append(partial_array_creation_func(self.pm.backend, formula_key))
 
     def compute_evaluate(
         self,
@@ -689,10 +697,48 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return outputs, aux  # type: ignore
 
+    def get_op_details(self, output_key: str) -> tuple[Operator, list[str], list[str]]:
+        model = self.pm.flat_graph.get_op(output_key)
+
+        global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
+        local_input_keys = list(model.input_keys)
+
+        return model, global_input_keys, local_input_keys
+
+    def is_static_scalar(self, key: str) -> bool:
+        return (
+            key in self.pm.flat_graph.cached_data
+            and not bool(self.pm.data[key].tensors)
+            and self.pm.data[key].edge_type != Dtype
+            and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
+        )
+
     # Variable references will be created with this function
     def _var_ref_ast(self, name: str, ctx: ast.expr_context) -> ast.Name:
         # Make non keyword
-        if keyword.iskeyword(name) or name in self.backend.primitive_function_dict:
+        if keyword.iskeyword(name) or name in self.backend.op_function_dict:
             name = "_" + name
 
         return ast.Name(id=name, ctx=ctx)
+
+    def _check_deletable(
+        self,
+        used_key: str,
+        deleted_vars: set[str],
+        determined_keys: set[str],
+        assigned_output_keys: set[str],
+    ) -> bool:
+        # Skip if the key is essential or already deleted
+        if (
+            used_key in self.pm.flat_graph.output_dict.values()
+            or used_key in deleted_vars
+            or used_key in self.pm.input_keys
+            or self.pm.flat_graph.is_key_static(used_key)
+        ):
+            return False
+
+        # Find consumers of the key
+        target_keys = set(self.pm.flat_graph.get_target_keys(used_key, False))
+        remaining_consumers = target_keys - determined_keys
+
+        return remaining_consumers.issubset(assigned_output_keys)

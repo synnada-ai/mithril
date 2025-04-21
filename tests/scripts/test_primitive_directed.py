@@ -51,7 +51,7 @@ def assert_forward(
             key: backend.array(value) if isinstance(value, np.ndarray) else value
             for key, value in kwargs.items()
         }
-        primitive_fn = backend.primitive_function_dict[formula_key]
+        primitive_fn = backend.op_function_dict[formula_key]
         result = primitive_fn(*_args, **_kwargs)
         if not isinstance(expected_result, np.ndarray | tuple | list):
             assert result == expected_result
@@ -73,7 +73,7 @@ def manul_vjp(
     args,
     kwargs,
 ):
-    fn = backend.primitive_function_dict[formula_key]
+    fn = backend.op_function_dict[formula_key]
     grad_fn = backend.primitive_grad_function_dict[f"{formula_key}_grad"]
     input_grads = []
     cache: dict[str, np.ndarray] = {}
@@ -118,7 +118,7 @@ def assert_backward(
                 else:
                     static_args[key] = value
 
-            primitive_fn = backend.primitive_function_dict[formula_key]
+            primitive_fn = backend.op_function_dict[formula_key]
             primitive_fn = partial(primitive_fn, **static_args, **_kwargs)
             _, grads, _ = backend.vjp(
                 primitive_fn, list(trainable_args.values()), cotangents=_out_grad
