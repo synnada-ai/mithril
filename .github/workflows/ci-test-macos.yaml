@@ -80,17 +80,10 @@ jobs:
           popd
       - name: Install Python dependencies
         run: |
-          source activate mithril-test-ci
-          python3 -m pip install --upgrade pip
-          pip install torch==2.6
-          pip install --upgrade "jax[cpu]"
-          pip install mlx==0.21.1
           pip install -r requirements/dev.txt
       - name: Run pre-commit
         run: |
           source activate mithril-test-ci
-          python3 -m pip install mypy
-          python3 -m pip install pre-commit
           pre-commit run --all-files
       - name: Execute testcase unit tests
         run: |
