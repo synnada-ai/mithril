@@ -32,6 +32,7 @@ from torch.distributed._tensor import DeviceMesh
 from .... import types
 from ....common import PythonGenConfig, find_dominant_type
 from ....cores.python.torch.utils import dtype_map
+from ....utils.type_utils import is_tuple_int
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
@@ -456,17 +457,49 @@ class SharedCyclicQueue:
             pass
 
 
-def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]) -> None:
-    for idx, dim in enumerate(device_mesh):
-        if dim < 1:
+def check_device_mesh(
+    base_mesh: DeviceMesh, device_mesh: tuple[tuple[int, int], ...]
+) -> None:
+    if len(device_mesh) != len(base_mesh.shape):
+        raise ValueError(
+            "Device mesh must have the same number of dimensions as the base mesh."
+        )
+
+    for idx, (_, sharding) in enumerate(device_mesh):
+        if sharding < 1:
             raise ValueError(
-                f"Provided '{dim}' for device_mesh, but parallel execution requires"
-                f"each dim greater or equal to 1."
+                f"Provided '{sharding}' for device_mesh, but parallel execution"
+                f" requires each dim greater or equal to 1."
             )
-        if device_mesh[idx] != 1 and base_mesh.shape[idx] != device_mesh[idx]:
+
+        if sharding != 1 and base_mesh.shape[idx] != sharding:
             raise ValueError(
                 "Device mesh must be compatible with the model device mesh."
             )
+
+
+def normalize_device_mesh(
+    base_mesh: DeviceMesh,
+    device_mesh: tuple[int, ...] | tuple[tuple[int, int], ...] | None,
+) -> tuple[tuple[int, int], ...] | None:
+    # Normalizes device mesh to a tuple of tuples
+    # Assume given (2, 3) as device mesh, it will be normalized to ((0, 2), (1, 3))
+    base_mesh_shape = base_mesh.shape
+
+    n_device_mesh: tuple[tuple[int, int], ...] | None = ()
+    if is_tuple_int(device_mesh):
+        n_device_mesh = tuple((idx, dim) for idx, dim in enumerate(device_mesh))
+    else:
+        n_device_mesh = device_mesh  # type: ignore
+
+    if n_device_mesh is not None and len(n_device_mesh) < len(base_mesh_shape):
+        for idx in range(len(base_mesh_shape) - len(n_device_mesh)):
+            n_device_mesh += ((idx, 1),)
+
+    if n_device_mesh is not None:
+        check_device_mesh(base_mesh, n_device_mesh)
+
+    return n_device_mesh
 
 
 def determine_dtype(

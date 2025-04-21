@@ -15,11 +15,13 @@
 #ifndef MITHRIL_GGML_UTILS_H
 #define MITHRIL_GGML_UTILS_H
 
+#include "ggml/include/ggml.h"
+#include "ops.h"
+
+
 int accumulate_grads_helper(struct ggml_tensor * gradient, struct ggml_tensor * input);
 struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_tensor * gradient, struct ggml_tensor * input);
 
-#include "ggml/include/ggml.h"
-#include "ops.h"
 
 struct ggml_tensor * accumulate_grads(struct ggml_context * ctx, struct ggml_tensor * gradient, struct ggml_tensor * input)
 {

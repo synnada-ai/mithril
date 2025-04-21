@@ -49,6 +49,7 @@ from ..common import (
     find_intersection_type,
     find_type,
     get_shapes,
+    is_valued,
 )
 from ..constraints import constraint_type_map
 
@@ -1763,7 +1764,7 @@ class BaseModel:
             self.conns.cins.discard(key)
         # Data is scalar, set the value directly.
         updates = key.metadata.set_value(value, initial=initial)
-        if initial is True and not key.metadata._is_valued:
+        if initial is True and not is_valued(key.metadata._value):
             raise ValueError("Initial flag can only be set with value.")
         return updates
 

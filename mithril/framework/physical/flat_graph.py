@@ -934,7 +934,6 @@ class FlatGraph(GenericDataType[DataType]):
 
     def graph_update(self) -> None:
         # Currently only GGML needs graph update!
-
         for out_conn in list(self.model_table.values()):
             out_key = out_conn.key
             op = self.get_op(out_key)
@@ -961,7 +960,7 @@ class FlatGraph(GenericDataType[DataType]):
             # If left shape is not the same as output shape, we need to add
             # a broadcast_to operator.
             if left_shape != output_shape:
-                key = "broadcast_to_shape"
+                key = "broadcast_to_shape"  # TODO fix this key
                 shape_out_key = "broadcast_to_shape_output"
                 left_data = self.all_data[left_key]
                 self.update_data(
