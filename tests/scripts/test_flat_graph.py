@@ -530,3 +530,78 @@ def test_flat_graph_insert_to_output_siso_2():
     assert fg.get_target_keys("transpose_input") == ["sin_out"]
     assert fg.get_source_keys("transpose_input") == ["input"]
     assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
+
+
+def test_flat_graph_insert_errors():
+    # Insert after SISO operator
+    # The output is used by multiple operators
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+
+    # Insert operator that is not in the graph
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            "transpose_input",
+            cosine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Base operator `cos` must already be in the graph")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_before(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            cosine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Base operator `cos` must already be in the graph")
+
+    # Insert with wrong key
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            "transpose_input",
+            sine_op,
+            "asd",
+        )
+
+    assert str(e.value) == ("Inserted key `asd` must be in the keys dictionary")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            "sin_out",
+            sine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Source key `sin_out` must be in the keys dictionary")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_before(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            sine_op,
+            "asd",
+        )
+
+    assert str(e.value) == ("Inserted key `asd` must be in the keys dictionary")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_before(
+            transpose_op,
+            {"input": "transpose_input", "output": "qwerty"},
+            sine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Inserted key `sin_out` must be in the keys dictionary")

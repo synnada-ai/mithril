@@ -297,15 +297,17 @@ class FlatGraph(GenericDataType[DataType]):
         output_key = keys[Operator.output_key]
 
         if base_op not in self.model_table:
-            raise ValueError(f"Base operator {base_op} must already be in the graph")
+            raise ValueError(
+                f"Base operator `{base_op.formula_key}` must already be in the graph"
+            )
 
         if inserted_key not in keys.values():
             raise ValueError(
-                f"Inserted key {inserted_key} must be in the keys dictionary"
+                f"Inserted key `{inserted_key}` must be in the keys dictionary"
             )
 
         if output_key in self.all_keys:
-            raise ValueError(f"Output key {output_key} must not be in the graph")
+            raise ValueError(f"Output key `{output_key}` must not be in the graph")
 
         # Add the new operator to the graph
         self.add_value(new_op, keys)
@@ -334,16 +336,18 @@ class FlatGraph(GenericDataType[DataType]):
         target_key: str,
     ) -> None:
         if base_op not in self.model_table:
-            raise ValueError(f"Base operator {base_op} must already be in the graph")
+            raise ValueError(
+                f"Base operator `{base_op.formula_key}` must already be in the graph"
+            )
 
         if target_key not in keys.values():
             raise ValueError(
-                f"Inserted key {target_key} must be in the keys dictionary"
+                f"Inserted key `{target_key}` must be in the keys dictionary"
             )
 
         if new_source_key in self.all_keys:
             raise ValueError(
-                f"Source key {new_source_key} must be in the keys dictionary"
+                f"Source key `{new_source_key}` must be in the keys dictionary"
             )
 
         # Rename the base operator output key to the source key
