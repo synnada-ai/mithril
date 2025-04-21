@@ -68,9 +68,8 @@ void transpose(Array *output, const Array *input, const c_tuple * axes)
         }
     } else {
         // General N-D transpose
-        int *axes_arr = (int *)axes;
         int *inv_axes = malloc(input->ndim * sizeof(int));
-        invert_permutation(axes_arr, inv_axes, input->ndim);
+        invert_permutation(axes->data, inv_axes, input->ndim);
 
         // Recompute output strides based on transposed axes
         output->strides = compute_strides(output->shape, output->ndim);

@@ -56,3 +56,26 @@ def test_constant_float_array_tuple():
         c_ast.CStyleCodeGenerator().visit(constant_variable)
         == "const float * my_float = {1.0, 2.0, 3.0};"
     )
+
+
+def test_bool_constant():
+    constant_variable = c_ast.ConstantVariable("bool", "my_bool", c_ast.Constant(True))
+    assert (
+        c_ast.CStyleCodeGenerator().visit(constant_variable)
+        == "const bool my_bool = true;"
+    )
+
+
+def test_binary_op():
+    binary_op = c_ast.BinaryOp("+", c_ast.Constant(1), c_ast.Constant(2))
+    assert c_ast.CStyleCodeGenerator().visit(binary_op) == "1 + 2"
+
+
+def test_binary_op_with_variable():
+    binary_op = c_ast.BinaryOp("+", c_ast.Variable("x"), c_ast.Variable("y"))
+    assert c_ast.CStyleCodeGenerator().visit(binary_op) == "x + y"
+
+
+def test_binary_op_with_constant_and_variable():
+    binary_op = c_ast.BinaryOp("+", c_ast.Constant(1), c_ast.Variable("x"))
+    assert c_ast.CStyleCodeGenerator().visit(binary_op) == "1 + x"

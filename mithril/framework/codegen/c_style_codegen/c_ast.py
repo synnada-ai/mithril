@@ -209,18 +209,6 @@ class Cast(Expr):
     value: Expr
 
 
-@dataclass
-class ArrayDecl(Stmt):
-    """Array declaration (e.g., int arr[10]; or const int arr[] = {1, 2};)."""
-
-    type: str | Expr
-    name: str
-    size: Expr | None = None
-    initializer: InitializerList | None = None
-    is_const: bool = False
-    is_static: bool = False
-
-
 class CStyleCodeGenerator(NodeVisitor):
     """A visitor that generates C code from the AST."""
 
@@ -423,27 +411,6 @@ class CStyleCodeGenerator(NodeVisitor):
         left = self.visit(node.left)
         right = self.visit(node.right)
         return f"{left} {node.op} {right}"
-
-    def visit_arraydecl(self, node: ArrayDecl) -> str:
-        """Visit an array declaration node."""
-        type_str = self._format_type(node.type)
-        decl = ""
-        if node.is_static:
-            decl += "static "
-        if node.is_const:
-            decl += "const "
-        decl += f"{type_str} {node.name}"
-        size_str = ""
-        if node.size:
-            size_str = f"[{self.visit(node.size)}]"
-        elif node.initializer:
-            size_str = "[]"
-        decl += size_str
-
-        if node.initializer:
-            decl += f" = {self.visit(node.initializer)}"
-        decl += ";"
-        return decl
 
     def _format_type(self, node: str | Expr) -> str:
         if isinstance(node, Expr):
