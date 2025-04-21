@@ -241,7 +241,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return backend
 
-    def add_registered_primitives(self, func_name: str) -> ast.stmt:
+    def _add_registered_primitives(self, func_name: str) -> ast.stmt:
         assignment_target = ast.Name(id=func_name, ctx=ast.Store())
         assignment_value = ast.Subscript(
             value=ast.Attribute(
@@ -273,7 +273,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         # we are using the registered primitive in the generated code
         # by creating an object of the registered primitive
         for func_name in self.pm.backend.registered_primitives:
-            imports.append(self.add_registered_primitives(func_name))
+            imports.append(self._add_registered_primitives(func_name))
 
         return imports
 
