@@ -80,6 +80,7 @@ jobs:
           popd
       - name: Install Python dependencies
         run: |
+          source activate mithril-test-ci
           pip install -r requirements/dev.txt
       - name: Run pre-commit
         run: |
