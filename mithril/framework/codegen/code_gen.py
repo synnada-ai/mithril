@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import enum
 from abc import ABC, abstractmethod
 from typing import Generic
 
-from ...cores.core import DataType
+from ...types import DataType, Dtype
 from ..common import (
     EvaluateAllType,
     EvaluateType,
@@ -67,3 +68,11 @@ class CodeGen(ABC, Generic[DataType]):
         status = self.pm.has_grad(key)
         (self._no_grad_keys, self._grad_keys)[status].add(key)
         return status
+
+    def is_static_scalar(self, key: str) -> bool:
+        return (
+            key in self.pm.flat_graph.cached_data
+            and len(self.pm.data[key].tensors) == 0
+            and self.pm.data[key].edge_type != Dtype
+            and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
+        )

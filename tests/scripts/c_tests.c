@@ -110,14 +110,14 @@ void test_reduce_sum_axis0() {
     printf("test_reduce_sum_axis0\n");
     int input_shape[] = {3, 2};
     float input_data[] = {1, 2, 3, 4, 5, 6};
-    int axes[] = {0};
+    c_tuple axes = {1, (int[]){0}};
     int output_shape[] = {2};
     float expected[] = {9, 12};
     
     Array *input = create_struct(input_data, 2, input_shape);
     Array *output = create_empty_struct(1, output_shape);
     
-    reduce_sum(input, output, axes, 1);
+    reduce_sum(input, output, &axes);
     assert_array_equal(output, expected, 2);
     
     delete_struct(input);
@@ -273,18 +273,18 @@ void test_transpose_3d() {
     int input_shape[] = {2, 3, 4};
     float input_data[24];
     for (int i = 0; i < 24; i++) input_data[i] = i;
-    int axes[] = {2, 0, 1};
+    c_tuple axes = {3, (int[]){2, 0, 1}};
     int output_shape[] = {4, 2, 3};
-    
+
     Array *input = create_struct(input_data, 3, input_shape);
     Array *output = create_empty_struct(3, output_shape);
-    
-    transpose(output, input, axes);
-    
+
+    transpose(output, input, &axes);
+
     // Verify specific positions
     assert(fabs(output->data[output->strides[0]*1 + output->strides[1]*0 + output->strides[2]*0] - 1.0) < FLOAT_TOLERANCE);
     assert(fabs(output->data[output->strides[0]*2 + output->strides[1]*1 + output->strides[2]*1] - 18.0) < FLOAT_TOLERANCE);
-    
+
     delete_struct(input);
     delete_struct(output);
 }
@@ -315,14 +315,13 @@ void test_reduce_mean_axis0() {
     printf("test_reduce_mean_axis0\n");
     int input_shape[] = {2, 3};
     float input_data[] = {1,2,3,4,5,6};
-    int axes_data[] = {0};
     float expected[] = {2.5, 3.5, 4.5};
     
     Array *input = create_struct(input_data, 2, input_shape);
     Array *output = create_empty_struct(1, (int[]){2});
-    Array *axes = create_struct(axes_data, 1, (int[]){1});
+    c_tuple axes = {1, (int[]){0}};
     
-    reduce_mean(output, input, axes, NULL);
+    reduce_mean(output, input, &axes, NULL);
     assert_array_equal(output, expected, 2);
     
     delete_struct(input);
@@ -338,9 +337,9 @@ void test_reduce_mean_axis1() {
     
     Array *input = create_struct(input_data, 2, input_shape);
     Array *output = create_empty_struct(1, (int[]){2});
-    Array *axes = create_struct(axes_data, 1, (int[]){1});
+    c_tuple axes = {1, (int[]){1}};
 
-    reduce_mean(output, input, axes, NULL);
+    reduce_mean(output, input, &axes, NULL);
     assert_array_equal(output, expected, 2);
     
     delete_struct(input);
@@ -416,14 +415,13 @@ void test_reduce_mean_grad() {
     
     // Forward pass (reduce along axis 0)
     Array *output = create_empty_struct(1, (int[]){3});
-    Array *axes = create_struct((float[]){0}, 1, (int[]){1});
-    Array *num_axes = create_struct((float[]){1}, 1, (int[]){1});
-    reduce_mean(input, output, axes, NULL);
+    c_tuple axes = {1, (int[]){0}};
+    reduce_mean(input, output, &axes, false);
     
     // Backward pass
     Array *output_grad = create_struct((float[]){1,1,1}, 1, (int[]){3});
-    Array *input_grad = create_full_struct(0.0f, 2, input_shape);
-    reduce_mean_grad(output_grad, 0, output, input, axes, NULL, input_grad, num_axes, NULL);
+    Array *input_grad = create_full_struct(0.0f, 2, input_shape); 
+    reduce_mean_grad(output_grad, 0, output, input, &axes, false, input_grad);
     
     // Each element in input_grad should be 1/2 (since 2 elements averaged)
     float expected[] = {0.5,0.5,0.5,0.5,0.5,0.5};

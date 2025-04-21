@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import ast
-import enum
 import importlib
 import keyword
 from collections.abc import Callable
@@ -23,7 +22,7 @@ from typing import Any, Generic, Protocol
 
 from ....backends.backend import ParallelBackend
 from ....common import PythonGenConfig
-from ....types import DataType, Dtype
+from ....types import DataType
 from ....utils.func_utils import prepare_function_args
 from ...common import (
     DataEvalType,
@@ -264,14 +263,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
 
         return imports
-
-    def is_static_scalar(self, key: str) -> bool:
-        return (
-            key in self.pm.flat_graph.cached_data
-            and not bool(self.pm.data[key].tensors)
-            and self.pm.data[key].edge_type != Dtype
-            and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
-        )
 
     def get_primitive_details(
         self, output_key: str
