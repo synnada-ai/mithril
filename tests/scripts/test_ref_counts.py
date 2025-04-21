@@ -15,6 +15,7 @@
 
 import sys
 from copy import deepcopy
+from typing import Any
 
 from mithril.framework.common import (
     NOT_GIVEN,
@@ -23,6 +24,7 @@ from mithril.framework.common import (
 )
 from mithril.framework.logical.base import BaseKey
 from mithril.models import (
+    MLP,
     TBD,
     Add,
     BaseModel,
@@ -1533,6 +1535,36 @@ def test_deleted_edge_ref_count() -> None:
     # also we have one additional ref in ref_var variables.
     # So refcount == 2 means it there is no additional reference left.
     assert sys.getrefcount(ref_var1) == 2 or sys.getrefcount(ref_var2) == 2
+
+
+def test_deleted_dependency_map():
+    model = Model()
+    add_1 = Add()
+    add_2 = Add()
+    model |= add_1(left="left1", right="right1", output="output1")
+
+    assert add_1.dependency_map._global_input_dependency_map is None
+    assert add_1.dependency_map._global_input_dependency_map_cache is None
+    assert add_1.dependency_map._global_output_dependency_map is None
+    assert add_1.dependency_map._global_output_dependency_map_cache is None
+    assert add_1.dependency_map._local_input_dependency_map is None
+
+    model |= add_2(left="left2", right="right2", output="output2")
+
+    assert add_2.dependency_map._global_input_dependency_map is None
+    assert add_2.dependency_map._global_input_dependency_map_cache is None
+    assert add_2.dependency_map._global_output_dependency_map is None
+    assert add_2.dependency_map._global_output_dependency_map_cache is None
+    assert add_2.dependency_map._local_input_dependency_map is None
+
+
+def test_total_object_count_ten_layer_mlp():
+    model = MLP(
+        activations=[Relu() for _ in range(10)], dimensions=[10 for _ in range(10)]
+    )
+    memo: dict[Any, Any] = {}
+    deepcopy(model, memo)
+    assert len(memo) <= 9000
 
 
 def test_hyperedges_match_list_of_tensors_with_tbd():

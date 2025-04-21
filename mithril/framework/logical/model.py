@@ -490,7 +490,7 @@ class Model(BaseModel):
         provisional_model.enforce_jit = self.enforce_jit
         updates = self.constraint_solver.match(provisional_model.constraint_solver)
         self.constraint_solver(updates)
-        provisional_model.constraint_solver = self.constraint_solver
+        provisional_model._constraint_solver = self._constraint_solver
 
     def _extend_op_model(
         self,

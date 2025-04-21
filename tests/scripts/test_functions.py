@@ -695,6 +695,7 @@ def test_code_generator_8(file_path: str):
 
     model |= add(left="left", right="right")
     model |= Multiply()(left=add.output, right="right2", output="output")
+    model.set_types(right2=Tensor)
 
     mithril.compile(model, backend=backend, jit=False, file_path=file_path)
 

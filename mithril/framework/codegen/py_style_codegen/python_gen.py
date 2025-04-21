@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import ast
-import enum
 import importlib
 import keyword
 from collections.abc import Callable
@@ -23,7 +22,7 @@ from typing import Any, Generic, Protocol
 
 from ....backends.backend import ParallelBackend
 from ....common import PythonGenConfig
-from ....types import DataType, Dtype
+from ....types import DataType
 from ....utils.func_utils import prepare_function_args
 from ...common import (
     DataEvalType,
@@ -277,6 +276,16 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             imports.append(self.add_registered_primitives(func_name))
 
         return imports
+
+    def get_primitive_details(
+        self, output_key: str
+    ) -> tuple[Operator, list[str], list[str]]:
+        model = self.pm.flat_graph.get_op(output_key)
+
+        global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
+        local_input_keys = list(model.input_keys)
+
+        return model, global_input_keys, local_input_keys
 
     def call_primitive(
         self,

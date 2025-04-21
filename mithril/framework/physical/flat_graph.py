@@ -99,6 +99,7 @@ class FlatGraph(GenericDataType[DataType]):
         ] = {}  # Assumed connections added in topological order.
         self._all_source_keys: set[str] = set()
         self._all_target_keys: set[str] = set(output_keys)
+        self._all_keys: set[str] = set()
 
         self._input_keys = input_keys
 
@@ -270,6 +271,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         # Create input connections
         for inner_key, outer_key in keys.items():
+            self._all_keys.add(outer_key)
             if inner_key == Operator.output_key:
                 continue
 
@@ -631,7 +633,7 @@ class FlatGraph(GenericDataType[DataType]):
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
                 if (
-                    value in static_keys
+                    value in self.data_store.data_values
                     or value in self.unused_keys
                     or value in state_outputs
                 ):
@@ -640,7 +642,7 @@ class FlatGraph(GenericDataType[DataType]):
                 value_mapping = self.get_source_keys(value)
 
                 # To infer a model, all of its input keys should be in statics.
-                if not set(value_mapping).issubset(static_keys):
+                if not all(key in self.data_store.data_values for key in value_mapping):
                     continue
 
                 model = self.get_op(value)
@@ -692,8 +694,10 @@ class FlatGraph(GenericDataType[DataType]):
                 static_value = fn(*args, **kwargs)
 
                 # Check astype needed
-                if self.backend.is_manualgrad and is_type_adjustment_required(
-                    self.all_data, value_mapping
+                if (
+                    self.backend.is_manualgrad
+                    and is_type_adjustment_required(self.all_data, value_mapping)
+                    and isinstance(static_value, self.backend.get_backend_array_type())
                 ):
                     static_value = self.backend.array(static_value)
 
@@ -703,7 +707,6 @@ class FlatGraph(GenericDataType[DataType]):
                         static_value = self.backend.array(static_value)
 
                 _queue, _updates = self.add_static_data(value, static_value)
-                static_keys = set(self.data_store.data_values.keys())
                 queue |= _queue
                 updates |= _updates
         return updates
@@ -765,8 +768,9 @@ class FlatGraph(GenericDataType[DataType]):
                     updates |= data.set_value(value)
             else:
                 # Convert value to logical representaiton and set accordingly.
-                x = self.data_store.convert_phys_value_to_logical(value)
-                updates |= data.set_value(x)
+                if key in self.runtime_static_keys:
+                    x = self.data_store.convert_phys_value_to_logical(value)
+                    updates |= data.set_value(x)
 
             self.cached_data[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)
@@ -985,6 +989,14 @@ class FlatGraph(GenericDataType[DataType]):
 
     def get_key_shape(self, key: str) -> list[int]:
         return self.data_store.get_key_shape(key)
+
+    def get_next_unique_key(self, prefix: str) -> str:
+        i = 0
+        while f"{prefix}_{i}" in self._all_keys:
+            i += 1
+
+        self._all_keys.add(f"{prefix}_{i}")
+        return f"{prefix}_{i}"
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
