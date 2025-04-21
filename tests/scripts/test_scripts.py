@@ -4536,7 +4536,7 @@ def test_dependency_map_latent_to_input():
     model = Model()
     mean = Mean(axis=1)
     mean_op = list(mean.dag.keys())[0]
-    assert mean.dependency_map.local_input_dependency_map == {
+    assert mean.dependency_map._local_input_dependency_map == {
         mean.input: [(mean_op, {mean.output})],
         mean.axis: [(mean_op, {mean.output})],
         mean.keepdim: [(mean_op, {mean.output})],
@@ -4580,8 +4580,10 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     # Add second model with global output.
     model += (buff := Buffer())(output=IOKey("buff_out"))
@@ -4608,8 +4610,10 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
@@ -4646,8 +4650,10 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
 
 def test_dependency_map_1():
@@ -4674,8 +4680,10 @@ def test_dependency_map_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -4713,8 +4721,10 @@ def test_dependency_map_1_expose_keys():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -4774,8 +4784,10 @@ def test_dependency_map_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -4837,8 +4849,10 @@ def test_dependency_map_2_expose_keys():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -4890,8 +4904,10 @@ def test_dependency_map_3():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -4944,8 +4960,10 @@ def test_dependency_map_3_expose_keys():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -4997,8 +5015,10 @@ def test_dependency_map_4():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5051,8 +5071,10 @@ def test_dependency_map_4_expose_keys_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5106,8 +5128,10 @@ def test_dependency_map_4_expose_keys_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5171,8 +5195,10 @@ def test_dependency_map_5():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5237,8 +5263,10 @@ def test_dependency_map_5_expose_keys_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5303,8 +5331,10 @@ def test_dependency_map_5_expose_keys_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5368,8 +5398,10 @@ def test_dependency_map_6():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5436,8 +5468,10 @@ def test_dependency_map_6_expose_keys_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5502,8 +5536,10 @@ def test_dependency_map_6_expose_keys_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5569,8 +5605,10 @@ def test_dependency_map_7():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5637,8 +5675,10 @@ def test_dependency_map_7_expose_keys_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
@@ -5705,8 +5745,10 @@ def test_dependency_map_7_expose_keys_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
-    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
     assert (
         expected_global_input_map_cache
