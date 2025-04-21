@@ -2051,8 +2051,6 @@ class DependencyMap:
     def global_input_dependency_map(
         self,
     ) -> dict[ConnectionData, OrderedSet[ConnectionData]]:
-        if self._global_input_dependency_map is None:
-            ...
         assert self._global_input_dependency_map is not None
         return self._global_input_dependency_map
 
