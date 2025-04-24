@@ -27,7 +27,7 @@ def test_c_static_inference_add():
     """
     model = Model()
 
-    model += Add()(left="left", right="right", output="output")
+    model += Add().connect(left="left", right="right", output="output")
     model.set_types(left=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -98,7 +98,7 @@ def test_c_static_inference_multiply():
     """
     model = Model()
 
-    model += Multiply()(left="left", right="right", output="output")
+    model += Multiply().connect(left="left", right="right", output="output")
     model.set_types(left=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -169,8 +169,8 @@ def test_c_static_inference_add_multiply():
     """
     model = Model()
 
-    model += Add()(left="left", right="right", output="output")
-    model |= Multiply()(left="left1", right="right1", output="output2")
+    model += Add().connect(left="left", right="right", output="output")
+    model |= Multiply().connect(left="left1", right="right1", output="output2")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
@@ -247,8 +247,8 @@ def test_c_static_inference_add_multiply_partial_static():
     """
     model = Model()
 
-    model += Add()(left="left", right="right", output="output")
-    model |= Multiply()(left="left1", right="right1", output="output2")
+    model += Add().connect(left="left", right="right", output="output")
+    model |= Multiply().connect(left="left1", right="right1", output="output2")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
@@ -333,9 +333,9 @@ def test_c_static_inference_cache_input():
     """
     model = Model()
 
-    model += Add()(left="left", right="right", output="output")
-    model |= Multiply()(left="left1", right="right1", output="output2")
-    model |= Multiply()(left="left", right="output", output="output3")
+    model += Add().connect(left="left", right="right", output="output")
+    model |= Multiply().connect(left="left1", right="right1", output="output2")
+    model |= Multiply().connect(left="left", right="output", output="output3")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
@@ -420,9 +420,9 @@ def test_c_static_inference_connected_output():
     """
     model = Model()
 
-    model += Add()(left="left", right="right", output="output")
-    model |= Multiply()(left="left1", right="right1", output="output2")
-    model |= Add()(left="output2", right="output", output="output3")
+    model += Add().connect(left="left", right="right", output="output")
+    model |= Multiply().connect(left="left1", right="right1", output="output2")
+    model |= Add().connect(left="output2", right="output", output="output3")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()

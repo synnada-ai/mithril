@@ -127,7 +127,7 @@ def test_reset_static_data():
     Tests for constant_keys and data_keys.
     """
     model = Model()
-    model += Linear(1, True)(input=IOKey(name="input", value=Tensor([[2.0]])))
+    model += Linear(1, True).connect(input=IOKey(name="input", value=Tensor([[2.0]])))
 
     backend = TorchBackend()
     kwargs: dict
@@ -149,7 +149,7 @@ def test_reset_static_data_2():
     Tests for constant_keys and data_keys for connection type keys.
     """
     model = Model()
-    model += Linear(1, True)(input=IOKey(name="input", value=Tensor([[2.0]])))
+    model += Linear(1, True).connect(input=IOKey(name="input", value=Tensor([[2.0]])))
 
     backend = TorchBackend()
     kwargs: dict
@@ -172,7 +172,7 @@ def test_check_keys_disjoint_sets():
     must be disjoint sets.
     """
     model = Model()
-    model += (lin_model := Linear(1, True))("input")
+    model += (lin_model := Linear(1, True)).connect("input")
 
     backend = TorchBackend()
     with pytest.raises(ValueError) as err_info:
@@ -204,8 +204,8 @@ def test_static_keys_inputs_only():
     other than the inputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model |= Multiply()(left="lin_out", output=IOKey(name="output"))
+    model += (lin_model := Linear(1, True)).connect(input="input", output="lin_out")
+    model |= Multiply().connect(left="lin_out", output=IOKey(name="output"))
 
     backend = TorchBackend()
     with pytest.raises(KeyError) as err_info:
@@ -222,8 +222,8 @@ def test_trainable_keys_inputs_only():
     other than the inputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model |= Multiply()(left="lin_out", output=IOKey(name="output"))
+    model += (lin_model := Linear(1, True)).connect(input="input", output="lin_out")
+    model |= Multiply().connect(left="lin_out", output=IOKey(name="output"))
 
     backend = TorchBackend()
     with pytest.raises(KeyError) as err_info:
@@ -240,8 +240,8 @@ def test_discard_keys_input_and_outputs_only():
     other than the inputs and outputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model |= Multiply()(left="lin_out", output=IOKey(name="output"))
+    model += (lin_model := Linear(1, True)).connect(input="input", output="lin_out")
+    model |= Multiply().connect(left="lin_out", output=IOKey(name="output"))
 
     backend = TorchBackend()
     with pytest.raises(KeyError) as err_info:
@@ -278,7 +278,7 @@ def test_iterable_type_keys():
     only non_trainable key to a trainable key.
     """
     model = Model()
-    model += Linear(1, True)("input")
+    model += Linear(1, True).connect("input")
 
     backend = TorchBackend()
     for typ in [list, tuple, set, dict]:

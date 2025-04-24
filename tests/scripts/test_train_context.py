@@ -51,9 +51,9 @@ def test_add_loss_case_1():
     buff1 = Buffer()
     relu1 = Relu()
     relu2 = Relu()
-    model |= buff1(input="input")
-    model |= relu1(input=buff1.output)
-    model |= relu2(input=relu1.output)
+    model |= buff1.connect(input="input")
+    model |= relu1.connect(input=buff1.output)
+    model |= relu2.connect(input=relu1.output)
 
     ctx2 = TrainModel(model)
     ctx2.add_loss(
@@ -70,9 +70,9 @@ def test_add_loss_case_2():
 
     inputs = {"input": np.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])}
 
-    model |= relu1(input=IOKey("input", differentiable=True))
-    model |= relu2(input=relu1.output)
-    model |= relu3(input=relu2.output, output=IOKey(name="output"))
+    model |= relu1.connect(input=IOKey("input", differentiable=True))
+    model |= relu2.connect(input=relu1.output)
+    model |= relu3.connect(input=relu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(
@@ -106,10 +106,10 @@ def test_add_loss_case_2_exception_2():
     relu3 = Relu()
     relu4 = Relu()
 
-    model |= relu1(input="input")
-    model |= relu2(input=relu1.output)
-    model |= relu3(input=relu2.output, output=IOKey(name="output1"))
-    model |= relu4(input=relu3.output, output=IOKey(name="output2"))
+    model |= relu1.connect(input="input")
+    model |= relu2.connect(input=relu1.output)
+    model |= relu3.connect(input=relu2.output, output=IOKey(name="output1"))
+    model |= relu4.connect(input=relu3.output, output=IOKey(name="output2"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(
@@ -147,9 +147,9 @@ def test_add_loss_case_3():
         "input": backend.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
     }
 
-    model |= relu1(input=IOKey("input", differentiable=True))
-    model |= relu2(input=relu1.output)
-    model |= relu3(input=relu2.output, output=IOKey(name="output"))
+    model |= relu1.connect(input=IOKey("input", differentiable=True))
+    model |= relu2.connect(input=relu1.output)
+    model |= relu3.connect(input=relu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(Relu(), [Min(axis=-1), Sum()], input="output")
@@ -175,9 +175,9 @@ def test_add_loss_case_4():
     sigmoid2 = Sigmoid()
     sigmoid3 = Sigmoid()
 
-    model |= sigmoid1(input="input")
-    model |= sigmoid2(input=sigmoid1.output)
-    model |= sigmoid3(input=sigmoid2.output, output=IOKey(name="final_cost"))
+    model |= sigmoid1.connect(input="input")
+    model |= sigmoid2.connect(input=sigmoid1.output)
+    model |= sigmoid3.connect(input=sigmoid2.output, output=IOKey(name="final_cost"))
 
     with pytest.raises(Exception) as err_info:
         TrainModel(model)
@@ -194,9 +194,9 @@ def test_add_loss_case_5():
     lrelu2 = LeakyRelu()
     lrelu3 = LeakyRelu()
 
-    model |= lrelu1(input="input")
-    model |= lrelu2(input=lrelu1.output)
-    model |= lrelu3(input=lrelu2.output, output=IOKey(name="output"))
+    model |= lrelu1.connect(input="input")
+    model |= lrelu2.connect(input=lrelu1.output)
+    model |= lrelu3.connect(input=lrelu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
 
@@ -217,9 +217,9 @@ def test_add_loss_case_6():
     relu2 = Relu()
     relu3 = Relu()
 
-    model |= relu1(input="input")
-    model |= relu2(input=relu1.output)
-    model |= relu3(input=relu2.output, output=IOKey(name="output"))
+    model |= relu1.connect(input="input")
+    model |= relu2.connect(input=relu1.output)
+    model |= relu3.connect(input=relu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
 
@@ -237,18 +237,18 @@ def test_add_loss_case_7():
     relu2 = Relu()
     relu3 = Relu()
 
-    LossModel |= relu1(input="input")
-    LossModel |= relu2(input=relu1.output, output=IOKey(name="output1"))
-    LossModel |= relu3(input=relu1.output, output=IOKey(name="output2"))
+    LossModel |= relu1.connect(input="input")
+    LossModel |= relu2.connect(input=relu1.output, output=IOKey(name="output1"))
+    LossModel |= relu3.connect(input=relu1.output, output=IOKey(name="output2"))
 
     model = Model()
     relu4 = Relu()
     relu5 = Relu()
     relu6 = Relu()
 
-    model |= relu4(input="input")
-    model |= relu5(input=relu4.output)
-    model |= relu6(input=relu5.output, output=IOKey(name="output"))
+    model |= relu4.connect(input="input")
+    model |= relu5.connect(input=relu4.output)
+    model |= relu6.connect(input=relu5.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
     with pytest.raises(Exception) as err_info:
@@ -269,9 +269,9 @@ def test_add_loss_case_8():
     relu2 = Relu()
     relu3 = Relu()
 
-    model |= relu1(input=IOKey("input", differentiable=True))
-    model |= relu2(input=relu1.output, output=IOKey(name="output1"))
-    model |= relu3(input=relu1.output, output=IOKey(name="output2"))
+    model |= relu1.connect(input=IOKey("input", differentiable=True))
+    model |= relu2.connect(input=relu1.output, output=IOKey(name="output1"))
+    model |= relu3.connect(input=relu1.output, output=IOKey(name="output2"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(Relu(), [Sum(), Sum()], input="output1")
@@ -302,9 +302,9 @@ def test_add_loss_case_9():
     sigmoid2 = Relu()
     sigmoid3 = Relu()
 
-    model |= sigmoid1(input=IOKey("input", differentiable=True))
-    model |= sigmoid2(input=sigmoid1.output, output=IOKey(name="output1"))
-    model |= sigmoid3(input=sigmoid1.output, output=IOKey(name="output2"))
+    model |= sigmoid1.connect(input=IOKey("input", differentiable=True))
+    model |= sigmoid2.connect(input=sigmoid1.output, output=IOKey(name="output1"))
+    model |= sigmoid3.connect(input=sigmoid1.output, output=IOKey(name="output2"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(Relu(), [Sum(axis=(1,))], input="output1")
@@ -328,7 +328,7 @@ def test_add_loss_case_9():
 def test_add_metric_1():
     model = Model()
     buff1 = Buffer()
-    model += buff1(input="input")
+    model += buff1.connect(input="input")
 
     ctx2 = TrainModel(model)
     ctx2.add_loss(Relu(), input=buff1.output)
@@ -349,7 +349,7 @@ def test_add_metric_1():
 def test_add_metric_2():
     model = Model()
     buff1 = Buffer()
-    model += buff1(input="input")
+    model += buff1.connect(input="input")
 
     ctx2 = TrainModel(model)
     ctx2.add_loss(Relu(), input=buff1.output)
@@ -373,7 +373,7 @@ def test_add_metric_2():
 def test_add_regularization_case_1():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(
+    model += linear_1.connect(
         output="output",
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
@@ -389,7 +389,7 @@ def test_add_regularization_case_2():
     model = Model()
     linear_1 = Linear()
 
-    model |= linear_1(
+    model |= linear_1.connect(
         output="output",
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
@@ -406,7 +406,7 @@ def test_add_regularization_case_2():
 def test_add_regularization_case_3():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(
+    model += linear_1.connect(
         output="output",
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
@@ -421,7 +421,7 @@ def test_add_regularization_case_3():
 def test_add_regularization_case_6():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(
+    model += linear_1.connect(
         output="output",
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
@@ -436,7 +436,7 @@ def test_add_regularization_case_6():
 def test_add_regularization_case_7():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(
+    model += linear_1.connect(
         output="output",
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
@@ -459,7 +459,7 @@ def test_add_regularization_case_7_exception():
     """
     model = Model()
     linear_1 = Linear()
-    model += linear_1(
+    model += linear_1.connect(
         output=IOKey(name="output"),
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
@@ -482,7 +482,7 @@ def test_add_regularization_case_7_exception():
 
 def test_autogenerated_key_regularization_integrated_linear_9():
     model = Model()
-    model += Linear()(input="input", bias="b", output=IOKey(name="output"))
+    model += Linear().connect(input="input", bias="b", output=IOKey(name="output"))
 
     ctx = TrainModel(model)
     # Here, user did not provide any naming for the weight to be regularized.
@@ -538,7 +538,7 @@ def test_autogenerated_key_regularization_integrated_linear_9():
 
 def test_autogenerated_key_regularization_integrated_nn_7_regex():
     model = Model()
-    model += MLP(dimensions=[3, 2], activations=[Sigmoid(), Softmax()])(
+    model += MLP(dimensions=[3, 2], activations=[Sigmoid(), Softmax()]).connect(
         input="input", output=IOKey(name="output")
     )
 
@@ -628,7 +628,7 @@ def test_autogenerated_key_regularization_integrated_nn_7_regex():
 
 def test_train_model_extend():
     model = Model()
-    model += MLP(dimensions=[3, 2], activations=[Sigmoid(), Softmax()])(
+    model += MLP(dimensions=[3, 2], activations=[Sigmoid(), Softmax()]).connect(
         input="input", output="output"
     )
 
@@ -642,7 +642,7 @@ def test_train_model_extend():
 
 def test_train_model_extended():
     model = Model()
-    model += MLP(dimensions=[3, 2], activations=[Sigmoid(), Softmax()])(
+    model += MLP(dimensions=[3, 2], activations=[Sigmoid(), Softmax()]).connect(
         input="input", output="output"
     )
 
@@ -658,13 +658,13 @@ def test_train_model_extended():
 def test_add_loss_compile_shape_1():
     model = Model()
     relu = Relu()
-    model += relu(input="input")
+    model += relu.connect(input="input")
     ctx1 = TrainModel(model)
     ctx1.add_loss(SquaredError(), input=relu.output, target="target")
 
     model = Model()
     relu = Relu()
-    model += relu(input="input")
+    model += relu.connect(input="input")
     ctx2 = TrainModel(model)
     ctx2.add_loss(SquaredError(), input=relu.output, target="target")
 

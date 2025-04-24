@@ -36,7 +36,7 @@ primitive_lut = JaxBackend().primitive_function_dict
 
 def test_with_all_defined():
     model = Model()
-    model += (add := Add())(left="a", right="b", output="c")
+    model += (add := Add()).connect(left="a", right="b", output="c")
     f_model = FlatModel(model, primitive_lut, short_namings=True)
     _add = add.submodel
     assert f_model.mappings == {_add: {"left": "a", "right": "b", "output": "c"}}
@@ -46,7 +46,7 @@ def test_with_all_defined():
 
 def test_with_some_undefined():
     model = Model()
-    model += (add := Add())(right="b", output="c")
+    model += (add := Add()).connect(right="b", output="c")
     _add = add.submodel
 
     f_model = FlatModel(model, primitive_lut, short_namings=True)
@@ -57,7 +57,7 @@ def test_with_some_undefined():
 
 def test_with_all_undefined():
     model = Model()
-    model += (add := Add())()
+    model += (add := Add()).connect()
 
     f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {
@@ -67,7 +67,7 @@ def test_with_all_undefined():
 
 def test_multi_level_name_with_lowest_definition():
     model2 = Model("adder")
-    model2 += (add := Add())(left="a", right="b", output="c")
+    model2 += (add := Add()).connect(left="a", right="b", output="c")
     _add = add.submodel
 
     model1 = Model(name="model")
@@ -89,13 +89,13 @@ def test_multi_level_name_with_lowest_definition():
 
 def test_multi_level_name_with_lowest_definition_higher_redefinition_1():
     model2 = Model(name="adder")
-    model2 += (add_model := Add())(left="a", right="b", output="c")
+    model2 += (add_model := Add()).connect(left="a", right="b", output="c")
     _add = add_model.submodel
 
     model1 = Model(name="namer")
-    model1 += model2(a="d", b="e")
+    model1 += model2.connect(a="d", b="e")
     model = Model()
-    model += model1(e="f")
+    model += model1.connect(e="f")
 
     f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {_add: {"left": "d", "right": "f", "output": "c"}}
@@ -107,11 +107,11 @@ def test_multi_level_name_with_lowest_definition_higher_redefinition_1():
 
 def test_multi_level_name_with_lowest_definition_higher_redefinition_2():
     model2 = Model()
-    model2 += (add_model := Add())(left="a", right="b", output="c")
+    model2 += (add_model := Add()).connect(left="a", right="b", output="c")
     _add = add_model.submodel
 
     model1 = Model(name="middle")
-    model1 += model2(a="d", b="e")
+    model1 += model2.connect(a="d", b="e")
     model = Model(name="upper")
     model += model1
 
@@ -128,11 +128,11 @@ def test_multi_level_name_with_lowest_definition_higher_redefinition_2():
 
 def test_collision_from_different_levels():
     model2 = Model()
-    model2 += (add_model := Add())(left="a", right="b", output="e")
+    model2 += (add_model := Add()).connect(left="a", right="b", output="e")
     _add = add_model.submodel
 
     model1 = Model(name="middle")
-    model1 += model2(a="d", b="e")
+    model1 += model2.connect(a="d", b="e")
     model = Model(name="upper")
     model += model1
 
@@ -149,17 +149,17 @@ def test_collision_from_different_levels():
 
 def test_collision_from_different_levels_2():
     model2 = Model(name="lower")
-    model2 += (add_model := Add())(left="a", right="b", output="e")
+    model2 += (add_model := Add()).connect(left="a", right="b", output="e")
     _add = add_model.submodel
 
     model1 = Model(name="middle2")
-    model1 += model2(a="d", b="e")
+    model1 += model2.connect(a="d", b="e")
 
     model3 = Model(name="middle1")
-    model3 += model1(d="d")
+    model3 += model1.connect(d="d")
 
     model = Model(name="upper")
-    model += model3()
+    model += model3.connect()
     f_model = FlatModel(model, primitive_lut)
     assert f_model.mappings == {_add: {"left": "d", "right": "e", "output": "e_0"}}
     f_model = FlatModel(model, primitive_lut, short_namings=False)
@@ -174,13 +174,13 @@ def test_collision_from_different_levels_2():
 
 def test_collision_from_different_levels_3():
     model2 = Model()
-    model2 += (add_model := Add())(left="a", right="b", output="e")
+    model2 += (add_model := Add()).connect(left="a", right="b", output="e")
     _add = add_model.submodel
 
     model1 = Model()
-    model1 += model2(a="d", b="e")
+    model1 += model2.connect(a="d", b="e")
     model = Model()
-    model += model1(e="e")
+    model += model1.connect(e="e")
 
     f_model = FlatModel(
         model,
@@ -195,16 +195,16 @@ def test_collision_from_different_levels_3():
 
 def test_collision_from_different_models():
     model1 = Model()
-    model1 += (add1 := Add())(left="l", right="r", output="o")
+    model1 += (add1 := Add()).connect(left="l", right="r", output="o")
     _add1 = add1.submodel
 
     model2 = Model()
-    model2 += (add2 := Add())(left="l", right="r", output="o")
+    model2 += (add2 := Add()).connect(left="l", right="r", output="o")
     _add2 = add2.submodel
 
     model = Model()
     model |= model1
-    model |= model2(l=add1.output)
+    model |= model2.connect(l=add1.output)
 
     f_model = FlatModel(
         model,
@@ -220,8 +220,8 @@ def test_collision_from_different_models():
 
 def test_output_first_1():
     model = Model()
-    model |= (relu := Relu())(input="in1", output="out1")
-    model |= (sig := Sigmoid())(input="in2", output="in1")
+    model |= (relu := Relu()).connect(input="in1", output="out1")
+    model |= (sig := Sigmoid()).connect(input="in2", output="in1")
     _sig = sig.submodel
     _relu = relu.submodel
 
@@ -249,8 +249,8 @@ def test_output_first_1():
 
 def test_output_first_2():
     model = Model()
-    model |= (relu := Relu())(output="out1")
-    model |= (sig := Sigmoid())(input="in2", output=relu.input)
+    model |= (relu := Relu()).connect(output="out1")
+    model |= (sig := Sigmoid()).connect(input="in2", output=relu.input)
     _sig = sig.submodel
     _relu = relu.submodel
 
@@ -278,8 +278,8 @@ def test_output_first_2():
 
 def test_output_first_3():
     model = Model()
-    model |= (relu := Relu())(output="out1")
-    model |= (sig := Sigmoid())(input="in2", output=relu.input)
+    model |= (relu := Relu()).connect(output="out1")
+    model |= (sig := Sigmoid()).connect(input="in2", output=relu.input)
     _sig = next(iter(sig.dag))
     _relu = next(iter(relu.dag))
 
@@ -300,16 +300,16 @@ def test_output_first_3():
 
 def test_output_first_4():
     model1 = Model()
-    model1 |= (relu := Relu())(input="input1", output=IOKey("output1"))
-    model1 |= (sig := Sigmoid())(input="input2", output=IOKey("output2"))
+    model1 |= (relu := Relu()).connect(input="input1", output=IOKey("output1"))
+    model1 |= (sig := Sigmoid()).connect(input="input2", output=IOKey("output2"))
 
     model2 = Model()
-    model2 |= (softp := Softplus())(input="input1", output=IOKey("output1"))
-    model2 |= (tanh := Tanh())(input="input2", output=IOKey("output2"))
+    model2 |= (softp := Softplus()).connect(input="input1", output=IOKey("output1"))
+    model2 |= (tanh := Tanh()).connect(input="input2", output=IOKey("output2"))
 
     model = Model()
-    model |= model1(input1="input")
-    model |= model2(
+    model |= model1.connect(input1="input")
+    model |= model2.connect(
         input1=relu.output,
         input2=sig.output,
         output1=sig.input,
@@ -340,7 +340,7 @@ def test_output_first_4():
 
 def test_linear_flat():
     model = Model()
-    model |= (lin := Linear(21))(output="qwe")
+    model |= (lin := Linear(21)).connect(output="qwe")
     f_model = FlatModel(
         model,
         primitive_lut,
@@ -370,7 +370,7 @@ def test_integration_with_all_defined():
     model = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model += add(left="a", right="b", output="c")
+    model += add.connect(left="a", right="b", output="c")
     backend = JaxBackend(dtype=ml.float64)
 
     pm_short = ml.compile(model, backend, inference=True)
@@ -392,7 +392,7 @@ def test_integration_with_some_undefined():
     model = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model += add(right="b", output="c")
+    model += add.connect(right="b", output="c")
 
     pm_short = ml.compile(model, backend, safe_names=False, inference=True)
     pm_long = ml.compile(
@@ -415,7 +415,7 @@ def test_integration_multi_level_name_with_lowest_definition():
     model2 = Model("adder")
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model2 += add(
+    model2 += add.connect(
         left=IOKey("a", differentiable=True),
         right=IOKey("b", differentiable=True),
         output=IOKey("c", differentiable=True),
@@ -451,10 +451,10 @@ def test_integration_collision_from_different_levels():
     model2 = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model2 += add(left="a", right="b", output="e")
+    model2 += add.connect(left="a", right="b", output="e")
 
     model1 = Model(name="middle")
-    model1 += model2(a="d", b="e")
+    model1 += model2.connect(a="d", b="e")
     model = Model(name="upper")
     model += model1
 

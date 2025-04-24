@@ -209,31 +209,35 @@ class MySimpleRNNCellWithLinear(Cell):
         mult_model_3 = MatrixMultiply()
         sum_model_4 = Add()
 
-        self |= shp_model(input="input")
-        self |= indexer(input=shp_model.output, index=0)
-        self |= slice_1(start=indexer.output)
-        self |= tensor_item_1(
+        self |= shp_model.connect(input="input")
+        self |= indexer.connect(input=shp_model.output, index=0)
+        self |= slice_1.connect(start=indexer.output)
+        self |= tensor_item_1.connect(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
 
-        self |= slice_2(start="", stop=indexer.output)
-        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self |= mult_model_1(left="input", right=IOKey("w_ih", differentiable=True))
-        self |= mult_model_2(
+        self |= slice_2.connect(start="", stop=indexer.output)
+        self |= tensor_item_2.connect(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1.connect(
+            left="input", right=IOKey("w_ih", differentiable=True)
+        )
+        self |= mult_model_2.connect(
             left=tensor_item_2.output, right=IOKey("w_hh", differentiable=True)
         )
-        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self |= sum_model_2(
+        self |= sum_model_1.connect(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2.connect(
             left=sum_model_1.output,
             right=IOKey("bias_hh", type=Tensor, differentiable=True),
         )
-        self |= sum_model_3(
+        self |= sum_model_3.connect(
             left=sum_model_2.output,
             right=IOKey("bias_ih", type=Tensor, differentiable=True),
         )
-        self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
-        self |= mult_model_3(left="hidden", right=IOKey("w_ho", differentiable=True))
-        self |= sum_model_4(
+        self |= tanh.connect(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= mult_model_3.connect(
+            left="hidden", right=IOKey("w_ho", differentiable=True)
+        )
+        self |= sum_model_4.connect(
             left=mult_model_3.output,
             right=IOKey("bias_o", type=Tensor, differentiable=True),
             output=IOKey("output"),
@@ -280,7 +284,7 @@ class MySimpleRNNCellWithLinear(Cell):
         self._set_shapes(**shapes)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
         prev_hidden: ConnectionType = NOT_GIVEN,
@@ -340,28 +344,30 @@ class MyRNNCell(Cell):
         sum_model_3 = Add()
         tanh = Tanh()
 
-        self |= shp_model(input="input")
-        self |= indexer(input=shp_model.output, index=0)
-        self |= slice_1(start=indexer.output)
-        self |= tensor_item_1(
+        self |= shp_model.connect(input="input")
+        self |= indexer.connect(input=shp_model.output, index=0)
+        self |= slice_1.connect(start=indexer.output)
+        self |= tensor_item_1.connect(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
-        self |= slice_2(start="", stop=indexer.output)
-        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self |= mult_model_1(left="input", right=IOKey("w_ih", differentiable=True))
-        self |= mult_model_2(
+        self |= slice_2.connect(start="", stop=indexer.output)
+        self |= tensor_item_2.connect(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1.connect(
+            left="input", right=IOKey("w_ih", differentiable=True)
+        )
+        self |= mult_model_2.connect(
             left=tensor_item_2.output, right=IOKey("w_hh", differentiable=True)
         )
-        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self |= sum_model_2(
+        self |= sum_model_1.connect(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2.connect(
             left=sum_model_1.output,
             right=IOKey("bias_hh", type=Tensor, differentiable=True),
         )
-        self |= sum_model_3(
+        self |= sum_model_3.connect(
             left=sum_model_2.output,
             right=IOKey("bias_ih", type=Tensor, differentiable=True),
         )
-        self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= tanh.connect(input=sum_model_3.output, output=IOKey("hidden"))
 
         shapes: dict[str, list[str | int]] = {
             "input": ["N", 1, "d_in"],
@@ -376,7 +382,7 @@ class MyRNNCell(Cell):
         self.set_cout("hidden")
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
         prev_hidden: ConnectionType = NOT_GIVEN,

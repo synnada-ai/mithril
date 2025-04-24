@@ -259,7 +259,7 @@ def test_deleted_variadic_ref_count_7():
         add_1.left, add_1.right, add_2.left, add_2.right, add_3.left, add_3.right
     )
 
-    model |= add_6(left=add_1.left, right="right", output="output")
+    model |= add_6.connect(left=add_1.left, right="right", output="output")
 
     current_variadics = get_all_variadics(model)
     assert_objects_deleted(all_variadics, current_variadics, 9)
@@ -444,7 +444,7 @@ def test_deleted_uniadic_ref_count_8():
                 output=BaseKey(shape=["d", "e", "f"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -456,7 +456,7 @@ def test_deleted_uniadic_ref_count_8():
     all_uniadics |= get_all_uniadics(tm4 := MyModel())
 
     model = Model()
-    model += tm1(input="input", output="output")
+    model += tm1.connect(input="input", output="output")
     model += tm2
     model += tm3
     model += tm4
@@ -475,7 +475,7 @@ def test_deleted_uniadic_ref_count_9():
                 output=BaseKey(shape=[1, 1, 1], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -634,7 +634,7 @@ def test_deleted_repr_ref_count_5() -> None:
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -651,17 +651,17 @@ def test_deleted_repr_ref_count_5() -> None:
     all_reprs |= get_all_reprs(tm9 := MyModel())
 
     model = Model()
-    model |= tm1(input="input1")
-    model |= tm2(input=tm1.output)
-    model |= tm3(input=tm2.output, output="output1")
+    model |= tm1.connect(input="input1")
+    model |= tm2.connect(input=tm1.output)
+    model |= tm3.connect(input=tm2.output, output="output1")
 
-    model |= tm4(input="input2")
-    model |= tm5(input=tm1.output)
-    model |= tm6(input=tm2.output, output="output2")
+    model |= tm4.connect(input="input2")
+    model |= tm5.connect(input=tm1.output)
+    model |= tm6.connect(input=tm2.output, output="output2")
 
-    model |= tm7(input="input3")
-    model |= tm8(input=tm1.output)
-    model |= tm9(input=tm2.output, output="output3")
+    model |= tm7.connect(input="input3")
+    model |= tm8.connect(input=tm1.output)
+    model |= tm9.connect(input=tm2.output, output="output3")
 
     model.set_shapes(
         input1=["a", "b", "c"],
@@ -686,7 +686,7 @@ def test_deleted_repr_ref_count_6() -> None:
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -703,17 +703,17 @@ def test_deleted_repr_ref_count_6() -> None:
     all_reprs |= get_all_reprs(tm9 := MyModel())
 
     model = Model()
-    model |= tm1(input="input1")
-    model |= tm2(input=tm1.output)
-    model |= tm3(input=tm2.output, output="output1")
+    model |= tm1.connect(input="input1")
+    model |= tm2.connect(input=tm1.output)
+    model |= tm3.connect(input=tm2.output, output="output1")
 
-    model |= tm4(input="input2")
-    model |= tm5(input=tm1.output)
-    model |= tm6(input=tm2.output, output="output2")
+    model |= tm4.connect(input="input2")
+    model |= tm5.connect(input=tm1.output)
+    model |= tm6.connect(input=tm2.output, output="output2")
 
-    model |= tm7(input="input3")
-    model |= tm8(input=tm1.output)
-    model |= tm9(input=tm2.output, output="output3")
+    model |= tm7.connect(input="input3")
+    model |= tm8.connect(input=tm1.output)
+    model |= tm9.connect(input=tm2.output, output="output3")
 
     model.set_shapes(
         input1=["a", "b", "c"],
@@ -737,7 +737,7 @@ def test_deleted_repr_ref_count_7() -> None:
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -749,11 +749,11 @@ def test_deleted_repr_ref_count_7() -> None:
     all_reprs |= get_all_reprs(tm4 := MyModel())
 
     model = Model()
-    model |= tm1(input="input1")
-    model |= tm2(input=tm1.output, output="output")
+    model |= tm1.connect(input="input1")
+    model |= tm2.connect(input=tm1.output, output="output")
 
-    model |= tm3(input="input2")
-    model |= tm4(input=tm1.output, output="output2")
+    model |= tm3.connect(input="input2")
+    model |= tm4.connect(input=tm1.output, output="output2")
 
     model.set_shapes(input1=["a", "b"], input2=["b", "a"])
 
@@ -773,7 +773,7 @@ def test_deleted_repr_ref_count_8() -> None:
                 output=BaseKey(shape=["b", "a"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -785,11 +785,11 @@ def test_deleted_repr_ref_count_8() -> None:
     all_reprs |= get_all_reprs(tm4 := MyModel())
 
     model = Model()
-    model |= tm1(input="input1")
-    model |= tm2(input=tm1.output, output="output")
+    model |= tm1.connect(input="input1")
+    model |= tm2.connect(input=tm1.output, output="output")
 
-    model |= tm3(input="input2")
-    model |= tm4(input=tm1.output, output="output2")
+    model |= tm3.connect(input="input2")
+    model |= tm4.connect(input=tm1.output, output="output2")
 
     model.set_shapes(input1=["a", "b"], input2=["b", "a"])
 
@@ -807,8 +807,8 @@ def test_deleted_repr_ref_count_9():
     all_reprs |= get_all_reprs(buffer2)
 
     model = Model()
-    model |= buffer1(input="input1", output="output1")
-    model |= buffer2(input="input2", output="output2")
+    model |= buffer1.connect(input="input1", output="output1")
+    model |= buffer2.connect(input="input2", output="output2")
 
     model.set_shapes(input1=["a", "b"], input2=["a", "b"])
 
@@ -827,8 +827,8 @@ def test_deleted_repr_ref_count_10():
 
     model = Model()
 
-    model |= buffer1(input="input1", output="output1")
-    model |= buffer2(input="output1", output="output2")
+    model |= buffer1.connect(input="input1", output="output1")
+    model |= buffer2.connect(input="output1", output="output2")
 
     current_reprs = get_all_reprs(model)
     assert_objects_deleted(all_reprs, current_reprs, 1)
@@ -845,8 +845,8 @@ def test_deleted_repr_ref_count_10_1():
 
     model = Model()
 
-    model |= buffer1(input="input1", output="output1")
-    model |= buffer2(input="input2", output="output2")
+    model |= buffer1.connect(input="input1", output="output1")
+    model |= buffer2.connect(input="input2", output="output2")
 
     model.set_shapes(input1=[1, 2], input2=[1, 2])
 
@@ -945,11 +945,11 @@ def test_deleted_node_ref_count_4():
 
     model = Model()
 
-    model |= buffer1(input="input1")
-    model |= buffer2(input=buffer1.output, output="output1")
+    model |= buffer1.connect(input="input1")
+    model |= buffer2.connect(input=buffer1.output, output="output1")
 
-    model |= buffer3(input="input2")
-    model |= buffer4(input=buffer1.output, output="output2")
+    model |= buffer3.connect(input="input2")
+    model |= buffer4.connect(input=buffer1.output, output="output2")
 
     input_shape: ShapeTemplateType = ["a", ("Var1", ...)]
     model.set_shapes(input1=input_shape, input2=input_shape)
@@ -985,11 +985,11 @@ def test_deleted_tensors_ref_count_2():
 
     model = Model()
 
-    model |= buffer1(input="input1")
-    model |= buffer2(input=buffer1.output, output="output1")
+    model |= buffer1.connect(input="input1")
+    model |= buffer2.connect(input=buffer1.output, output="output1")
 
-    model |= buffer3(input="input2")
-    model |= buffer4(input=buffer3.output, output="output2")
+    model |= buffer3.connect(input="input2")
+    model |= buffer4.connect(input=buffer3.output, output="output2")
 
     current_reprs = get_all_data(model)
     assert_objects_deleted(all_reprs, current_reprs, 2)
@@ -1009,11 +1009,11 @@ def test_deleted_tensors_ref_count_3():
     model |= buffer1
     model |= buffer2
     model |= buffer3
-    model |= buffer4(input="input4")
-    model |= buffer5(input="input5")
-    model |= buffer6(input="input6")
+    model |= buffer4.connect(input="input4")
+    model |= buffer5.connect(input="input5")
+    model |= buffer6.connect(input="input6")
     model.merge_connections(buffer1.input, buffer2.input, buffer3.input, buffer4.output)
-    model |= buffer7(input=buffer1.input)
+    model |= buffer7.connect(input=buffer1.input)
     model.expose_keys(
         output1=buffer1.output,
         output2=buffer2.output,
@@ -1096,9 +1096,9 @@ def test_deleted_edge_ref_count_3():
 
     model = Model()
 
-    model |= add1(output="output", right="right3")
-    model |= add2(output=add1.left, right="right2")
-    model |= add3(output=add2.left, right="right1", left="left")
+    model |= add1.connect(output="output", right="right3")
+    model |= add2.connect(output=add1.left, right="right2")
+    model |= add3.connect(output=add2.left, right="right1", left="left")
 
     current_metadata = get_all_metadata(model)
     assert_objects_deleted(all_metadata, current_metadata, 2)
@@ -1211,17 +1211,19 @@ def test_deleted_edge_ref_count_6():
 
     three_sigmoid_model = Model()
 
-    three_sigmoid_model |= sigmoid1(input="input1")
-    three_sigmoid_model |= sigmoid2(input="input2")
-    three_sigmoid_model |= sigmoid3(input="input3")
+    three_sigmoid_model |= sigmoid1.connect(input="input1")
+    three_sigmoid_model |= sigmoid2.connect(input="input2")
+    three_sigmoid_model |= sigmoid3.connect(input="input3")
     three_sigmoid_model.expose_keys(
         output1=sigmoid1.output, output2=sigmoid2.output, output3=sigmoid3.output
     )
 
     main_model = Model()
-    main_model |= three_sigmoid_model(input1="input1", input2="input2", input3="input3")
+    main_model |= three_sigmoid_model.connect(
+        input1="input1", input2="input2", input3="input3"
+    )
     main_model.merge_connections(sigmoid1.output, sigmoid2.input, name="abcd")
-    main_model |= sigmoid4(input=main_model.abcd)  # type: ignore
+    main_model |= sigmoid4.connect(input=main_model.abcd)  # type: ignore
     main_model.expose_keys(
         output1=sigmoid1.output,
         output2=sigmoid2.output,
@@ -1541,7 +1543,7 @@ def test_deleted_dependency_map():
     model = Model()
     add_1 = Add()
     add_2 = Add()
-    model |= add_1(left="left1", right="right1", output="output1")
+    model |= add_1.connect(left="left1", right="right1", output="output1")
 
     assert add_1.dependency_map._global_input_dependency_map is None
     assert add_1.dependency_map._global_input_dependency_map_cache is None
@@ -1549,7 +1551,7 @@ def test_deleted_dependency_map():
     assert add_1.dependency_map._global_output_dependency_map_cache is None
     assert add_1.dependency_map._local_input_dependency_map is None
 
-    model |= add_2(left="left2", right="right2", output="output2")
+    model |= add_2.connect(left="left2", right="right2", output="output2")
 
     assert add_2.dependency_map._global_input_dependency_map is None
     assert add_2.dependency_map._global_input_dependency_map_cache is None

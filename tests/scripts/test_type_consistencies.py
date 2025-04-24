@@ -63,7 +63,7 @@ class Model1(PrimitiveModel):
             output=BaseKey(type=tuple[tuple[int, ...]]),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
@@ -83,7 +83,7 @@ class Model2(PrimitiveModel):
             output=BaseKey(type=tuple[int | float, int | float, int | float]),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
@@ -120,7 +120,7 @@ class Model3(PrimitiveModel):
             output=BaseKey(type=int | float | str | tuple[int, int]),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
@@ -144,9 +144,9 @@ def test_default_given_extend_4_numpy_error():
     model = Model()
     model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
-    model |= model1(axis=IOKey("axis", value=None))
+    model |= model1.connect(axis=IOKey("axis", value=None))
     with pytest.raises(TypeError) as err_info:
-        model |= model2(input="input2", axis=model1.axis, output="output")
+        model |= model2.connect(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
         "Acceptable types are <class 'NoneType'>, "
@@ -161,21 +161,21 @@ def test_constant_backendvar_numpy():
     model = Model()
     mean_model = Mean(axis=TBD)
     rdc = Mean(axis=TBD)
-    model |= rdc(input="input", axis=IOKey("axis", value=0))
-    model |= Multiply()(
+    model |= rdc.connect(input="input", axis=IOKey("axis", value=0))
+    model |= Multiply().connect(
         left=rdc.output,
         right=IOKey(value=Tensor(2.0), name="rhs"),
         output=IOKey(name="mult_out"),
     )
-    model |= mean_model(
+    model |= mean_model.connect(
         input=model.mult_out,  # type: ignore
         axis=model.axis,  # type: ignore
         output=IOKey(name="output"),
     )
     other_model = Model()
-    other_model |= Mean(axis=TBD)(input="input", axis=IOKey("axis", value=None))
+    other_model |= Mean(axis=TBD).connect(input="input", axis=IOKey("axis", value=None))
     with pytest.raises(TypeError) as err_info:
-        model |= other_model(input=model.mult_out, axis=model.axis)  # type: ignore
+        model |= other_model.connect(input=model.mult_out, axis=model.axis)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are <class 'int'>, "
         "but <class 'NoneType'> type is provided!"
@@ -186,8 +186,8 @@ def test_type_1():
     model = Model()
     shape1 = Shape()
     reduce1 = Mean(axis=TBD)
-    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model |= reduce1(
+    model |= shape1.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= reduce1.connect(
         axis=shape1.output,
         input=Tensor([[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]]),
     )
@@ -201,10 +201,12 @@ def test_type_2():
     shape1 = Shape()
     shape2 = Shape()
     shape3 = Shape()
-    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model |= shape2(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model |= shape3(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model |= union1(input1=shape1.output, input2=shape2.output, input3=shape3.output)
+    model |= shape1.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= shape2.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= shape3.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= union1.connect(
+        input1=shape1.output, input2=shape2.output, input3=shape3.output
+    )
 
     assert shape1.output.metadata.value_type == tuple[int, int]
 
@@ -215,12 +217,12 @@ def test_type_3():
     shape1 = Shape()
     shape2 = Shape()
     shape3 = Shape()
-    model |= union1()
+    model |= union1.connect()
     input1 = union1.input1  # type: ignore
     assert input1.metadata.value_type == int | float | tuple[int | float, ...]
-    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=input1)
-    model |= shape2(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input2)  # type: ignore
-    model |= shape3(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input3)  # type: ignore
+    model |= shape1.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=input1)
+    model |= shape2.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input2)  # type: ignore
+    model |= shape3.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input3)  # type: ignore
     assert input1.metadata.value_type == tuple[int, int]
 
 
@@ -229,12 +231,12 @@ def test_type_5():
     conv1 = Convolution2D(kernel_size=5, stride=TBD)
     shape1 = Shape()
     reduce1 = Mean(axis=TBD)
-    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model |= reduce1(
+    model |= shape1.connect(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= reduce1.connect(
         axis=shape1.output,
         input=Tensor([[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]]),
     )
-    model |= conv1(stride=shape1.output)
+    model |= conv1.connect(stride=shape1.output)
     assert shape1.output.metadata.value_type == tuple[int, int]
 
 
@@ -242,9 +244,9 @@ def test_type_6():
     model = Model()
     test_model_1 = Model1()
     test_model_2 = Model1()
-    model |= test_model_1(input1="input1", input2="input2")
+    model |= test_model_1.connect(input1="input1", input2="input2")
     with pytest.raises(TypeError) as err_info:
-        model |= test_model_2(input1=test_model_1.output)  # type: ignore
+        model |= test_model_2.connect(input1=test_model_1.output)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are tuple[tuple[int, ...]], but tuple[int, ...] type "
         "is provided!"
@@ -256,13 +258,13 @@ def test_type_7():
     test_model_1 = Model2()
     test_model_2 = Model2()
     test_model_3 = Model2()
-    model |= test_model_1(input1="input1", input2="input2", input3="input3")
+    model |= test_model_1.connect(input1="input1", input2="input2", input3="input3")
     input1 = model.input1  # type: ignore
     assert input1.metadata.value_type == int | float
-    model |= test_model_2(input2="input1")
+    model |= test_model_2.connect(input2="input1")
     assert input1.metadata.value_type is int
     with pytest.raises(TypeError) as err_info:
-        model |= test_model_3(input3="input1")
+        model |= test_model_3.connect(input3="input1")
     assert (
         str(err_info.value)
         == "Acceptable types are <class 'int'>, but float | str type is provided!"
@@ -274,13 +276,15 @@ def test_type_8():
     model1 = Model1()
     model2 = Model2()
     model3 = Model3()
-    model |= model3(input1="input1", input2="input1", input3="input1", output="output")
+    model |= model3.connect(
+        input1="input1", input2="input1", input3="input1", output="output"
+    )
     input1 = model.input1  # type: ignore
     assert input1.metadata.value_type == tuple[int, int, int, int]
-    model |= model1(input1="input1")
+    model |= model1.connect(input1="input1")
     assert input1.metadata.value_type == tuple[int, int, int, int]
     with pytest.raises(TypeError) as err_info:
-        model |= model2(input1="input1")
+        model |= model2.connect(input1="input1")
     assert str(err_info.value) == (
         "Acceptable types are tuple[int, int, int, int], but float | int type "
         "is provided!"
@@ -291,7 +295,7 @@ def test_type_9():
     model = Model()
     lin_model = Linear()
     assert lin_model.input.metadata.value_type == int | float
-    model += lin_model(
+    model += lin_model.connect(
         input=IOKey(value=Tensor([[1.0, 2.0], [3.0, 4.0]]), name="input"),
         weight="w",
         bias="b",
@@ -304,7 +308,7 @@ def test_type_10():
     model = Model()
     lin_model = Linear()
     assert lin_model.input.metadata.value_type == int | float
-    model += lin_model(
+    model += lin_model.connect(
         input=IOKey(value=Tensor([[False, 1], [True, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
@@ -317,7 +321,7 @@ def test_type_11():
     model = Model()
     lin_model = Linear()
     assert lin_model.input.metadata.value_type == int | float
-    model += lin_model(
+    model += lin_model.connect(
         input=IOKey(value=Tensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
@@ -330,7 +334,7 @@ def test_type_12():
     model = Model()
     lin_model = Linear()
     assert lin_model.input.metadata.value_type == int | float
-    model += lin_model(
+    model += lin_model.connect(
         input=IOKey(value=Tensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
@@ -343,7 +347,7 @@ def test_type_13():
     model = Model()
     lin_model = Linear()
     assert lin_model.input.metadata.value_type == int | float
-    model += lin_model(
+    model += lin_model.connect(
         input=IOKey(value=Tensor([[False, 1.0], [2, 3]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
@@ -357,9 +361,9 @@ def test_type_14():
     sig_model = Sigmoid()
     sig_model_2 = Sigmoid()
     sig_model_2.input.metadata.set_type(Tensor[float])
-    model |= sig_model(input="input", output=IOKey(name="output"))
+    model |= sig_model.connect(input="input", output=IOKey(name="output"))
 
-    model |= sig_model_2(
+    model |= sig_model_2.connect(
         input=IOKey(value=Tensor([1.0, 2.0]), name="input"),
         output=IOKey(name="output2"),
     )
@@ -381,7 +385,7 @@ def test_type_15():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_1.input.metadata.set_type(Tensor[float])
-    model |= sig_model_1(input="input", output=IOKey(name="output"))
+    model |= sig_model_1.connect(input="input", output=IOKey(name="output"))
 
     with pytest.raises(TypeError) as err_info:
         model.set_values({sig_model_1.input: Tensor([False, True])})

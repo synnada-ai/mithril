@@ -72,7 +72,7 @@ class BasePrimitiveInference:
             for key, value in zip(model.input_keys, (left, right), strict=False)
             if value is not TBD
         }
-        main_model |= model(**kwargs, output=IOKey("output"))
+        main_model |= model.connect(**kwargs, output=IOKey("output"))
         assert isinstance(main_model, SupportsOutput)
         assert main_model.output.metadata.value == output
 
@@ -83,7 +83,7 @@ class BasePrimitiveInference:
         model = self.model()
         left, right, output = results
         kwargs = {key: key for key in model.input_keys}
-        main_model |= model(**kwargs, output=IOKey("output"))
+        main_model |= model.connect(**kwargs, output=IOKey("output"))
         set_values = {
             key: value
             for key, value in zip(model.input_keys, (left, right), strict=False)
@@ -438,7 +438,7 @@ class TestCompositeModels:
         output = input1 + input2 * input3
 
         model = Model()
-        model += Buffer()(output, IOKey("output"))
+        model += Buffer().connect(output, IOKey("output"))
 
         assert isinstance(model, SupportsOutput)
         assert model.output.metadata.value == 23.0
@@ -454,7 +454,7 @@ class TestCompositeModels:
         output = ((input1 | input2) / input3) + 3
 
         model = Model()
-        model += Buffer()(output, IOKey("output"))
+        model += Buffer().connect(output, IOKey("output"))
 
         assert isinstance(model, SupportsOutput)
         assert model.output.metadata.value == 8.0
@@ -475,7 +475,7 @@ class TestCompositeModels:
         out = ((val1**val2 + val3) // input2) + input3
 
         model = Model()
-        model += Buffer()(out, IOKey("output"))
+        model += Buffer().connect(out, IOKey("output"))
 
         model.set_shapes(input1=[2, 3, 4])
 
@@ -509,7 +509,7 @@ class TestCompositeModels:
         out = (val1 ** (val2 / input3)) + val3  # 23
 
         model = Model()
-        model += Buffer()(out, IOKey("output"))
+        model += Buffer().connect(out, IOKey("output"))
 
         assert isinstance(model, SupportsOutput)
         assert model.output.metadata.value == 23.0
@@ -526,8 +526,8 @@ class TestCompositeModels:
 
         out = (in1**in2) / (in3 + in4)
         model = Model()
-        model |= (mul := Multiply())(out, in5)
-        model |= Add()(mul.output, 1, IOKey("output"))
+        model |= (mul := Multiply()).connect(out, in5)
+        model |= Add().connect(mul.output, 1, IOKey("output"))
         assert isinstance(model, SupportsOutput)
         assert model.output.metadata.value == TBD
         model.set_values(in1=2, in2=6, in3=7, in4=1)

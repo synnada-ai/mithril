@@ -58,19 +58,23 @@ def apply_rope(*, name: str | None = None) -> Model:
         freqs_cis[..., 0] * xk_[..., 0] + freqs_cis[..., 1] * xk_[..., 1]  # type: ignore[attr-defined]
     )
 
-    block |= Reshape()(xq_out, shape=xq_shape, output="xq_out_raw")
-    block |= Reshape()(xk_out, shape=xk_shape, output="xk_out_raw")
-    block |= Cast()(input="xq_out_raw", dtype=xq.dtype(), output=IOKey("xq_out"))
-    block |= Cast()(input="xk_out_raw", dtype=xk.dtype(), output=IOKey("xk_out"))
+    block |= Reshape().connect(xq_out, shape=xq_shape, output="xq_out_raw")
+    block |= Reshape().connect(xk_out, shape=xk_shape, output="xk_out_raw")
+    block |= Cast().connect(
+        input="xq_out_raw", dtype=xq.dtype(), output=IOKey("xq_out")
+    )
+    block |= Cast().connect(
+        input="xk_out_raw", dtype=xk.dtype(), output=IOKey("xk_out")
+    )
     return block
 
 
 def attention(*, name: str | None = None) -> Model:
     block = Model(name=name)
-    block |= apply_rope()(
+    block |= apply_rope().connect(
         xq="q", xk="k", freqs_cis="pe", xq_out="q_out", xk_out="k_out"
     )
-    block |= ScaledDotProduct(is_causal=False)(
+    block |= ScaledDotProduct(is_causal=False).connect(
         query="q_out", key="k_out", value="v", output="context"
     )
 
@@ -78,7 +82,7 @@ def attention(*, name: str | None = None) -> Model:
     context_shape = block.context.shape  # type: ignore[attr-defined]
 
     # NOTE: Reshape input is automatically connected to Transpose output
-    block |= Reshape()(
+    block |= Reshape().connect(
         block.context.transpose(axes=(0, 2, 1, 3)),  # type: ignore[attr-defined]
         shape=(context_shape[0], context_shape[2], -1),
         output=IOKey("output"),
@@ -105,35 +109,37 @@ def timestep_embedding(
 
     half = dim // 2
 
-    block |= Arange(start=0.0, stop=half)(output="arange_out")
+    block |= Arange(start=0.0, stop=half).connect(output="arange_out")
     freqs = (
         -math.log(max_period) * block.arange_out.cast(dtype=ml.float32) / half  # type: ignore[attr-defined]
     ).exp()
 
     args = input.cast(dtype=ml.float32) * freqs[None]  # type: ignore[attr-defined]
 
-    block |= Concat(axis=-1)(input=[args.cos(), args.sin()], output="embedding")
+    block |= Concat(axis=-1).connect(input=[args.cos(), args.sin()], output="embedding")
 
     if dim % 2:
-        block |= ZerosLike()(block.embedding[:, :1], output="zeros_like_out")  # type: ignore[attr-defined]
-        block |= Concat(axis=-1)(
+        block |= ZerosLike().connect(block.embedding[:, :1], output="zeros_like_out")  # type: ignore[attr-defined]
+        block |= Concat(axis=-1).connect(
             input=[block.embedding, block.zeros_like_out],  # type: ignore
             output="embedding",
         )
-        block |= Cast()(
+        block |= Cast().connect(
             input="zeros_like_out", dtype=input.dtype(), output=IOKey("output")
         )
     else:
-        block |= Cast()(input="embedding", dtype=input.dtype(), output=IOKey("output"))
+        block |= Cast().connect(
+            input="embedding", dtype=input.dtype(), output=IOKey("output")
+        )
 
     return block
 
 
 def mlp_embedder(hidden_dim: int, *, name: str | None = None):
     block = Model(name=name)
-    block |= Linear(hidden_dim, name="in_layer")(input="input")
+    block |= Linear(hidden_dim, name="in_layer").connect(input="input")
     block += SiLU()
-    block += Linear(hidden_dim, name="out_layer")(output=IOKey("output"))
+    block += Linear(hidden_dim, name="out_layer").connect(output=IOKey("output"))
 
     return block
 
@@ -145,15 +151,15 @@ def rms_norm(dim: int, *, name: str | None = None):
     scale = IOKey(
         "scale", shape=[dim], differentiable=True
     )  # TODO: scale must be initialized with ones.
-    block |= Cast(dtype=ml.float)(input=input, output="input_casted")
+    block |= Cast(dtype=ml.float).connect(input=input, output="input_casted")
     rrms = 1 / ((block.input_casted**2).mean(axis=-1, keepdim=True) + 1e-6).sqrt()  # type: ignore[attr-defined]
 
-    block |= Cast()(
+    block |= Cast().connect(
         block.input_casted * rrms,  # type: ignore[attr-defined]
         dtype=input.dtype(),
         output=IOKey("casted"),  # type: ignore[attr-defined]
     )
-    block |= Multiply()(left="casted", right=scale, output=IOKey("output"))
+    block |= Multiply().connect(left="casted", right=scale, output=IOKey("output"))
 
     return block
 
@@ -172,20 +178,20 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
     multiplier = 6 if double else 3
 
     block = Model(name=name)
-    block |= SiLU()(input="input")
-    block += Linear(dim * multiplier, name="lin")(output="lin_out")
+    block |= SiLU().connect(input="input")
+    block += Linear(dim * multiplier, name="lin").connect(output="lin_out")
     lin_out = block.lin_out[:, None, :]  # type: ignore[attr-defined]
     if double:
         modulation = IOKey("modulation", expose=False)
-        block |= Split(split_size=2, axis=-1)(input=lin_out, output=modulation)
-        block |= Split(split_size=3, axis=-1)(
+        block |= Split(split_size=2, axis=-1).connect(input=lin_out, output=modulation)
+        block |= Split(split_size=3, axis=-1).connect(
             input=modulation[0], output=IOKey("mod_1")
         )
-        block |= Split(split_size=3, axis=-1)(
+        block |= Split(split_size=3, axis=-1).connect(
             input=modulation[1], output=IOKey("mod_2")
         )
     else:
-        block |= Split(split_size=3, axis=-1)(lin_out, IOKey("mod_1"))
+        block |= Split(split_size=3, axis=-1).connect(lin_out, IOKey("mod_1"))
 
     return block
 
@@ -195,8 +201,8 @@ def rearrange(num_heads: int, *, name: str | None = None):
     input = IOKey("input")
     input_shaepe = input.shape
     B, L = input_shaepe[0], input_shaepe[1]
-    block |= Reshape()(input, shape=(B, L, 3, num_heads, -1))
-    block += Transpose(axes=(2, 0, 3, 1, 4))(output=IOKey("output"))
+    block |= Reshape().connect(input, shape=(B, L, 3, num_heads, -1))
+    block += Transpose(axes=(2, 0, 3, 1, 4)).connect(output=IOKey("output"))
     return block
 
 
@@ -216,79 +222,86 @@ def double_stream_block(
     mlp_hidden_dim = int(hidden_size * mlp_ratio)
 
     block = Model(name=name)
-    block |= modulation(hidden_size, double=True, name="img_mod")(
+    block |= modulation(hidden_size, double=True, name="img_mod").connect(
         input=vec, mod_1=IOKey("img_mod_1"), mod_2=IOKey("img_mod_2")
     )
-    block |= LayerNorm(use_scale=False, use_bias=False, eps=1e-6, name="img_norm1")(
-        input=img, output=IOKey("img_norm")
-    )
+    block |= LayerNorm(
+        use_scale=False, use_bias=False, eps=1e-6, name="img_norm1"
+    ).connect(input=img, output=IOKey("img_norm"))
 
     img_modulated = (1 + block.img_mod_1[1]) * block.img_norm + block.img_mod_1[0]  # type: ignore[attr-defined]
 
-    block |= Linear(hidden_size * 3, use_bias=qkv_bias, name="img_attn_qkv")(
+    block |= Linear(hidden_size * 3, use_bias=qkv_bias, name="img_attn_qkv").connect(
         img_modulated, output=IOKey("img_qkv")
     )
 
     # Rearrange
-    block |= rearrange(num_heads=num_heads)(
+    block |= rearrange(num_heads=num_heads).connect(
         input=block.img_qkv,  # type: ignore[attr-defined]
         output="img_rearrange_out",
     )
 
     rearrange_out = block.img_rearrange_out  # type: ignore[attr-defined]
     img_q, img_k, img_v = (rearrange_out[0], rearrange_out[1], rearrange_out[2])
-    block |= qk_norm(hidden_size // num_heads, name="img_attn_norm")(
+    block |= qk_norm(hidden_size // num_heads, name="img_attn_norm").connect(
         q_in=img_q, k_in=img_k, q_out="q_out", k_out="k_out"
     )
     img_q, img_k = block.q_out, block.k_out  # type: ignore[attr-defined]
 
-    block |= modulation(hidden_size, double=True, name="txt_mod")(
+    block |= modulation(hidden_size, double=True, name="txt_mod").connect(
         input=vec, mod_1="txt_mod_1", mod_2="txt_mod_2"
     )
-    block |= LayerNorm(use_scale=False, use_bias=False, eps=1e-6, name="txt_norm1")(
-        input=txt, output="txt_norm"
-    )
+    block |= LayerNorm(
+        use_scale=False, use_bias=False, eps=1e-6, name="txt_norm1"
+    ).connect(input=txt, output="txt_norm")
 
     txt_modulated = (1 + block.txt_mod_1[1]) * block.txt_norm + block.txt_mod_1[0]  # type: ignore[attr-defined]
 
-    block |= Linear(hidden_size * 3, use_bias=qkv_bias, name="txt_attn_qkv")(
+    block |= Linear(hidden_size * 3, use_bias=qkv_bias, name="txt_attn_qkv").connect(
         txt_modulated, output="txt_qkv"
     )
 
     # Rearrange
-    block |= rearrange(num_heads)(input=block.txt_qkv, output="txt_rearrange_out")  # type: ignore[attr-defined]
+    block |= rearrange(num_heads).connect(
+        input=block.txt_qkv,  # type: ignore[attr-defined]
+        output="txt_rearrange_out",
+    )
 
     rearrange_out = block.txt_rearrange_out  # type: ignore[attr-defined]
     txt_q, txt_k, txt_v = rearrange_out[0], rearrange_out[1], rearrange_out[2]
-    block |= qk_norm(hidden_size // num_heads, name="txt_attn_norm")(
+    block |= qk_norm(hidden_size // num_heads, name="txt_attn_norm").connect(
         q_in=txt_q, k_in=txt_k, q_out="txt_q_out", k_out="txt_k_out"
     )
     txt_q, txt_k = block.txt_q_out, block.txt_k_out  # type: ignore[attr-defined]
 
-    block |= Concat(axis=2)(input=[txt_q, img_q], output=IOKey("q_concat"))
-    block |= Concat(axis=2)(input=[txt_k, img_k], output=IOKey("k_concat"))
-    block |= Concat(axis=2)(input=[txt_v, img_v], output=IOKey("v_concat"))
+    block |= Concat(axis=2).connect(input=[txt_q, img_q], output=IOKey("q_concat"))
+    block |= Concat(axis=2).connect(input=[txt_k, img_k], output=IOKey("k_concat"))
+    block |= Concat(axis=2).connect(input=[txt_v, img_v], output=IOKey("v_concat"))
 
-    block |= attention()(q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn")
+    block |= attention().connect(
+        q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn"
+    )
     img_attn = block.attn[:, txt.shape[1] :]  # type: ignore
 
-    block |= Linear(hidden_size, name="img_attn_proj")(img_attn, output="img_proj")
+    block |= Linear(hidden_size, name="img_attn_proj").connect(
+        img_attn, output="img_proj"
+    )
     img = img + block.img_mod_1[2] * block.img_proj  # type: ignore[attr-defined]
 
-    block |= LayerNorm(use_scale=False, use_bias=False, name="img_norm2", eps=1e-6)(
-        img, output="img_norm_2"
-    )
+    block |= LayerNorm(
+        use_scale=False, use_bias=False, name="img_norm2", eps=1e-6
+    ).connect(img, output="img_norm_2")
     img_norm_2 = block.img_norm_2  # type: ignore[attr-defined]
 
     img_mlp = Model(name="img_mlp")
-    img_mlp |= Linear(mlp_hidden_dim, name="0")(input="input")
+    img_mlp |= Linear(mlp_hidden_dim, name="0").connect(input="input")
     img_mlp += Gelu(approximate=True)
-    img_mlp += Linear(hidden_size, name="2")(output="output")
+    img_mlp += Linear(hidden_size, name="2").connect(output="output")
 
     txt_mlp = deepcopy(img_mlp)
     txt_mlp.name = "txt_mlp"
 
-    block |= img_mlp(
+    block |= img_mlp.connect(
         input=(1 + block.img_mod_2[1]) * img_norm_2 + block.img_mod_2[0],  # type: ignore[attr-defined]
         output="img_mlp",
     )
@@ -296,23 +309,25 @@ def double_stream_block(
 
     # TODO: Use txt.shape[1]]
     txt_attn = block.attn[:, : txt.shape[1]]  # type: ignore
-    block |= Linear(hidden_size, name="txt_attn_proj")(txt_attn, output="txt_proj")
+    block |= Linear(hidden_size, name="txt_attn_proj").connect(
+        txt_attn, output="txt_proj"
+    )
 
     txt = txt + block.txt_mod_1[2] * block.txt_proj  # type: ignore[attr-defined]
 
-    block |= LayerNorm(use_scale=False, use_bias=False, name="txt_norm2", eps=1e-6)(
-        txt, output="txt_norm_2"
-    )
+    block |= LayerNorm(
+        use_scale=False, use_bias=False, name="txt_norm2", eps=1e-6
+    ).connect(txt, output="txt_norm_2")
     txt_norm_2 = block.txt_norm_2  # type: ignore[attr-defined]
 
-    block |= txt_mlp(
+    block |= txt_mlp.connect(
         input=(1 + block.txt_mod_2[1]) * txt_norm_2 + block.txt_mod_2[0],  # type: ignore[attr-defined]
         output="txt_mlp",
     )
     txt = txt + block.txt_mod_2[2] * block.txt_mlp  # type: ignore[attr-defined]
 
-    block |= Buffer()(img, output=IOKey("img_out"))
-    block |= Buffer()(txt, output=IOKey("txt_out"))
+    block |= Buffer().connect(img, output=IOKey("img_out"))
+    block |= Buffer().connect(txt, output=IOKey("txt_out"))
     return block
 
 
@@ -332,14 +347,16 @@ def single_stream_block(
     mlp_hidden_dim = int(hidden_size * mlp_ratio)
 
     block = Model(name=name)
-    block |= modulation(hidden_size, False, name="modulation")(input=vec, mod_1="mod")
-    block |= LayerNorm(use_scale=False, use_bias=False, name="pre_norm")(
+    block |= modulation(hidden_size, False, name="modulation").connect(
+        input=vec, mod_1="mod"
+    )
+    block |= LayerNorm(use_scale=False, use_bias=False, name="pre_norm").connect(
         input=input, output="pre_norm"
     )
 
     x_mod = (1 + block.mod[1]) * block.pre_norm + block.mod[0]  # type: ignore[attr-defined]
 
-    block |= Linear(hidden_size * 3 + mlp_hidden_dim, name="linear1")(
+    block |= Linear(hidden_size * 3 + mlp_hidden_dim, name="linear1").connect(
         input=x_mod, output="lin1_out"
     )
 
@@ -348,20 +365,28 @@ def single_stream_block(
     mlp = block.lin1_out[..., 3 * hidden_size :]  # type: ignore[attr-defined]
 
     # Rearrange
-    block |= rearrange(num_heads)(input=qkv, output="rearrange_out")
+    block |= rearrange(num_heads).connect(input=qkv, output="rearrange_out")
 
     q = block.rearrange_out[0]  # type: ignore[attr-defined]
     k = block.rearrange_out[1]  # type: ignore[attr-defined]
     v = block.rearrange_out[2]  # type: ignore[attr-defined]
 
-    block |= qk_norm(dim=head_dim, name="norm")(
+    block |= qk_norm(dim=head_dim, name="norm").connect(
         q_in=q, k_in=k, q_out="q_out", k_out="k_out"
     )
-    block |= attention()(q="q_out", k="k_out", v=v, pe=pe, output="attn")
-    block |= Gelu(approximate=True)(input=mlp, output="mlp_act")
-    block |= Concat(axis=2)(input=[block.attn, block.mlp_act], output="concat_out")  # type: ignore[attr-defined]
-    block |= Linear(hidden_size, name="linear2")(input="concat_out", output="lin2_out")
-    block |= Buffer()(input + block.mod[2] * block.lin2_out, output=IOKey("output"))  # type: ignore[attr-defined]
+    block |= attention().connect(q="q_out", k="k_out", v=v, pe=pe, output="attn")
+    block |= Gelu(approximate=True).connect(input=mlp, output="mlp_act")
+    block |= Concat(axis=2).connect(
+        input=[block.attn, block.mlp_act],  # type: ignore[attr-defined]
+        output="concat_out",
+    )
+    block |= Linear(hidden_size, name="linear2").connect(
+        input="concat_out", output="lin2_out"
+    )
+    block |= Buffer().connect(
+        input + block.mod[2] * block.lin2_out,  # type: ignore[attr-defined]
+        output=IOKey("output"),
+    )
 
     return block
 
@@ -370,24 +395,26 @@ def last_layer(
     hidden_size: int, patch_size: int, out_channels: int, *, name: str | None = None
 ):
     adaLN_modulation = Model(name="adaLN_modulation")
-    adaLN_modulation |= Sigmoid()(input="input")
-    adaLN_modulation += Multiply()(right="input")
-    adaLN_modulation += Linear(hidden_size * 2, name="1")(output=IOKey("output"))
+    adaLN_modulation |= Sigmoid().connect(input="input")
+    adaLN_modulation += Multiply().connect(right="input")
+    adaLN_modulation += Linear(hidden_size * 2, name="1").connect(
+        output=IOKey("output")
+    )
 
     block = Model(name=name)
     input = IOKey("input")
     vec = IOKey("vec")
 
-    block |= adaLN_modulation(input=vec, output="mod")
-    block |= Split(split_size=2, axis=1)(input="mod", output="mod_split")
-    block |= LayerNorm(use_scale=False, use_bias=False, name="norm_final")(
+    block |= adaLN_modulation.connect(input=vec, output="mod")
+    block |= Split(split_size=2, axis=1).connect(input="mod", output="mod_split")
+    block |= LayerNorm(use_scale=False, use_bias=False, name="norm_final").connect(
         input=input, output="pre_norm"
     )
 
     shift = block.mod_split[0]  # type: ignore[attr-defined]
     scale = block.mod_split[1]  # type: ignore[attr-defined]
     input = (1 + scale[:, None, :]) * block.pre_norm + shift[:, None, :]  # type: ignore[attr-defined]
-    block |= Linear(patch_size * patch_size * out_channels, name="linear")(
+    block |= Linear(patch_size * patch_size * out_channels, name="linear").connect(
         input=input, output=IOKey("output")
     )
 
@@ -400,14 +427,14 @@ def embed_nd(theta: int, axes_dim: list[int], *, name: str | None = None) -> Mod
 
     for i in range(len(axes_dim)):
         rope_B = rope(axes_dim[i], theta)
-        block |= rope_B(input=input[..., i], output=f"out{i}")
+        block |= rope_B.connect(input=input[..., i], output=f"out{i}")
 
-    block |= Concat(axis=-3)(
+    block |= Concat(axis=-3).connect(
         input=[getattr(block, f"out{i}") for i in range(len(axes_dim))],
         output="concat_out",
     )
 
-    block |= Buffer()(block.concat_out[:, None], output=IOKey("output"))  # type: ignore [attr-defined]
+    block |= Buffer().connect(block.concat_out[:, None], output=IOKey("output"))  # type: ignore [attr-defined]
     block.set_cin("input")
     block.set_cout("output")
 
@@ -418,7 +445,7 @@ def rope(dim: int, theta: int, *, name: str | None = None) -> Model:
     assert dim % 2 == 0
     block = Model(name=name)
     input = IOKey("input", type=Tensor)
-    block |= Arange(start=0, stop=dim, step=2)(output="arange")
+    block |= Arange(start=0, stop=dim, step=2).connect(output="arange")
 
     omega = 1.0 / (theta ** (block.arange.cast(ml.float32) / dim))  # type: ignore
     out = input[..., None] * omega
@@ -426,7 +453,7 @@ def rope(dim: int, theta: int, *, name: str | None = None) -> Model:
     out_shape = out.shape
     B, N, D = out_shape[0], out_shape[1], out_shape[2]
 
-    block |= Concat(axis=-1)(
+    block |= Concat(axis=-1).connect(
         input=[
             out.cos()[..., None],
             -out.sin()[..., None],
@@ -436,8 +463,8 @@ def rope(dim: int, theta: int, *, name: str | None = None) -> Model:
         output="concat_out",
     )
     rope_shape = (B, N, D, 2, 2)
-    block |= Reshape()("concat_out", shape=rope_shape, output="reshape_out")
-    block |= Cast(dtype=ml.float32)(input="reshape_out", output=IOKey("output"))
+    block |= Reshape().connect("concat_out", shape=rope_shape, output="reshape_out")
+    block |= Cast(dtype=ml.float32).connect(input="reshape_out", output=IOKey("output"))
     block.set_cin("input")
     block.set_cout("output")
     return block
