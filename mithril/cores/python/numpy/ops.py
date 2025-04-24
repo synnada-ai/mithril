@@ -1544,7 +1544,7 @@ def reshape(
 
 
 def item(input: np.ndarray[Any, Any]) -> int | float | bool:
-    return input.item()  # type: ignore
+    return input.item()
 
 
 def union(

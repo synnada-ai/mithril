@@ -833,6 +833,12 @@ def find_intersection_type(
     return None
 
 
+def enhanced_isinstance[T](
+    obj: ScalarValueType | TensorValueType, type_def: type[T]
+) -> TypeGuard[T]:
+    return bool(find_intersection_type(find_type(obj), type_def))
+
+
 def is_tensor_type(
     typ: type | UnionType | GenericAlias | type[Tensor[int | float | bool]] | None,
 ) -> TypeGuard[type[Tensor[int | float | bool]]]:

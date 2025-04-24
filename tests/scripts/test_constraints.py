@@ -1683,7 +1683,7 @@ def test_reduce_forward_error_3():
     """Should work with no problem with axis = (-1, 1)."""
     shapes: dict[str, list[int | str | tuple]] = {"output": [], "input": [3, 4]}
     given_data = {
-        "axis": IOHyperEdge(value=(-1, 0, 1)),
+        "axis": IOHyperEdge(value=(-1, 1)),
         "keepdim": IOHyperEdge(value=False),
     }
     with pytest.raises(ValueError) as err_info:
@@ -1708,7 +1708,7 @@ def test_reduce_forward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 2 where input "
-        "rank = 3 and axis = (1,). Axis numbers printed as their counterparts."
+        "rank = 3 and axis = 1. Axis numbers printed as their counterparts."
     )
 
 
@@ -1749,7 +1749,7 @@ def test_reduce_backward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 2 where input "
-        "rank = 3 and axis = (1,). Axis numbers printed as their counterparts."
+        "rank = 3 and axis = 1. Axis numbers printed as their counterparts."
     )
 
 
@@ -1840,7 +1840,7 @@ def test_reduce_forward_backward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 4 where "
-        "input rank = 6 and axis = (4, 2). Axis numbers printed as their counterparts."
+        "input rank = 6 and axis = (-2, 2). Axis numbers printed as their counterparts."
     )
 
 
@@ -1932,8 +1932,8 @@ def test_reduce_axis_valued_keep_dim_false_input_variadic():
         "input": [("Var2", ...)],
     }
     final_shapes = {
-        "output": ["(Var1, ...)", "f"],
-        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "output": ["a", "(Var1, ...)", "f"],
+        "input": ["a", "b", "c", "(Var1, ...)", "d", "e", "f"],
         "axis": [],
         "keepdim": [],
     }
@@ -1947,7 +1947,7 @@ def test_reduce_axis_valued_keep_dim_false_input_variadic():
         final_shapes,
         {},
         reduce_constraints,
-        False,
+        True,
         {"input", "output"},
         given_data,
     )
@@ -1961,7 +1961,7 @@ def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
     }
     final_shapes = {
         "output": ["(Var1, ...)"],
-        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "input": ["a", "b", "c", "(Var2, ...)", "d", "e", "f"],
         "axis": [],
         "keepdim": [],
     }
@@ -2282,7 +2282,7 @@ def test_pad_output_with_variadic_forward_random_pad():
     )
 
 
-def test_pad_input_output_mismatch_error():
+def test_pad_value_error():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [2, 7, 8, 25],
         "input": [1, 2, 3, 5],
@@ -2297,7 +2297,10 @@ def test_pad_input_output_mismatch_error():
         assert_constraint_results(
             shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, given_data
         )
-    assert str(err_info.value) == "Possible values mismatch!"
+    assert str(err_info.value) == (
+        "Shape mismatch for pad. Input shape = 5, "
+        "pad value = (9, 12), output shape = 25"
+    )
 
 
 def test_pad_pad_width_tbd():
@@ -8669,4 +8672,171 @@ def test_general_forward_add_3_inputs_status_false():
         given_data,
         final_values,
         variadic_fn=True,
+    )
+
+
+def test_reduce_partial_1():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["(V2, ...)"],
+        "input": ["(V1, ...)", "a"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {
+        "axis": IOHyperEdge(value=[-1, TBD]),
+        "keepdim": IOHyperEdge(value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input"},
+        given_data,
+    )
+
+
+def test_reduce_partial_2():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["(V2, ...)"],
+        "input": ["b", "(V1, ...)", "a"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {
+        "axis": IOHyperEdge(value=[-1, 0, TBD]),
+        "keepdim": IOHyperEdge(value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input"},
+        given_data,
+    )
+
+
+def test_reduce_partial_3():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", "b", "c", "d"],
+    }
+    final_shapes = {
+        "output": [("V2", ...)],
+        "input": ["a", "b", "c", "d"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {
+        "axis": IOHyperEdge(value=[-1, TBD]),
+        "keepdim": IOHyperEdge(value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input"},
+        given_data,
+    )
+    ...
+
+
+def test_reduce_partial_4():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", "b", ("V1", ...), "c", "d", "e", "f", "g", "h", "i"],
+    }
+    final_shapes = {
+        "output": [("V2", ...)],
+        "input": ["a", "b", "c", "d"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {"axis": IOHyperEdge(value=6), "keepdim": IOHyperEdge(value=False)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input"},
+        given_data,
+    )
+
+
+def test_pad_partial_forward_with_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [6, "u1", "u2", 13],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    given_data = {"pad_width": IOHyperEdge(value=((2, 3), TBD, (0, TBD), (4, 5)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"output"}, given_data
+    )
+
+
+def test_pad_partial_backward_with_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [6, 7, 8, 9],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [6, 7, 8, 9],
+        "input": ["u1", "u2", "u3", 6],
+        "pad_width": [],
+    }
+    given_data = {"pad_width": IOHyperEdge(value=(TBD, TBD, (0, TBD), (1, 2)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"input"}, given_data
+    )
+
+
+def test_pad_partial_with_scalar_inference():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [8, 9, 10, 11],
+        "input": [6, 5, 4, 3],
+    }
+    final_shapes = {
+        "output": [8, 9, 10, 11],
+        "input": [6, 5, 4, 3],
+        "pad_width": [],
+    }
+    given_data = {
+        "pad_width": IOHyperEdge(value=((TBD, 0), (1, TBD), (TBD, 2), (7, TBD)))
+    }
+    final_values = {
+        "pad_width": ((2, 0), (1, 3), (4, 2), (7, 1)),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        True,
+        {"pad_width"},
+        given_data,
+        final_values,
     )
