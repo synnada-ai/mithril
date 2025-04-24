@@ -106,6 +106,9 @@ class ToBeDetermined(SingletonObject):
     that no data is provided.
     """
 
+    def __repr__(self) -> str:
+        return "TBD"
+
     pass
 
 
@@ -531,11 +534,17 @@ class Updates:
 
     def _add_uniadic(self, symbol: Uniadic) -> None:
         self.uniadic_updates.add(symbol)
-        for repr in symbol.metadata.reprs_dict:
-            for tensor in repr.node.referees:
-                self.shape_updates.add(tensor)
-                for edge in tensor.referees:
-                    self.constraints |= edge.constraints[UpdateType.SHAPE]
+        all_tensors = {
+            tensor for repr in symbol.metadata.reprs for tensor in repr.node.referees
+        }
+        self.shape_updates.update(all_tensors)
+        self.constraints |= set().union(
+            *(
+                edge.constraints[UpdateType.SHAPE]
+                for tensor in all_tensors
+                for edge in tensor.referees
+            )
+        )
 
     def _add_variadic(self, symbol: Variadic) -> None:
         for repr in symbol.reprs:
@@ -984,6 +993,7 @@ def replace_tensors(
     if tensor_map is None:
         tensor_map = {}
     if isinstance(value, Tensor) and (new_tensor := tensor_map.get(value)):
+        new_tensor.is_used = value.is_used
         value = new_tensor
     elif isinstance(value, list | tuple):
         new_value = [replace_tensors(tensor_map, item) for item in value]
@@ -1035,6 +1045,29 @@ def any_differentiable(value: Any) -> bool:
     return False
 
 
+def set_differentiabilities(value: Any, diff_info: Any, updates: Updates) -> None:
+    if isinstance(value, Tensor):
+        # Set the differentiability of the value Tensor.
+        if not isinstance(diff_info, bool):
+            raise TypeError("Differentiability must be a boolean value.")
+        value.differentiable = diff_info
+        if diff_info and value.type is not float:
+            updates |= value.set_type(float)
+
+    elif diff_info is True:
+        raise ValueError("Non-tensor values cannot be differentiable.")
+
+    elif isinstance(value, list | tuple):
+        assert isinstance(diff_info, list | tuple)
+        for val, info in zip(value, diff_info, strict=True):
+            set_differentiabilities(val, info, updates)
+
+    elif isinstance(value, dict):
+        assert isinstance(diff_info, dict)
+        for val, info in zip(value.values(), diff_info, strict=True):
+            set_differentiabilities(val, info, updates)
+
+
 def convert_to_numeric_value(
     value: Tensor[int | float | bool] | ScalarValueType,
 ) -> ScalarValueType:
@@ -1048,6 +1081,27 @@ def convert_to_numeric_value(
     elif isinstance(value, dict):
         return {key: convert_to_numeric_value(val) for key, val in value.items()}
     return value
+
+
+def check_used_tensors(value: Any) -> None:
+    """
+    Checks if any tensors within the given value are marked as used.
+
+    This function iterates through all tensors extracted from the provided value
+    and raises a ValueError if any of them are marked as used. Used tensors cannot
+    be reused as a value for another connection.
+
+    Args:
+        value (Any): The input value that may contain tensors to be checked.
+
+    Raises:
+        ValueError: If any tensor within the value is marked as used.
+    """
+    for tensor in get_specific_types_from_value(value, Tensor):
+        if tensor.is_used:
+            raise ValueError(
+                "Used tensors can not be used as a value for another connection."
+            )
 
 
 class Tensor(Generic[TypeVarTensorType]):
@@ -1076,6 +1130,7 @@ class Tensor(Generic[TypeVarTensorType]):
         self.value: TensorValueType | ToBeDetermined = TBD
         if not isinstance(value, ToBeDetermined):
             self.set_value(value)
+        self.is_used = False
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
@@ -1172,6 +1227,15 @@ class Tensor(Generic[TypeVarTensorType]):
             prev_node.referees = set()
         return updates
 
+    def __repr__(self) -> str:
+        if isinstance(self.type, UnionType):
+            _type = " | ".join(type_def.__name__ for type_def in get_args(self.type))
+        else:
+            assert isinstance(self.type, type)
+            _type = self.type.__name__
+
+        return f"Tensor[{_type}]"
+
 
 class IOHyperEdge:
     _type: type[Tensor[int | float | bool]] | ScalarType
@@ -1218,14 +1282,8 @@ class IOHyperEdge:
         return None
 
     @property
-    def initial_valued(self) -> bool:
-        if isinstance(self._value, Tensor):
-            return self._value.initial_valued
-        return self._initial_valued
-
-    @property
-    def tensors(self) -> set[Tensor[int | float | bool]]:
-        return set(get_specific_types_from_value(self._value, Tensor))
+    def tensors(self) -> list[Tensor[int | float | bool]]:
+        return get_specific_types_from_value(self._value, Tensor)
 
     @property
     def is_polymorphic(self) -> bool:
@@ -1249,18 +1307,13 @@ class IOHyperEdge:
 
     @property
     def is_valued(self) -> bool:
-        return not self.initial_valued and self._is_valued
+        return not self.initial_valued and is_valued(self._value)
 
     @property
-    def _is_valued(self) -> bool:
-        # TODO: Update as it can handle mixed type values which contains
-        # both tensors and scalars.
-        tensors = self.tensors
-        return (
-            all(tensor.value is not TBD for tensor in tensors)
-            if tensors
-            else self._value is not TBD
-        )
+    def initial_valued(self) -> bool:
+        if isinstance(self._value, Tensor):
+            return self._value.initial_valued
+        return self._initial_valued
 
     @property
     def all_constraints(self) -> set[Constraint]:
@@ -1321,6 +1374,7 @@ class IOHyperEdge:
         updates.add(self, UpdateType.VALUE)
         updates.add(self, UpdateType.SHAPE)
         self._value = tensor
+        tensor.is_used = True
         return updates
 
     def replace_tensor(
@@ -1385,15 +1439,16 @@ class IOHyperEdge:
                 if value_1 is not value_2:
                     updates |= value_1.match(value_2)
                     updated_tensors[value_2] = value_1
+                value_2.is_used = True
                 return value_1
 
-            case (list(), list()):
+            case (list(), list()) if len(value) == len(self_value):
                 return [
                     self._match_values(val, self_val, updates, updated_tensors)
                     for val, self_val in zip(value, self_value, strict=True)
                 ]
 
-            case (tuple(), tuple()):
+            case (tuple(), tuple()) if len(value) == len(self_value):
                 return tuple(
                     self._match_values(val, self_val, updates, updated_tensors)
                     for val, self_val in zip(value, self_value, strict=True)
@@ -1422,7 +1477,9 @@ class IOHyperEdge:
 
             case _:
                 raise ValueError(
-                    f"Value is set before as {self._value}. A value can not be reset."
+                    f"Given value is not compatible with the current value\n"
+                    f"    Current value: {self_value}\n"
+                    f"    Given value: {value}"
                 )
 
     def update_tensor_values(
@@ -1440,6 +1497,7 @@ class IOHyperEdge:
             # Add self to referees of value and shape.
             value = updated_tensors.get(value, value)
             value.referees.add(self)
+            value.is_used = True
             # TODO: When two edges set to the same tensor value using
             # different Tensor objects, we need to merge their nodes into
             # a single node. In order to track this, we need to add all
@@ -1448,17 +1506,13 @@ class IOHyperEdge:
                 for symbol in repr.prefix + repr.suffix:
                     updates.add(symbol)
             return value
-        elif isinstance(value, list):
-            return [
+
+        elif isinstance(value, tuple | list):
+            _value = [
                 self.update_tensor_values(val, updates, updated_tensors)
                 for val in value
             ]
-
-        elif isinstance(value, tuple):
-            return tuple(
-                self.update_tensor_values(val, updates, updated_tensors)
-                for val in value
-            )
+            return tuple(value) if isinstance(value, tuple) else _value
 
         elif isinstance(value, dict):
             return {
@@ -1528,17 +1582,13 @@ class IOHyperEdge:
 
         return updates
 
-    def set_differentiability(self, differentiable: bool) -> Updates:
-        if self.is_scalar and differentiable:
-            raise ValueError("Non-tensor edges cannot be differentiable.")
-
+    def set_differentiability(self, differentiable: Any) -> Updates:
         updates = Updates()
-        if differentiable:
+        if differentiable is True:
             # Differentiable edges can only be Tensor[float] type.
             updates |= self.set_type(Tensor[float])
-        # Set differentiability of the _value if it is a Tensor.
-        if isinstance(self._value, Tensor):
-            self._value.differentiable = differentiable
+
+        set_differentiabilities(self._value, differentiable, updates)
         return updates
 
     def add_constraint(self, constraint: Constraint) -> None:
@@ -3671,3 +3721,19 @@ def is_index_type(
         is not None
         for val in index
     )
+
+
+def is_valued(
+    value: ScalarValueType | Tensor[int | float | bool] | ToBeDetermined,
+) -> bool:
+    match value:
+        case ToBeDetermined():
+            return False
+        case Tensor():
+            return value.value is not TBD
+        case dict():
+            return all(is_valued(v) for v in value.values())
+        case list() | tuple():
+            return all(is_valued(item) for item in value)
+        case _:
+            return True

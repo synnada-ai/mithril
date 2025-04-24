@@ -22,7 +22,7 @@ import numpy as np
 from mithril import Backend, CBackend, GGMLBackend, NumpyBackend, compile
 from mithril.cores.c.array import PyArray
 from mithril.framework.common import Tensor
-from mithril.models import Add, BroadcastTo, IOKey, Model, Multiply
+from mithril.models import Add, BroadcastTo, IOKey, Mean, Model, Multiply
 
 from ..utils import with_temp_file
 
@@ -245,6 +245,55 @@ def test_cbackend_3():
 
     for key in np_grads:
         assert np.allclose(c_backend.to_numpy(c_grads[key]), np_grads[key])
+
+
+def test_cbackend_immediate_inputs():
+    model = Model()
+    mean = Mean(axis=(1, 2, 3))
+
+    model |= mean(input=IOKey(name="input", differentiable=True))
+    # model.set_types(input=Tensor)
+
+    c_backend = CBackend()
+    np_backend = NumpyBackend()
+    c_pm = compile(
+        model,
+        c_backend,
+        shapes={"input": [1, 2, 3, 4, 5]},
+        jit=False,
+        inference=False,
+    )
+    np_pm = compile(
+        model,
+        np_backend,
+        shapes={"input": [1, 2, 3, 4, 5]},
+        jit=False,
+        inference=False,
+    )
+
+    input = np.random.rand(1, 2, 3, 4, 5)
+    grad = np.random.rand(1, 5)
+
+    c_outputs = c_pm.evaluate({"input": c_backend.array(input)})
+    _, c_grads = c_pm.evaluate(
+        {"input": c_backend.array(input)},
+        {},
+        output_gradients={"output": c_backend.array(grad)},
+    )
+
+    np_outputs = np_pm.evaluate({"input": input})
+    _, np_grads = np_pm.evaluate(
+        {"input": input},
+        {},
+        output_gradients={"output": grad},
+    )
+
+    c_output = c_outputs["output"]
+    np_output = np_outputs["output"]
+    assert isinstance(c_output, PyArray)
+    assert isinstance(np_output, np.ndarray)
+    assert np.allclose(c_backend.to_numpy(c_output), np_output)
+    assert np.allclose(c_backend.to_numpy(c_grads["input"]), np_grads["input"])
 
 
 def test_broadcast_to_ggml():

@@ -100,7 +100,6 @@ __all__ = [
     "conv_1d_constraints",
     "conv_2d_constraints",
     "pad_constraints",
-    "split_constraints",
     "randn_constraints",
     "buffer_constraint",
     "relational_operator_type_constraint",
@@ -430,13 +429,13 @@ def scalar_slice_type_constraint(
     return status, updates
 
 
-def scalar_item_type_constraint_forward_helper(
+def scalar_item_type_constraint_helper(
     input_type: GenericAlias | UnionType | type, index_val: int | slice | ToBeDetermined
 ) -> type | UnionType | GenericAlias:
     # forward inference of scalar item type constraint:
     # Examples:
-    # > scalar_item_type_constraint_forward_helper(list[list[int]], 3) -> list[int]
-    # > scalar_item_type_constraint_forward_helper(list[int | float], 3) -> int | float
+    # > scalar_item_type_constraint_helper(list[list[int]], 3) -> list[int]
+    # > scalar_item_type_constraint_helper(list[int | float], 3) -> int | float
 
     new_type = input_type
     if isinstance(input_type, GenericAlias):
@@ -463,8 +462,11 @@ def scalar_item_type_constraint_forward_helper(
                     # take union of all types inside tuple
                     new_type = create_union_type(*input_type.__args__)
 
-            if variadic_required and isinstance(index_val, slice):
-                new_type = tuple[new_type, ...]  # type: ignore
+            if variadic_required:
+                if isinstance(index_val, slice):
+                    new_type = tuple[new_type, ...]  # type: ignore
+                else:
+                    new_type = new_type | tuple[new_type, ...]  # type: ignore
 
         elif origin is list:
             if isinstance(index_val, slice):
@@ -664,9 +666,7 @@ def indexer_type_constraint(
         )
 
         # Do the forward inference in all types in args, then make Union
-        types = [
-            scalar_item_type_constraint_forward_helper(arg, index_value) for arg in args
-        ]
+        types = [scalar_item_type_constraint_helper(arg, index_value) for arg in args]
         inferred_out_type = create_union_type(*types)
 
         updates |= output.set_type(inferred_out_type)
@@ -4067,82 +4067,6 @@ def indexer_constraints(
     return False, Updates()
 
 
-def split_constraints(
-    output: IOHyperEdge, input: IOHyperEdge, split_size: IOHyperEdge, axis: IOHyperEdge
-) -> ConstrainResultType:
-    status = False
-    split_size_val = split_size.value
-    axis_val = axis.value
-    assert output._temp_shape is not None, "Output shape of Split is not set!"
-    assert input._temp_shape is not None, "Input shape of Split is not set!"
-    output_shape: ShapeRepr = output._temp_shape
-    input_shape: ShapeRepr = input._temp_shape
-    updated_symbols = Updates()
-
-    assert isinstance(axis_val, ToBeDetermined) or type(axis_val) is int
-
-    assert isinstance(split_size_val, ToBeDetermined) or type(split_size_val) is int
-
-    if not isinstance(axis_val, ToBeDetermined) and not isinstance(
-        split_size_val, ToBeDetermined
-    ):
-        if axis_val >= 0:
-            if len(input_shape.prefix) > axis_val:
-                uni_val = input_shape.prefix[axis_val].value
-                if uni_val is not None:
-                    new_val = int(uni_val / split_size_val)
-                    prefix = [
-                        Uniadic(split_size_val),
-                        *input_shape.prefix[:axis_val],
-                        Uniadic(new_val),
-                        *input_shape.prefix[axis_val + 1 :],
-                    ]
-                    root = input_shape.root
-                    suffix = input_shape.suffix
-                    updated_symbols |= output_shape.inner_match(
-                        prefix=prefix, root=root, suffix=suffix
-                    )
-                    status = True
-
-        elif axis_val < 0:
-            if input_shape.root is None:
-                axis_val = len(input_shape.prefix) + axis_val
-                uni_val = input_shape.prefix[axis_val].value
-                if uni_val is not None:
-                    new_val = int(uni_val / split_size_val)
-                    prefix = [
-                        Uniadic(split_size_val),
-                        *input_shape.prefix[:axis_val],
-                        Uniadic(new_val),
-                        *input_shape.prefix[axis_val + 1 :],
-                    ]
-                    root = input_shape.root
-                    suffix = input_shape.suffix
-                    updated_symbols |= output_shape.inner_match(
-                        prefix=prefix, root=root, suffix=suffix
-                    )
-                    status = True
-
-            elif len(input_shape.suffix) >= abs(axis_val):
-                axis_val = len(input_shape.suffix) + axis_val
-                uni_val = input_shape.suffix[axis_val].value
-                if uni_val is not None:
-                    new_val = int(uni_val / split_size_val)
-                    prefix = [Uniadic(split_size_val), *input_shape.prefix]
-                    root = input_shape.root
-                    suffix = [
-                        *input_shape.suffix[:axis_val],
-                        Uniadic(new_val),
-                        *input_shape.suffix[axis_val + 1 :],
-                    ]
-                    updated_symbols |= output_shape.inner_match(
-                        prefix=prefix, root=root, suffix=suffix
-                    )
-                    status = True
-
-    return status, updated_symbols
-
-
 def padding_1d_constraint(
     output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
@@ -4330,14 +4254,19 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
             # both are not polymorphic
             updates |= output.set_type(input.edge_type)
             updates |= input.set_type(output.edge_type)
-            is_input_valued = input._value is not TBD
-            is_output_valued = output._value is not TBD
-            if is_input_valued ^ is_output_valued:
-                valued, non_valued = (
-                    (input, output) if is_input_valued else (output, input)
-                )
-                updates |= non_valued.set_value(valued._value)
-                status = True
+            if input.is_tensor:
+                if input._value is not output._value:
+                    updates |= input.set_value(output._value)
+                    status = True
+            else:
+                is_input_valued = input._value is not TBD
+                is_output_valued = output._value is not TBD
+                if is_input_valued ^ is_output_valued:
+                    valued, non_valued = (
+                        (input, output) if is_input_valued else (output, input)
+                    )
+                    updates |= non_valued.set_value(valued._value)
+                    status = True
 
     return status, updates
 

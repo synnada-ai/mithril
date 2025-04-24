@@ -21,6 +21,7 @@ import pytest
 
 import mithril as ml
 from mithril import Backend, JaxBackend, NumpyBackend, TorchBackend
+from mithril.cores.python.numpy import utils as np_utils
 
 backends: list[Backend] = [
     TorchBackend(dtype=ml.float64),
@@ -80,7 +81,7 @@ def manul_vjp(
     for idx in idxs:
         grad = grad_fn(out_grad, cache, idx, *args, **kwargs)
         if isinstance(grad, backend.DataType):
-            grad = backend.accumulate_grads(grad, args[idx], {}, idx)  # type: ignore
+            grad = np_utils.accumulate_grads(grad, args[idx], {}, idx)  # type: ignore
         input_grads.append(grad)
 
     return input_grads
@@ -4481,91 +4482,6 @@ def test_pad_2():
         output_grad,
         [0],
         {"input": input, "pad_width": padding},
-        {},
-    )
-
-
-def test_split_1():
-    input = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-    split_size = 2
-    axis = 0
-    result = np.split(input, split_size, axis)
-
-    output_grad = np.stack((np.array([0.1, 0.2, 0.3]), np.array([0.4, 0.5, 0.6])))
-    input_grad = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
-
-    assert_forward("split", result, (input,), {"split_size": split_size, "axis": axis})
-    assert_backward(
-        "split",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "split_size": split_size, "axis": 0},
-        {},
-    )
-
-
-def test_split_2():
-    # split single element
-    input = np.array([1.0])
-    split_size = 1
-    axis = 0
-    result = np.split(input, split_size, axis)
-
-    output_grad = np.stack((np.array([0.5]),))
-    input_grad = np.array([0.5])
-
-    assert_forward("split", result, (input,), {"split_size": split_size, "axis": axis})
-    assert_backward(
-        "split",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "split_size": split_size, "axis": axis},
-        {},
-    )
-
-
-def test_split_3():
-    # split empty array
-    input = np.array([])
-    split_size = 1
-    axis = 0
-    result = np.split(input, split_size, axis)
-
-    output_grad = np.stack((np.array([]),))
-    input_grad = np.array([])
-
-    assert_forward("split", result, (input,), {"split_size": split_size, "axis": axis})
-    assert_backward(
-        "split",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "split_size": split_size, "axis": axis},
-        {},
-    )
-
-
-def test_split_4():
-    # negative axis
-    input = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    split_size = 2
-    axis = -1
-    result = np.split(input, split_size, axis)
-
-    output_grad = np.stack(
-        (np.array([[0.1], [0.2], [0.3]]), np.array([[0.4], [0.5], [0.6]]))
-    )
-    input_grad = np.array([[0.1, 0.4], [0.2, 0.5], [0.3, 0.6]])
-
-    assert_forward("split", result, (input,), {"split_size": split_size, "axis": axis})
-    assert_backward(
-        "split",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "split_size": split_size, "axis": axis},
         {},
     )
 

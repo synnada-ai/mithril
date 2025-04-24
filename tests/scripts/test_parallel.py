@@ -24,6 +24,10 @@ import numpy as np
 import pytest
 import torch
 import torch.distributed
+from torch.distributed._tensor import (
+    Replicate,
+    Shard,
+)
 
 import mithril
 from mithril import compile
@@ -556,6 +560,79 @@ def test_torch_parallel_5():
         np.testing.assert_allclose(grad, parallel_grad, 1e-6, 1e-6)
 
 
+def test_row_wise_sharding():
+    backend = mithril.TorchBackend()
+    backend_parallel = create_parallel_backend(device_mesh=(1, 4))
+
+    input = backend.rand((32, 32))
+    weight = backend.rand((32, 32))
+
+    input_sharded = backend_parallel.array(input, device_mesh=((0, 1), (0, 4)))
+    row_wise_weight = backend_parallel.array(weight, device_mesh=((0, 1), (0, 4)))
+    assert row_wise_weight.placements == (Replicate(), Shard(0))
+    assert row_wise_weight._local_tensor.shape == (8, 32)
+
+    result = input @ weight
+    result_sharded = input_sharded @ row_wise_weight
+    assert result_sharded.placements == (Replicate(), Shard(0))
+    assert result_sharded._local_tensor.shape == (8, 32)
+
+    assert torch.allclose(result, result_sharded.full_tensor())
+
+
+def test_col_wise_sharding():
+    backend = mithril.TorchBackend()
+    backend_parallel = create_parallel_backend(device_mesh=(1, 4))
+
+    input = backend.rand((32, 32))
+    weight = backend.rand((32, 32))
+
+    input_sharded = backend_parallel.array(input, device_mesh=((0, 1), (1, 4)))
+    col_wise_weight = backend_parallel.array(weight, device_mesh=((0, 1), (1, 4)))
+    assert col_wise_weight.placements == (Replicate(), Shard(1))
+    assert col_wise_weight._local_tensor.shape == (32, 8)
+
+    result = input @ weight
+    result_sharded = input_sharded @ col_wise_weight
+    assert torch.allclose(result, result_sharded.full_tensor())
+
+
+def test_col_and_row_wise_sharding_reverse():
+    backend = mithril.TorchBackend()
+    backend_parallel = create_parallel_backend(device_mesh=(2, 2))
+
+    input = backend.rand((32, 32))
+    weight = backend.rand((32, 32))
+
+    input_sharded = backend_parallel.array(input, device_mesh=((0, 2), (1, 2)))
+    weight_row_col_sharded = backend_parallel.array(
+        weight, device_mesh=((1, 2), (0, 2))
+    )
+    assert weight_row_col_sharded.placements == (Shard(1), Shard(0))
+    assert weight_row_col_sharded._local_tensor.shape == (16, 16)
+
+    result = input @ weight
+    result_sharded = input_sharded @ weight_row_col_sharded
+    assert torch.allclose(result, result_sharded.full_tensor())
+
+
+def test_replicate_and_col_wise_shard():
+    backend = mithril.TorchBackend()
+    backend_parallel = create_parallel_backend(device_mesh=(2, 2))
+
+    input = backend.rand((32, 32))
+    weight = backend.rand((32, 32))
+
+    input_sharded = backend_parallel.array(input, device_mesh=((0, 1), (1, 2)))
+    col_wise_weight = backend_parallel.array(weight, device_mesh=((0, 1), (1, 2)))
+    assert col_wise_weight.placements == (Replicate(), Shard(1))
+    assert col_wise_weight._local_tensor.shape == (32, 16)
+
+    result = input @ weight
+    result_sharded = input_sharded @ col_wise_weight
+    assert torch.allclose(result, result_sharded.full_tensor())
+
+
 def test_torch_static_parallel_1():
     # This test checks parallel execution with partial static inference.
     model = Model()
@@ -729,7 +806,7 @@ def test_torch_parallel_error_7():
 
     assert (
         str(e.value)
-        == "Device mesh must have the same or less dimensions than the tensor."
+        == "Device mesh must have the same number of dimensions as the base mesh."
     )
 
 

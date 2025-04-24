@@ -99,6 +99,7 @@ class FlatGraph(GenericDataType[DataType]):
         ] = {}  # Assumed connections added in topological order.
         self._all_source_keys: set[str] = set()
         self._all_target_keys: set[str] = set(output_keys)
+        self._all_keys: set[str] = set()
 
         self._input_keys = input_keys
 
@@ -115,6 +116,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         self.data_store: StaticDataStore[DataType] = StaticDataStore(backend)
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
+        self.multi_node_keys: dict[str, list[str]] = {}
 
     @property
     def hanging_keys(self) -> set[str]:
@@ -228,6 +230,38 @@ class FlatGraph(GenericDataType[DataType]):
 
     def add_value(self, model: Operator, keys: dict[str, str]) -> None:
         output_key = keys[Operator.output_key]
+        # If output/input is of list, tuple or dict type, find indexes of
+        # corresponding inputs/outputs when it is flattened to a list.
+        # These indices will be used for gradient calculations.
+        if self.backend.is_manualgrad:
+            all_conns = model.conns.all
+            out = all_conns[Operator.output_key]
+            out_tensors = out.metadata.tensors
+            # Check if any tensor in output also is an input to the operator
+            # model.
+            for tensor in out_tensors:
+                for key, outer_key in keys.items():
+                    # Skip output key and cache key.
+                    if key in (Operator.output_key, "cache"):
+                        continue
+                    # Get the index of the tensor in the output.
+                    key_conn = all_conns[key]
+                    if (
+                        key_tensors := key_conn.metadata.tensors
+                    ) and tensor in key_tensors:
+                        if outer_key in self.multi_node_keys:
+                            # If outer_key already exists in multi_node_keys,
+                            # then find the index of the tensor in the outer_key and
+                            # find corresponding sub_key in corresponding list.
+                            sub_index = key_tensors.index(tensor)
+                            sub_key = self.multi_node_keys[outer_key][sub_index]
+                            self.multi_node_keys.setdefault(output_key, []).append(
+                                sub_key
+                            )
+                        else:
+                            self.multi_node_keys.setdefault(output_key, []).append(
+                                outer_key
+                            )
 
         # Create output connection of the new Connection.
         out_conn = GConnection(output_key, model, [], [])
@@ -237,6 +271,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         # Create input connections
         for inner_key, outer_key in keys.items():
+            self._all_keys.add(outer_key)
             if inner_key == Operator.output_key:
                 continue
 
@@ -301,6 +336,16 @@ class FlatGraph(GenericDataType[DataType]):
             if value_str == output_key:
                 self.output_dict[key_str] = new_reference_key
 
+        # Update the multi_node_keys with the new reference key if it is used.
+        if output_key in self.multi_node_keys:
+            self.multi_node_keys[new_reference_key] = self.multi_node_keys.pop(
+                output_key
+            )
+        else:
+            for _key, _value in self.multi_node_keys.items():
+                if output_key in _value:
+                    _value[_value.index(output_key)] = new_reference_key
+
     def _update_output_keys(self, output_key: str, new_reference_key: str) -> bool:
         if output_key not in self.output_dict:
             return False
@@ -352,7 +397,7 @@ class FlatGraph(GenericDataType[DataType]):
             key = conn.key
             op = self.get_op(key)
 
-            # The connection is allready calculated
+            # The connection is already calculated
             if key in self.data_store.data_values:
                 # Unlink source connections
                 for source_key in list(conn.source_keys):
@@ -588,7 +633,7 @@ class FlatGraph(GenericDataType[DataType]):
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
                 if (
-                    value in static_keys
+                    value in self.data_store.data_values
                     or value in self.unused_keys
                     or value in state_outputs
                 ):
@@ -597,7 +642,7 @@ class FlatGraph(GenericDataType[DataType]):
                 value_mapping = self.get_source_keys(value)
 
                 # To infer a model, all of its input keys should be in statics.
-                if not set(value_mapping).issubset(static_keys):
+                if not all(key in self.data_store.data_values for key in value_mapping):
                     continue
 
                 model = self.get_op(value)
@@ -650,8 +695,10 @@ class FlatGraph(GenericDataType[DataType]):
                 static_value = fn(*args, **kwargs)
 
                 # Check astype needed
-                if self.backend.is_manualgrad and is_type_adjustment_required(
-                    self.all_data, value_mapping
+                if (
+                    self.backend.is_manualgrad
+                    and is_type_adjustment_required(self.all_data, value_mapping)
+                    and isinstance(static_value, self.backend.get_backend_array_type())
                 ):
                     static_value = self.backend.array(static_value)
 
@@ -661,7 +708,6 @@ class FlatGraph(GenericDataType[DataType]):
                         static_value = self.backend.array(static_value)
 
                 _queue, _updates = self.add_static_data(value, static_value)
-                static_keys = set(self.data_store.data_values.keys())
                 queue |= _queue
                 updates |= _updates
         return updates
@@ -723,8 +769,9 @@ class FlatGraph(GenericDataType[DataType]):
                     updates |= data.set_value(value)
             else:
                 # Convert value to logical representaiton and set accordingly.
-                x = self.data_store.convert_phys_value_to_logical(value)
-                updates |= data.set_value(x)
+                if key in self.runtime_static_keys:
+                    x = self.data_store.convert_phys_value_to_logical(value)
+                    updates |= data.set_value(x)
 
             self.cached_data[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)
@@ -889,7 +936,6 @@ class FlatGraph(GenericDataType[DataType]):
 
     def graph_update(self) -> None:
         # Currently only GGML needs graph update!
-
         for out_conn in list(self.model_table.values()):
             out_key = out_conn.key
             op = self.get_op(out_key)
@@ -916,7 +962,7 @@ class FlatGraph(GenericDataType[DataType]):
             # If left shape is not the same as output shape, we need to add
             # a broadcast_to operator.
             if left_shape != output_shape:
-                key = "broadcast_to_shape"
+                key = "broadcast_to_shape"  # TODO fix this key
                 shape_out_key = "broadcast_to_shape_output"
                 left_data = self.all_data[left_key]
                 self.update_data(
@@ -931,7 +977,7 @@ class FlatGraph(GenericDataType[DataType]):
                     "output": shape_out_key,
                 }
                 kwargs = {
-                    "input": self.all_data[left_key],
+                    "input": left_data,
                     "shape": self.all_data[key],
                     "output": self.all_data[shape_out_key],
                 }
@@ -944,6 +990,14 @@ class FlatGraph(GenericDataType[DataType]):
 
     def get_key_shape(self, key: str) -> list[int]:
         return self.data_store.get_key_shape(key)
+
+    def get_next_unique_key(self, prefix: str) -> str:
+        i = 0
+        while f"{prefix}_{i}" in self._all_keys:
+            i += 1
+
+        self._all_keys.add(f"{prefix}_{i}")
+        return f"{prefix}_{i}"
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False

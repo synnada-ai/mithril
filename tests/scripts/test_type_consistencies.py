@@ -28,6 +28,7 @@ from mithril.framework.common import (
     ToBeDetermined,
     find_intersection_type,
     find_type,
+    is_valued,
 )
 from mithril.framework.logical.base import BaseKey
 from mithril.framework.logical.model import ConnectionType
@@ -1169,3 +1170,39 @@ def test_sort_type_8():
         str(new_type)
         == "tuple[tuple[bool | int | tuple[bool | float | int, bool, int]]]"
     )
+
+
+def test_is_valued_list_int():
+    assert is_valued([1, 2, 3])
+
+
+def test_is_valued_list_tbd():
+    assert not is_valued([TBD, 2, 3])
+
+
+def test_is_valued_tuple_float():
+    assert is_valued((4, 2, 3))
+
+
+def test_is_valued_tuple_tbd():
+    assert not is_valued((TBD, 2, 3))
+
+
+def test_is_valued_dict_tbd():
+    assert not is_valued({"key1": 3, "key2": TBD})
+
+
+def test_is_valued_dict_bool():
+    assert is_valued({"key1": True, "key2": False})
+
+
+def test_is_valued_tensor():
+    assert is_valued([Tensor([1, 2]), Tensor([3, 4]), 3])
+
+
+def test_is_valued_tensor_tbd():
+    assert not is_valued([Tensor([1, 2]), Tensor()])
+
+
+def test_is_valued_tensor_nested():
+    assert is_valued([[Tensor([1, 2]), Tensor([6, 7])], [3, 4]])

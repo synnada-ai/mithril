@@ -15,6 +15,7 @@
 
 import sys
 from copy import deepcopy
+from typing import Any
 
 from mithril.framework.common import (
     NOT_GIVEN,
@@ -23,6 +24,7 @@ from mithril.framework.common import (
 )
 from mithril.framework.logical.base import BaseKey
 from mithril.models import (
+    MLP,
     TBD,
     Add,
     BaseModel,
@@ -1535,6 +1537,36 @@ def test_deleted_edge_ref_count() -> None:
     assert sys.getrefcount(ref_var1) == 2 or sys.getrefcount(ref_var2) == 2
 
 
+def test_deleted_dependency_map():
+    model = Model()
+    add_1 = Add()
+    add_2 = Add()
+    model |= add_1(left="left1", right="right1", output="output1")
+
+    assert add_1.dependency_map._global_input_dependency_map is None
+    assert add_1.dependency_map._global_input_dependency_map_cache is None
+    assert add_1.dependency_map._global_output_dependency_map is None
+    assert add_1.dependency_map._global_output_dependency_map_cache is None
+    assert add_1.dependency_map._local_input_dependency_map is None
+
+    model |= add_2(left="left2", right="right2", output="output2")
+
+    assert add_2.dependency_map._global_input_dependency_map is None
+    assert add_2.dependency_map._global_input_dependency_map_cache is None
+    assert add_2.dependency_map._global_output_dependency_map is None
+    assert add_2.dependency_map._global_output_dependency_map_cache is None
+    assert add_2.dependency_map._local_input_dependency_map is None
+
+
+def test_total_object_count_ten_layer_mlp():
+    model = MLP(
+        activations=[Relu() for _ in range(10)], dimensions=[10 for _ in range(10)]
+    )
+    memo: dict[Any, Any] = {}
+    deepcopy(model, memo)
+    assert len(memo) <= 9000
+
+
 def test_hyperedges_match_list_of_tensors_with_tbd():
     t1: Tensor[int] = Tensor(type=int)
     t2: Tensor[int] = Tensor(type=int)
@@ -1569,41 +1601,19 @@ def test_hyperedges_match_list_of_tensors():
     assert sys.getrefcount(t5) == 2
 
 
-def test_intgerated_with_list_of_tensors_set_value():
+def test_hyperedges_match_list_of_tensors_with_one_edge_free():
     t1: Tensor[int] = Tensor(type=int)
     t2: Tensor[int] = Tensor(type=int)
     t3: Tensor[int] = Tensor(type=int)
     t4: Tensor[int] = Tensor(type=int)
     t5: Tensor[int] = Tensor(type=int)
 
-    model = Buffer()
-    model.input.set_value([[t1, t2], [t3, t4]])
-    model.input.set_value([[t2, t3], [t4, t5]])
+    edge1 = IOHyperEdge(value=[[t1, t2], [t3, t4]])
+    edge2 = IOHyperEdge(value=[[t2, t3], [t4, t5]])
 
-    assert sys.getrefcount(t1) != 2
-    assert sys.getrefcount(t2) == 2
-    assert sys.getrefcount(t3) == 2
-    assert sys.getrefcount(t4) == 2
-    assert sys.getrefcount(t5) == 2
+    IOHyperEdge(value=[[t2, TBD], [TBD, t3]])
 
-
-def test_intgerated_with_list_of_tensors_match():
-    t1: Tensor[int] = Tensor(type=int)
-    t2: Tensor[int] = Tensor(type=int)
-    t3: Tensor[int] = Tensor(type=int)
-    t4: Tensor[int] = Tensor(type=int)
-    t5: Tensor[int] = Tensor(type=int)
-
-    model1 = Buffer()
-    model1.input.set_value([[t1, t2], [t3, t4]])
-
-    model2 = Buffer()
-    model2.input.set_value([[t2, t3], [t4, t5]])
-
-    model = Model()
-
-    model |= model1(input="input", output="output1")
-    model |= model2(input="input", output="output2")
+    edge1.match(edge2)
 
     assert sys.getrefcount(t1) != 2
     assert sys.getrefcount(t2) == 2

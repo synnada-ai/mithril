@@ -20,11 +20,10 @@ from typing import Any
 
 import numpy as np
 
-from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...cores.python.numpy.utils import fill_zeros_like
-from ...framework.physical.model import PhysicalModel
-from ...utils.func_utils import is_make_array_required, prepare_function_args
-from ..common import (
+from ....backends.with_manualgrad.numpy_backend import NumpyBackend
+from ....cores.python.numpy.utils import fill_zeros_like
+from ....utils.func_utils import is_make_array_required, prepare_function_args
+from ...common import (
     DataEvalType,
     EvaluateAllType,
     EvaluateType,
@@ -33,9 +32,10 @@ from ..common import (
     ParamsEvalType,
     is_type_adjustment_required,
 )
-from ..logical import Operator
+from ...logical import Operator
+from ...physical.model import PhysicalModel
+from ..utils import check_repr_inequality
 from .python_gen import PythonCodeGen, RawGradientType
-from .utils import check_repr_inequality
 
 
 class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
@@ -46,6 +46,8 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         assert isinstance(self.pm.backend, NumpyBackend)
         self.backend: NumpyBackend = self.pm.backend
+        self._flatten_fn_imported = False
+        self._numpy_imported = False
 
     def generate_functions(self) -> list[ast.FunctionDef]:
         functions: list[ast.FunctionDef] = []
@@ -125,6 +127,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 key_cache = cached_data.get(key + "_cache", {})
                 assert isinstance(key_cache, dict)
                 out_data: np.ndarray[Any, Any] | None = None
+
                 if key in params:
                     out_data = params[key]
                 elif "output" in key_cache:
@@ -262,44 +265,213 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             {cache_name: IOHyperEdge(dict | None, cache_value)}
         )
 
+    def _distribute_grads(
+        self,
+        key: str,
+        value: ast.expr,
+        sub_keys: list[str],
+        function_body: list[ast.stmt],
+    ) -> None:
+        """
+        Distributes gradients across sub-keys and accumulates them in the
+        `gradients` dictionary.
+
+        This method handles the distribution of gradients for both tensor and
+        non-tensor data. For tensor data, gradients are directly accumulated.
+        For non-tensor data, gradients are flattened before being distributed.
+
+        Args:
+            key (str): The key representing the gradient in the data dictionary.
+            value (ast.expr): The AST expression representing the gradient value.
+            sub_keys (list[str]): A list of sub-keys to which the gradients will
+                be distributed.
+            function_body (list[ast.stmt]): The list of AST statements representing
+                the function body where the gradient distribution logic will be
+                appended.
+
+        Returns:
+            None
+        """
+        # Extract real key presented in data dict.
+        key = key if key in self.pm.data else self.pm.flat_graph.output_dict[key]
+        tensor_data = self.pm.data[key].is_tensor
+        # If key is not a tensor data, flatten grads and then distribute them.
+        # If not,  directly accumulate gradients.
+        if not tensor_data:
+            if not self._flatten_fn_imported:
+                self._import_flatten_fn()
+            value = ast.Call(
+                func=ast.Name(id="_flatten_grads", ctx=ast.Load()),
+                args=[value],
+                keywords=[],
+            )
+        if len(sub_keys) == 1 and tensor_data:
+            (sub_key,) = sub_keys
+            if not self._has_grad(sub_key):
+                return
+            # Directly accumulate gradients for tensor data.
+            function_body.append(
+                ast.AugAssign(
+                    target=ast.Subscript(
+                        value=ast.Name(id="gradients", ctx=ast.Load()),
+                        slice=ast.Constant(sub_key),
+                        ctx=ast.Load(),
+                    ),
+                    op=ast.Add(),
+                    value=value,
+                )
+            )
+        else:
+            # Assign flattened grads to a variable and then distribute them
+            # using indexes.
+            grad_variable = ast.Name(id=key + "_gradient", ctx=ast.Store())
+            function_body.append(ast.Assign(targets=[grad_variable], value=value))
+            for idx, sub_key in enumerate(sub_keys):
+                if not self._has_grad(sub_key):
+                    continue
+                target = ast.Subscript(
+                    value=ast.Name(id="gradients", ctx=ast.Load()),
+                    slice=ast.Constant(sub_key),
+                    ctx=ast.Load(),
+                )
+                function_body.append(
+                    ast.AugAssign(
+                        target=target,
+                        op=ast.Add(),
+                        value=ast.Subscript(
+                            value=grad_variable,
+                            slice=ast.Constant(idx),
+                            ctx=ast.Load(),
+                        ),
+                    )
+                )
+
+    def _import_flatten_fn(self) -> None:
+        """
+        Imports necessary modules and defines a helper function `_flatten_grads`.
+
+        This method performs the following actions:
+        1. Ensures that `numpy` is imported and aliased as `np` if it hasn't been
+           imported already.
+        2. Imports the `get_specific_types_from_value` function from the
+           `mithril.common` module.
+        3. Defines a global function `_flatten_grads` that wraps the
+           `get_specific_types_from_value` function, specifically filtering values of
+           type `np.ndarray`.
+
+        The `_flatten_grads` function takes a single argument `value` and returns the
+        result of calling `get_specific_types_from_value` with `value` and `np.ndarray`
+        as arguments.
+
+        This method also sets the `_flatten_fn_imported` flag to `True` to indicate
+        that the imports and function definition have been completed.
+        """
+        if not self._numpy_imported:
+            # Import numpy.
+            self.imports.append(
+                ast.Import(names=[ast.alias(name="numpy", asname="np")])
+            )
+            self._numpy_imported = True
+        # Import get_specific_types_from_value from mithril.common.
+        self.imports.append(
+            ast.ImportFrom(
+                module="mithril.common",
+                names=[
+                    ast.alias(
+                        name="get_specific_types_from_value",
+                        asname=None,
+                    )
+                ],
+                level=0,
+            )
+        )
+        # Define _flatten_grads function which wraps
+        # get_specific_types_from_value with typ = np.ndarray.
+        self.globals.append(
+            ast.FunctionDef(
+                name="_flatten_grads",
+                args=ast.arguments(
+                    posonlyargs=[],
+                    args=[ast.arg(arg="value")],
+                    kwonlyargs=[],
+                    kw_defaults=[],
+                    defaults=[],
+                ),
+                body=[
+                    ast.Return(
+                        value=ast.Call(
+                            func=ast.Name(
+                                id="get_specific_types_from_value", ctx=ast.Load()
+                            ),
+                            args=[
+                                ast.Name(id="value", ctx=ast.Load()),
+                                ast.Name(id="np.ndarray", ctx=ast.Load()),
+                            ],
+                            keywords=[],
+                        )
+                    )
+                ],
+                decorator_list=[],
+                returns=None,
+                type_comment=None,
+                type_params=[],
+            )
+        )
+        self._flatten_fn_imported = True
+
     def generate_evaluate_gradients(self) -> ast.FunctionDef:
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
         used_keys: set[str] = set()
-        is_recursive_fn_imported: bool = False
 
         # Move gradients back for keys in alias_map(pruned or optimized out keys)
         for target_key, source_key in self.pm.flat_graph.output_dict.items():
-            if target_key == source_key:
-                continue
             if target_key in self.pm.cotangent_keys:
-                source = ast.Subscript(
-                    value=ast.Name(id="gradients", ctx=ast.Load()),
-                    slice=ast.Constant(
-                        "_" + target_key
-                        if keyword.iskeyword(target_key)
-                        or target_key in self.backend.primitive_function_dict
-                        else target_key
-                    ),
-                    ctx=ast.Load(),
-                )
+                if (
+                    subkeys := self.pm.flat_graph.multi_node_keys.get(target_key)
+                ) is not None:
+                    source: ast.Subscript | ast.Call = ast.Subscript(
+                        value=ast.Name(id="gradients", ctx=ast.Load()),
+                        slice=ast.Constant(
+                            "_" + target_key
+                            if keyword.iskeyword(target_key)
+                            or target_key in self.backend.primitive_function_dict
+                            else target_key
+                        ),
+                        ctx=ast.Load(),
+                    )
+                    self._distribute_grads(target_key, source, subkeys, function_body)
+                elif target_key != source_key:
+                    source = ast.Subscript(
+                        value=ast.Name(id="gradients", ctx=ast.Load()),
+                        slice=ast.Constant(
+                            "_" + target_key
+                            if keyword.iskeyword(target_key)
+                            or target_key in self.backend.primitive_function_dict
+                            else target_key
+                        ),
+                        ctx=ast.Load(),
+                    )
 
-                target = ast.Subscript(
-                    value=ast.Name(id="gradients", ctx=ast.Load()),
-                    slice=ast.Constant(
-                        "_" + source_key
-                        if keyword.iskeyword(source_key)
-                        or source_key in self.backend.primitive_function_dict
-                        else source_key
-                    ),
-                    ctx=ast.Load(),
-                )
+                    target = ast.Subscript(
+                        value=ast.Name(id="gradients", ctx=ast.Load()),
+                        slice=ast.Constant(
+                            "_" + source_key
+                            if keyword.iskeyword(source_key)
+                            or source_key in self.backend.primitive_function_dict
+                            else source_key
+                        ),
+                        ctx=ast.Load(),
+                    )
 
-                assign = ast.AugAssign(target=target, op=ast.Add(), value=source)
-                function_body.append(assign)
+                    assign = ast.AugAssign(target=target, op=ast.Add(), value=source)
+                    function_body.append(assign)
 
         for output_key in reversed(list(self.pm.flat_graph.topological_order)):
-            if not self._has_grad(output_key):
+            if (
+                not self._has_grad(output_key)
+                or output_key in self.pm.flat_graph.multi_node_keys
+            ):
                 continue
 
             # Iterate over Primitive models in topological order to add their formula.
@@ -399,9 +571,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     grad_fn, local_input_keys, global_input_keys, default_args
                 )
 
-                if self.backend.is_manualgrad and is_make_array_required(
-                    self.pm.data[output_key]
-                ):
+                if is_make_array_required(self.pm.data[output_key]):
                     generated_fn = ast.Call(
                         func=ast.Name(id="make_array", ctx=ast.Load()),
                         args=[generated_fn],
@@ -433,34 +603,32 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         keywords=[],
                     )
 
-                target = ast.Subscript(
-                    value=ast.Name(id="gradients", ctx=ast.Load()),
-                    slice=ast.Constant(global_input_key),
-                    ctx=ast.Load(),
-                )
-
-                if self.pm.data[global_input_key].is_tensor:
-                    function_body.append(
-                        ast.AugAssign(target=target, op=ast.Add(), value=generated_fn)
+                if (
+                    subkeys := self.pm.flat_graph.multi_node_keys.get(global_input_key)
+                ) is not None:
+                    self._distribute_grads(
+                        global_input_key, generated_fn, subkeys, function_body
                     )
                 else:
-                    function_body.append(
-                        ast.Assign(
-                            targets=[target],
-                            value=ast.Call(
-                                func=ast.Name(id="recursive_sum", ctx=ast.Load()),
-                                args=[target, generated_fn],
-                                keywords=[],
-                            ),
-                        )
+                    target = ast.Subscript(
+                        value=ast.Name(id="gradients", ctx=ast.Load()),
+                        slice=ast.Constant(global_input_key),
+                        ctx=ast.Load(),
                     )
-                    if not is_recursive_fn_imported:
-                        self.imports.append(
-                            ast.ImportFrom(
-                                module="mithril.framework.utils",
-                                names=[ast.alias(name="recursive_sum", asname=None)],
-                                level=0,
+                    if self.pm.data[global_input_key].is_tensor:
+                        # Accumulate gradients for tensor data.
+                        function_body.append(
+                            ast.AugAssign(
+                                target=target, op=ast.Add(), value=generated_fn
                             )
+                        )
+                    else:
+                        # TODO: Note that normally, Mithril does not support non-tensor
+                        # trainable data like list, tuple or dict. But for testing
+                        # purposes we use this feature. This part should be removed
+                        # after strategy of some testings updated (i.e. JSON tests.).
+                        function_body.append(
+                            ast.Assign(targets=[target], value=generated_fn)
                         )
 
                 used_keys |= _used_keys - {"output_gradient", "idx"}
