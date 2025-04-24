@@ -34,11 +34,9 @@ jobs:
           ./compile.sh
           popd
       - name: Install Python dependencies
-        run: |
-          pip install -r requirements/dev.txt
+        run: pip install -r requirements/dev.txt
       - name: Run pre-commit
-        run: |
-          pre-commit run --all-files
+        run: pre-commit run --all-files
       - name: Execute testcase unit tests
         run: pytest -s tests/
 
