@@ -60,9 +60,9 @@ class STensor(DTensor):
 
         dtensor = DTensor._op_dispatcher.dispatch(func, args, kwargs or {})
         if isinstance(dtensor, torch.Tensor):
-            stensor = STensor.from_dtensor(dtensor)
+            stensor = STensor.from_dtensor(dtensor)  # type: ignore
         else:
-            stensor = dtensor
+            stensor = dtensor  # type: ignore
 
         save_callback(id(stensor))
 

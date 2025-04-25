@@ -36,17 +36,6 @@ jobs:
           ./compile.sh
           popd
       - name: Install Python dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
-          pip install --upgrade "jax[cpu]"
-          pip install -r requirements/dev.txt
-          pip install tiktoken
-          pip install accelerate
-          pip install transformers
-          pip install librosa
-          pip install einops
-          pip install ftfy regex tqdm
-          pip install git+https://github.com/openai/CLIP.git
+        run: pip install -r requirements/dev.txt
       - name: Execute testcase unit tests
         run: pytest -s test_examples/
