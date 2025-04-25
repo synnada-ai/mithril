@@ -15,14 +15,21 @@
 import logging
 import math
 import re
+import warnings
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
 
 import torch
-import torch.nn.functional as F  # noqa: N812
-from torch.distributed._tensor import DTensor, DeviceMesh, Replicate, distribute_tensor
 import torch.distributed as dist
+import torch.nn.functional as F  # noqa: N812
+from torch.distributed._tensor import (
+    DeviceMesh,
+    DTensor,
+    Replicate,
+    Shard,
+    distribute_tensor,
+)
 
 from ....common import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList, is_int_tuple_tuple
@@ -76,6 +83,9 @@ from .utils import (
     log_sigmoid,
     log_softmax,
 )
+
+warnings.filterwarnings("ignore")
+aten = torch.ops.aten
 
 AxisType = None | int | Sequence[int]
 
@@ -1308,21 +1318,20 @@ def indexer(
         return input[new_index]  # type: ignore
     return input[index]  # type: ignore
 
-def async_gather_linear(A_shard, x_shard, debug=False):
+
+def async_gather_linear(A_shard: torch.Tensor, x_shard: torch.Tensor) -> torch.Tensor:
     rank = dist.get_rank()
     size = dist.get_world_size()
 
-    if debug & (rank==0):
-        print(f"Started async gather linear.")
     # Determine the destination ranks for sending and receiving.
-    dst_up = (rank+1) % size
-    dst_down = (rank-1) % size
-    # These indices will be used to determine which shard of A to multiply with.
-    # They are initialized to the destination ranks.
+    dst_up = (rank + 1) % size
+    dst_down = (rank - 1) % size
     recv_up_index = dst_up
     recv_down_index = dst_down
+
     # Split A_shard into sub-shards along the specified dimension.
     A_shard_sub = torch.tensor_split(A_shard, size, 1)
+
     # Initialize tensors for sending data.
     send_up = x_shard.clone()
     send_down = x_shard.clone()
@@ -1331,64 +1340,45 @@ def async_gather_linear(A_shard, x_shard, debug=False):
     recv_down = x_shard.clone()
     # Compute the initial output using the local shard of A.
     y_shard = torch.matmul(x_shard, A_shard_sub[rank].T)
-    
-    for i in range(size-1):
+
+    for i in range(size - 1):
         if i % 2 == 0:
             # Send down, receive from up.
             send_req = dist.isend(tensor=send_down, dst=dst_down)
-            if debug & (rank==0):
-                print(f"Rank {rank} started sending to rank {dst_down}.")
             dist.recv(recv_up, dst_up)
-            if debug & (rank==0):
-                print(f"Rank {rank} received from rank {dst_up} {recv_up}.")
-                print(f"Multiplying with {A_shard_sub[(recv_up_index % size)]}.")
-            # Perform the matrix multiplication with the received tensor and the appropriate shard of A.
-            y_shard += torch.matmul(recv_up,A_shard_sub[(recv_up_index % size)].T)
-            if debug & (rank==0):
-                print(f"Rank {rank} computed the partial.")
+            # Multiply received tensor and the appropriate shard of A.
+            y_shard += torch.matmul(recv_up, A_shard_sub[(recv_up_index % size)].T)
         else:
             # Send up, receive from down.
             send_req = dist.isend(tensor=send_up, dst=dst_up)
-            if debug & (rank==0):
-                print(f"Rank {rank} started sending to rank {dst_up}.")
             dist.recv(recv_down, dst_down)
-            if debug & (rank==0):
-                print(f"Rank {rank} received from rank {dst_down} {recv_down}.")
-                print(f"Multiplying with {A_shard_sub[(recv_down_index % size)]}.")
-            # Perform the matrix multiplication with the received tensor and the appropriate shard of A.
-            y_shard += torch.matmul(recv_down,A_shard_sub[(recv_down_index % size)].T)
-            if debug & (rank==0):
-                print(f"Rank {rank} received from rank {dst_down} and computed the partial.")
+            # Multiply received tensor and the appropriate shard of A.
+            y_shard += torch.matmul(recv_down, A_shard_sub[(recv_down_index % size)].T)
         # Wait for the send operation to complete before proceeding.
-        send_req.wait()
-        if debug & (rank==0):
-            print(f"Rank {rank} finished sending.")
+        send_req.wait()  # type: ignore
         # Update the send and receive tensors for the next iteration.
         if i % 2 == 0:
             send_down = recv_up.clone()
-            recv_up_index+=1
+            recv_up_index += 1
         else:
             send_up = recv_down.clone()
-            recv_down_index-=1    
-    if debug:
-        print(f"***Rank {rank} finished computing output {y_shard}.***")
+            recv_down_index -= 1
     return y_shard
 
-def async_scatter_linear(A_shard, x_shard, debug=False):
+
+def async_scatter_linear(A_shard: torch.Tensor, x_shard: torch.Tensor) -> torch.Tensor:
     rank = dist.get_rank()
     size = dist.get_world_size()
-    
-    if debug & (rank==0):
-        print(f"Started async scatter linear.")
+
     # Determine the source and destination ranks for sending and receiving.
-    dst = (rank+1) % size
-    src = (rank-1) % size
+    dst = (rank + 1) % size
+    src = (rank - 1) % size
     # Split A_shard into sub-shards along the specified dimension.
     A_shard_sub = torch.tensor_split(A_shard, size, 0)
     # Assume upward communication, determine compute order.
-    compute_order = [k % size for k in [i + rank for i in range(size-1, -1, -1)]]
+    compute_order = [k % size for k in [i + rank for i in range(size - 1, -1, -1)]]
     # Initialize tensor for sending data with first result to send.
-    send_shard = torch.matmul(x_shard,A_shard_sub[compute_order[0]].T)
+    send_shard = torch.matmul(x_shard, A_shard_sub[compute_order[0]].T)
     # Initialize tensor for receiving data.
     recv_shard = send_shard.clone()
     # Initialize tensor for half result.
@@ -1398,48 +1388,76 @@ def async_scatter_linear(A_shard, x_shard, debug=False):
         # Start sending and receiving.
         send_req = dist.isend(tensor=send_shard, dst=dst)
         recv_req = dist.irecv(recv_shard, src=src)
-        if debug & (rank==0):
-            print(f"Rank {rank} started sending to rank {dst}, receiving from {src}.")
         # While waiting to receive, calculate half of next result to send.
-        if debug & (rank==0):
-            print(f"Calculating half of next result by multiplying with shard {(turn) % size}.")
-        half_result = torch.matmul(x_shard,A_shard_sub[(turn) % size].T)
-        recv_req.wait()
-        # Calculate next result to send with the received tensor and the appropriate shard of A.
-        if debug & (rank==0):
-            print(f"Rank {rank} received from rank {src} {recv_shard}.")
+        half_result = torch.matmul(x_shard, A_shard_sub[(turn) % size].T)
+        recv_req.wait()  # type: ignore
+        # Multiply received tensor and the appropriate shard of A.
         half_result += recv_shard
-        send_req.wait()
+        send_req.wait()  # type: ignore
         send_shard = half_result
-    
+
     # Our last send_shard is the final result.
     y_shard = send_shard.clone()
-    if debug:
-        print(f"***Rank {rank} finished computing output {y_shard}.***")
     return y_shard
 
-# Define the custom DTensor matmul implementation
-def async_matmul_dtensor(x, y):
-    if not isinstance(x, DTensor) or not isinstance(y, DTensor):
-        raise TypeError("Inputs must be DTensors.")
 
-    if y.shape[0] <= y.shape[1]:
-        # Prefer gather strategy
-        local_result = async_gather_linear(y.to_local().T, x.to_local(), debug=False)
-    else:
-        # Prefer scatter strategy
-        local_result = async_scatter_linear(y.to_local().T, x.to_local(), debug=False)
-    return DTensor.from_local(local_result, device_mesh=x.device_mesh, placements=x.placements)
+# Define the custom DTensor matmul implementation
+# def async_matmul_dtensor(x: DTensor, y: DTensor) -> DTensor:
+def async_matmul_dtensor(
+    x: DTensor,
+    y: DTensor,
+    strategy: str,
+) -> DTensor:
+    if strategy == "gather":
+        local_result = async_gather_linear(y.to_local().T, x.to_local())
+        result = DTensor.from_local(
+            local_result, device_mesh=x.device_mesh, placements=x.placements
+        )
+
+    elif strategy == "scatter":
+        local_result = async_scatter_linear(y.to_local().T, x.to_local())
+        result = DTensor.from_local(
+            local_result, device_mesh=x.device_mesh, placements=x.placements
+        )
+
+    return result
+
 
 # Define the custom op handler
 def async_matmul_dtensor_handler(
     op_call: torch._ops.OpOverload,
     args: tuple[object, ...],
     kwargs: dict[str, object],
-) -> DTensor:
-    x = args[0]
-    y = args[1]
-    return async_matmul_dtensor(x, y)
+) -> object:
+    assert isinstance(args[0], DTensor) and isinstance(args[1], DTensor)
+    op_info = DTensor._op_dispatcher.unwrap_to_op_info(op_call, args, kwargs)
+    DTensor._op_dispatcher.sharding_propagator.propagate(op_info)
+    output_sharding = op_info.output_sharding
+    assert output_sharding is not None, "output sharding should not be None"
+
+    if (
+        args[1].placements == (Replicate(), Shard(1))
+        and args[1].device_mesh.mesh.size()[0] == 1
+    ) and (args[0].placements == (Replicate(), Shard(1))):
+        # Prefer async gather strategy
+        return async_matmul_dtensor(args[0], args[1], strategy="gather")
+    elif (
+        args[1].placements == (Replicate(), Shard(0))
+        and args[1].device_mesh.mesh.size()[0] == 1
+    ) and (args[0].placements == (Replicate(), Shard(1))):
+        # Prefer async scatter strategy
+        return async_matmul_dtensor(args[0], args[1], strategy="scatter")
+        # return DTensor._op_dispatcher.wrap(local_results, output_sharding.output_spec)
+    else:
+        # Temporarily fallback to default dispatch behavior.
+        del DTensor._op_dispatcher._custom_op_handlers[aten.mm.default]
+        try:
+            return DTensor._op_dispatcher.dispatch(op_call, args, kwargs)
+        finally:
+            DTensor._op_dispatcher._custom_op_handlers[aten.mm.default] = (
+                async_matmul_dtensor_handler
+            )
+
 
 array_creation_funcs = [
     "arange",

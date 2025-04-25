@@ -567,15 +567,17 @@ def test_row_wise_sharding():
     input = backend.rand((32, 32))
     weight = backend.rand((32, 32))
 
-    input_sharded = backend_parallel.array(input, device_mesh=((0, 1), (0, 4)))
+    input_sharded = backend_parallel.array(input, device_mesh=((0, 1), (1, 4)))
     row_wise_weight = backend_parallel.array(weight, device_mesh=((0, 1), (0, 4)))
     assert row_wise_weight.placements == (Replicate(), Shard(0))
     assert row_wise_weight._local_tensor.shape == (8, 32)
+    assert input_sharded.placements == (Replicate(), Shard(1))
+    assert input_sharded._local_tensor.shape == (32, 8)
 
-    result = input @ weight
-    result_sharded = input_sharded @ row_wise_weight
-    assert result_sharded.placements == (Replicate(), Shard(0))
-    assert result_sharded._local_tensor.shape == (8, 32)
+    result = input @ weight.T
+    result_sharded = input_sharded @ row_wise_weight.T
+    assert result_sharded.placements == (Replicate(), Shard(1))
+    assert result_sharded._local_tensor.shape == (32, 8)
 
     assert torch.allclose(result, result_sharded.full_tensor())
 
@@ -591,9 +593,14 @@ def test_col_wise_sharding():
     col_wise_weight = backend_parallel.array(weight, device_mesh=((0, 1), (1, 4)))
     assert col_wise_weight.placements == (Replicate(), Shard(1))
     assert col_wise_weight._local_tensor.shape == (32, 8)
+    assert input_sharded.placements == (Replicate(), Shard(1))
+    assert input_sharded._local_tensor.shape == (32, 8)
 
-    result = input @ weight
-    result_sharded = input_sharded @ col_wise_weight
+    result = input @ weight.T
+    result_sharded = input_sharded @ col_wise_weight.T
+    assert result_sharded.placements == (Replicate(), Shard(1))
+    assert result_sharded._local_tensor.shape == (32, 8)
+
     assert torch.allclose(result, result_sharded.full_tensor())
 
 
@@ -631,6 +638,43 @@ def test_replicate_and_col_wise_shard():
     result = input @ weight
     result_sharded = input_sharded @ col_wise_weight
     assert torch.allclose(result, result_sharded.full_tensor())
+
+
+def test_async_matmul_tensor(mocker):
+    backend = mithril.TorchBackend()
+    backend_parallel = create_parallel_backend(device_mesh=(1, 4))
+    input = backend.rand((32, 32))
+    row_wise_w = backend.rand((128, 32))
+    col_wise_w = backend.rand((8, 32))
+
+    input_shard = backend_parallel.array(input, device_mesh=((0, 1), (1, 4)))
+    row_wise_w_shard = backend_parallel.array(row_wise_w, device_mesh=((0, 1), (0, 4)))
+    col_wise_w_shard = backend_parallel.array(col_wise_w, device_mesh=((0, 1), (1, 4)))
+
+    gather_patch = mocker.patch(
+        "mithril.cores.python.torch.ops.async_gather_linear",
+        wraps=mithril.cores.python.torch.ops.async_gather_linear,
+    )
+    scatter_patch = mocker.patch(
+        "mithril.cores.python.torch.ops.async_scatter_linear",
+        wraps=mithril.cores.python.torch.ops.async_scatter_linear,
+    )
+
+    result_row_wise = input @ row_wise_w.T
+    result_sharded_row_wise = input_shard @ row_wise_w_shard.T
+    assert gather_patch.called
+    assert not scatter_patch.called
+
+    gather_patch.reset_mock()
+    scatter_patch.reset_mock()
+
+    result_col_wise = input @ col_wise_w.T
+    result_sharded_col_wise = input_shard @ col_wise_w_shard.T
+    assert scatter_patch.called
+    assert not gather_patch.called
+
+    assert torch.allclose(result_row_wise, result_sharded_row_wise.full_tensor())
+    assert torch.allclose(result_col_wise, result_sharded_col_wise.full_tensor())
 
 
 def test_torch_static_parallel_1():
