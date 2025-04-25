@@ -50,7 +50,7 @@ def test_freeze_set_values_extend_defined_logical():
 
 def test_freeze_set_values_extend_logical():
     model = Model()
-    model += Add()(left="left", right="right")
+    model += Add().connect(left="left", right="right")
     assert model.is_frozen is False
 
     model.set_values(left=Tensor(1.0))
@@ -70,7 +70,7 @@ def test_freeze_set_values_extend_logical():
 
 def test_freeze_set_values_scalar():
     model = Model()
-    model += Indexer()(input="input")
+    model += Indexer().connect(input="input")
     assert model.is_frozen is False
 
     model._freeze()

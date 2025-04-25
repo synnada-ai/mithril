@@ -32,9 +32,9 @@ def test_primitives_c_backend():
     cbackend = ml.CBackend()
     # Create a simple two-layer network
     model = Model()
-    model |= Linear(dimension=32)(input=IOKey("input", shape=[10, 32, 32]))
+    model |= Linear(dimension=32).connect(input=IOKey("input", shape=[10, 32, 32]))
     model += Relu()
-    model += Linear(dimension=16)(output="output")
+    model += Linear(dimension=16).connect(output="output")
 
     # Create a training model
     tm = TrainModel(model)
@@ -94,9 +94,9 @@ def test_primitives_c_backends():
     ggml_backend = ml.GGMLBackend()
     # Create a simple two-layer network
     model = Model()
-    model |= Linear(dimension=32)(input=IOKey("input", shape=[10, 32, 32]))
+    model |= Linear(dimension=32).connect(input=IOKey("input", shape=[10, 32, 32]))
     model += Relu()
-    model += Linear(dimension=16)(output="output")
+    model += Linear(dimension=16).connect(output="output")
 
     # Create a training model
     tm = TrainModel(model)
@@ -177,7 +177,7 @@ def test_primitives_c_ggml_transpose():
     backend = ml.NumpyBackend()
     ggml_backend = ml.GGMLBackend()
     model = Model()
-    model |= Transpose()(input="input")
+    model |= Transpose().connect(input="input")
 
     # Compile the model
     np_pm = ml.compile(

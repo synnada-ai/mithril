@@ -442,7 +442,7 @@ UnrollTriggerTypes = ConnectionData | Connection | IOKey | Tensor  # type: ignor
 
 
 class Model(BaseModel):
-    def __call__(
+    def connect(
         self, **kwargs: ConnectionType | MainValueType | Tensor[int | float | bool]
     ) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
@@ -682,7 +682,7 @@ class Model(BaseModel):
         # TODO: Check if info is a valid info for canonical connections.
         # TODO: Add canonical connection information to info.
         if isinstance(info, BaseModel):
-            info = info()
+            info = info.connect()
         model, kwargs = info.model, info.connections
         given_keys = {key for key, val in kwargs.items() if val is not NullConnection()}
         available_cin = {item.key for item in model.conns.cins} - given_keys
@@ -705,7 +705,7 @@ class Model(BaseModel):
     def __or__(self, info: ExtendInfo | Model) -> Self:
         # TODO: Check if info is a valid info for extend.
         if isinstance(info, Model):
-            info = info()
+            info = info.connect()
         return self._extend(info.model, info.connections)
 
     __ior__ = __or__

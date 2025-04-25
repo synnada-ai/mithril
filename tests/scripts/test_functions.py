@@ -124,12 +124,12 @@ def test_topological_sort_1():
     svm1 = LinearSVM()
     model = Model()
 
-    model |= linear1()
-    model |= linear2(input=linear1.output)
-    model |= relu1(input=linear2.output)
-    model |= relu2(input=relu1.output)
-    model |= relu3(input=relu2.output)
-    model |= svm1(input=relu3.output, output=IOKey(name="output"))
+    model |= linear1.connect()
+    model |= linear2.connect(input=linear1.output)
+    model |= relu1.connect(input=linear2.output)
+    model |= relu2.connect(input=relu1.output)
+    model |= relu3.connect(input=relu2.output)
+    model |= svm1.connect(input=relu3.output, output=IOKey(name="output"))
     graph = model.get_models_in_topological_order()
     assert graph == [linear1, linear2, relu1, relu2, relu3, svm1]
 
@@ -142,12 +142,12 @@ def test_topological_sort_2():
     relu5 = Relu()
     relu6 = Relu()
     model = Model()
-    model |= relu1()
-    model |= relu2(output=relu1.input)
-    model |= relu3(input=relu1.output)
-    model |= relu4(input=relu3.output)
-    model |= relu5(output=relu2.input)
-    model |= relu6(output=relu5.input)
+    model |= relu1.connect()
+    model |= relu2.connect(output=relu1.input)
+    model |= relu3.connect(input=relu1.output)
+    model |= relu4.connect(input=relu3.output)
+    model |= relu5.connect(output=relu2.input)
+    model |= relu6.connect(output=relu5.input)
     graph = model.get_models_in_topological_order()
     assert graph == [relu6, relu5, relu2, relu1, relu3, relu4]
 
@@ -160,12 +160,12 @@ def test_topological_sort_3():
     add2 = Add()
     buff1 = Buffer()
     buff2 = Buffer()
-    model1 |= add1(left="input", right="input", output=IOKey(name="output"))
-    model2 |= buff1(input="input", output=IOKey(name="output"))
-    model |= model1(input="input")
-    model |= model2(input=model1.output)  # type: ignore
-    model |= add2(left=model2.output, right="output")  # type: ignore
-    model |= buff2(output=add2.right)
+    model1 |= add1.connect(left="input", right="input", output=IOKey(name="output"))
+    model2 |= buff1.connect(input="input", output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)  # type: ignore
+    model |= add2.connect(left=model2.output, right="output")  # type: ignore
+    model |= buff2.connect(output=add2.right)
     graph = model.get_models_in_topological_order()
     assert graph == [model1, model2, buff2, add2]
 
@@ -184,18 +184,26 @@ def test_flatten_dag_1():
 
     ordered_model_list = [add, mult1, cart, substract, power, div]
 
-    model1 |= add(left="in1", right="in2")
-    model1 |= mult1(left=add.output, right="in2", output=IOKey(name="output"))
+    model1 |= add.connect(left="in1", right="in2")
+    model1 |= mult1.connect(left=add.output, right="in2", output=IOKey(name="output"))
 
-    model2 |= cart(left="in1", right="in2")
-    model2 |= substract(left=cart.output, right=cart.output)
-    model2 |= power(base="in1", exponent=substract.output, output=IOKey(name="output"))
+    model2 |= cart.connect(left="in1", right="in2")
+    model2 |= substract.connect(left=cart.output, right=cart.output)
+    model2 |= power.connect(
+        base="in1", exponent=substract.output, output=IOKey(name="output")
+    )
 
-    model3 |= div(numerator="in1", denominator="in2", output=IOKey(name="output"))
+    model3 |= div.connect(
+        numerator="in1", denominator="in2", output=IOKey(name="output")
+    )
 
-    model4 |= model1(in1="input1", in2="input2")
-    model4 |= model2(in1=model1.output, in2=model1.output)  # type: ignore
-    model4 |= model3(in1=model2.output, in2=model2.output, output=IOKey(name="output"))  # type: ignore
+    model4 |= model1.connect(in1="input1", in2="input2")
+    model4 |= model2.connect(in1=model1.output, in2=model1.output)  # type: ignore
+    model4 |= model3.connect(
+        in1=model2.output,  # type: ignore
+        in2=model2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
 
     comp_model = mithril.compile(
         model=model4, backend=JaxBackend(dtype=mithril.float64), inference=True
@@ -239,21 +247,21 @@ def test_flatten_dag_2():
         abs,
     ]
 
-    model1 |= relu_0(input="in1")
-    model1 |= sigmoid(input="in1", output=IOKey(name="out1"))
-    model1 |= softmax(input=relu_0.output, output=IOKey(name="out2"))
+    model1 |= relu_0.connect(input="in1")
+    model1 |= sigmoid.connect(input="in1", output=IOKey(name="out1"))
+    model1 |= softmax.connect(input=relu_0.output, output=IOKey(name="out2"))
 
-    model2 |= softplus(input="in1")
-    model2 |= relu(input=softplus.output, output=IOKey(name="out1"))
-    model2 |= leakyrelu(input="in2")
-    model2 |= abs(input=leakyrelu.output, output=IOKey(name="out2"))
+    model2 |= softplus.connect(input="in1")
+    model2 |= relu.connect(input=softplus.output, output=IOKey(name="out1"))
+    model2 |= leakyrelu.connect(input="in2")
+    model2 |= abs.connect(input=leakyrelu.output, output=IOKey(name="out2"))
 
-    model3 |= sine(input="in1")
-    model3 |= cosine(input=sine.output, output=IOKey(name="out"))
+    model3 |= sine.connect(input="in1")
+    model3 |= cosine.connect(input=sine.output, output=IOKey(name="out"))
 
-    model4 |= model1(in1="in1")
-    model4 |= model3(in1=model1.out1)  # type: ignore
-    model4 |= model2(
+    model4 |= model1.connect(in1="in1")
+    model4 |= model3.connect(in1=model1.out1)  # type: ignore
+    model4 |= model2.connect(
         in1=model3.out,  # type: ignore
         in2=model1.out2,  # type: ignore
         out1=IOKey(name="out1"),
@@ -286,14 +294,14 @@ def test_flatten_dag_3():
     abs = Absolute()
     sine = Sine()
 
-    model1 |= relu_0(input="in1")
-    model1 |= sigmoid(input="in2")
-    model1 |= softmax(input="in3")
-    model1 |= softplus(input="in4")
-    model1 |= relu(input=softplus.output, output=IOKey(name="out4"))
-    model1 |= leakyrelu(input=softmax.output, output=IOKey(name="out3"))
-    model1 |= abs(input=sigmoid.output, output=IOKey(name="out2"))
-    model1 |= sine(input=relu_0.output, output=IOKey(name="out1"))
+    model1 |= relu_0.connect(input="in1")
+    model1 |= sigmoid.connect(input="in2")
+    model1 |= softmax.connect(input="in3")
+    model1 |= softplus.connect(input="in4")
+    model1 |= relu.connect(input=softplus.output, output=IOKey(name="out4"))
+    model1 |= leakyrelu.connect(input=softmax.output, output=IOKey(name="out3"))
+    model1 |= abs.connect(input=sigmoid.output, output=IOKey(name="out2"))
+    model1 |= sine.connect(input=relu_0.output, output=IOKey(name="out1"))
 
     ordered_model_list = [
         relu_0,
@@ -325,7 +333,7 @@ def test_code_generator_1(file_path: str):
     model = Model()
     Lin1 = Linear()
 
-    model |= Lin1(input="add1", output=IOKey(name="output"))
+    model |= Lin1.connect(input="add1", output=IOKey(name="output"))
 
     mithril.compile(
         model=model,
@@ -360,10 +368,12 @@ def test_code_generator_2(file_path: str):
     buff3 = Buffer()
     buff4 = Buffer()
 
-    model |= buff1(input=IOKey("input", type=Tensor), output=IOKey(name="output1"))
-    model |= buff2(input=buff1.output)
-    model |= buff3(input=buff1.output)
-    model |= buff4(input=buff2.output, output=IOKey(name="output2"))
+    model |= buff1.connect(
+        input=IOKey("input", type=Tensor), output=IOKey(name="output1")
+    )
+    model |= buff2.connect(input=buff1.output)
+    model |= buff3.connect(input=buff1.output)
+    model |= buff4.connect(input=buff2.output, output=IOKey(name="output2"))
 
     mithril.compile(
         model=model,
@@ -389,8 +399,8 @@ def test_code_generator_3(file_path: str):
     Linear1 = Linear()
     Linear2 = Linear()
 
-    model |= Linear1(input="input")
-    model += Linear2(output=IOKey(name="output"))
+    model |= Linear1.connect(input="input")
+    model += Linear2.connect(output=IOKey(name="output"))
 
     mithril.compile(
         model=model,
@@ -434,7 +444,7 @@ def test_code_generator_4(file_path: str):
 
     NumpyBackend.register_primitive(my_adder, add_grad)
 
-    model |= MyAdder()(left="left", right="right", output=IOKey(name="output"))
+    model |= MyAdder().connect(left="left", right="right", output=IOKey(name="output"))
     model.set_differentiability(left=True)
     model.set_differentiability(right=True)
 
@@ -528,7 +538,7 @@ def test_code_generator_5(file_path: str):
 
     JaxBackend.register_primitive(my_adder)
 
-    model += MyAdder()(left="left", right="right", output=IOKey(name="output"))
+    model |= MyAdder().connect(left="left", right="right", output=IOKey(name="output"))
     model.set_differentiability(left=True)
     model.set_differentiability(right=True)
 
@@ -577,9 +587,11 @@ def test_code_generator_6(file_path: str):
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
-    model |= layer2(input="input", weight="w1", bias="b1")
-    model |= (arange := Arange())(stop=2, output=IOKey(name="arange_res"))
-    model |= Add()(left=arange.output, right=layer2.output, output=IOKey(name="output"))
+    model |= layer2.connect(input="input", weight="w1", bias="b1")
+    model |= (arange := Arange()).connect(stop=2, output=IOKey(name="arange_res"))
+    model |= Add().connect(
+        left=arange.output, right=layer2.output, output=IOKey(name="output")
+    )
 
     context = TrainModel(model)
     context.add_loss(
@@ -633,10 +645,14 @@ def test_code_generator_7(file_path: str):
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
-    model |= layer2(input="input", weight="w1", bias="b1")
-    model += (s := Size(dim=1))
-    model |= (arange := Arange())(stop=s.output, output=IOKey(name="arange_res"))
-    model |= Add()(left=arange.output, right=layer2.output, output=IOKey(name="output"))
+    model |= layer2.connect(input="input", weight="w1", bias="b1")
+    model += (s := Size(dim=1)).connect()
+    model |= (arange := Arange()).connect(
+        stop=s.output, output=IOKey(name="arange_res")
+    )
+    model |= Add().connect(
+        left=arange.output, right=layer2.output, output=IOKey(name="output")
+    )
 
     context = TrainModel(model)
     context.add_loss(
@@ -693,8 +709,8 @@ def test_code_generator_8(file_path: str):
     add.set_differentiability(left=True)
     add.set_differentiability(right=True)
 
-    model |= add(left="left", right="right")
-    model |= Multiply()(left=add.output, right="right2", output="output")
+    model |= add.connect(left="left", right="right")
+    model |= Multiply().connect(left=add.output, right="right2", output="output")
     model.set_types(right2=Tensor)
 
     mithril.compile(model, backend=backend, jit=False, file_path=file_path)

@@ -594,7 +594,7 @@ def dict_to_model(
                         val = value_dict.get(val, val)
                         assert not isinstance(val, Dtype)
                     mappings[k] = Tensor(val)
-        model |= m(**mappings)
+        model |= m.connect(**mappings)
         for key, conns in mergings.items():
             con = getattr(m, key)
             model.merge_connections(con, *conns)

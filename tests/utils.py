@@ -185,6 +185,6 @@ class MyAdder(PrimitiveModel):
         )
         self.add_constraint(fn=bcast, keys=[Operator.output_key, "left", "right"])
 
-    def __call__(self, left, right, output):  # type: ignore[override]
+    def connect(self, left, right, output):  # type: ignore[override]
         kwargs = {"left": left, "right": right, "output": output}
         return ExtendInfo(self, kwargs)

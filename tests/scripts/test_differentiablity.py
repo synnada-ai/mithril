@@ -37,7 +37,7 @@ from mithril.models import (
 def test_buffer():
     model = Model()
     buffer = Buffer()
-    model += buffer(input=IOKey("input", differentiable=True))
+    model += buffer.connect(input=IOKey("input", differentiable=True))
     assert model.input.metadata.differentiable  # type: ignore
 
 
@@ -48,7 +48,7 @@ def test_linear():
 
 def test_linear_compile():
     model = Model()
-    model += Linear()(input="input", weight="weight", bias="bias")
+    model += Linear().connect(input="input", weight="weight", bias="bias")
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
     assert "input" in pm.flat_graph.runtime_static_keys
@@ -56,15 +56,15 @@ def test_linear_compile():
 
 def test_input_data_to_trainable():
     model = Model()
-    model += Linear()(input="input")
-    model += Linear()(weight=model.input)  # type: ignore
+    model += Linear().connect(input="input")
+    model += Linear().connect(weight=model.input)  # type: ignore
     assert model.input.metadata.differentiable  # type: ignore
 
 
 def test_input_data_to_trainable_compile():
     model = Model()
-    model += Linear()(weight=IOKey("www"), input="input")
-    model += Linear()(weight=model.input)  # type: ignore
+    model += Linear().connect(weight=IOKey("www"), input="input")
+    model += Linear().connect(weight=model.input)  # type: ignore
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
@@ -76,8 +76,8 @@ def test_input_data_to_trainable_compile():
 
 def test_internal_data_to_trainable():
     model = Model()
-    model |= Linear()(input="internal_key")
-    model |= Linear()(input="input", output=model.internal_key)  # type: ignore
+    model |= Linear().connect(input="internal_key")
+    model |= Linear().connect(input="input", output=model.internal_key)  # type: ignore
 
     pm = mithril.compile(model, JaxBackend(), jit=False, use_short_namings=False)
     assert pm.data["linear_0_matrixmultiply_output"].differentiable  # type: ignore
@@ -108,8 +108,8 @@ def test_match_tensor_with_value_data_and_param():
     assert model2.left.metadata.differentiable
 
     model = Model()
-    model += model1(left="my_input")
-    model += model2(left="my_input")
+    model += model1.connect(left="my_input")
+    model += model2.connect(left="my_input")
     assert model.my_input.metadata.differentiable  # type: ignore
 
 
@@ -127,9 +127,9 @@ def test_match_tensor_with_value_data_and_param_error():
     assert model2.left.metadata.differentiable
 
     model = Model()
-    model += model1(left="my_input")
+    model += model1.connect(left="my_input")
     with pytest.raises(ValueError) as err_info:
-        model += model2(left="my_input")
+        model += model2.connect(left="my_input")
     assert str(err_info.value) == "Differentiability mismatch!"
 
 
@@ -147,9 +147,9 @@ def test_match_tensor_with_value_data_and_param_error_rev():
     assert not model2.left.metadata.differentiable
 
     model = Model()
-    model += model1(left="my_input")
+    model += model1.connect(left="my_input")
     with pytest.raises(ValueError) as err_info:
-        model += model2(left="my_input")
+        model += model2.connect(left="my_input")
     assert str(err_info.value) == "Differentiability mismatch!"
 
 
@@ -158,11 +158,11 @@ def test_diff_inference():
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
     buff_model.set_differentiability(input=False)
-    model |= buff_model(input="input")
+    model |= buff_model.connect(input="input")
     mult = Multiply()
     mult.set_types(left=Tensor, right=Tensor)
     mult.set_differentiability(left=False)
-    model |= mult(left="left", right=model.cout, output="output")
+    model |= mult.connect(left="left", right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, inference=True)
@@ -172,9 +172,9 @@ def test_diff_inference():
 def test_diff_inference_constant_key_to_differentiable_input():
     model = Model()
     buff_model = Buffer()
-    model |= buff_model(input="input")
+    model |= buff_model.connect(input="input")
     mult = Multiply()
-    model |= mult(
+    model |= mult.connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output="output",
@@ -194,9 +194,9 @@ def test_diff_inference_constant_key_to_differentiable_input():
 def test_diff_inference_data_key_to_differentiable_input():
     model = Model()
     buff_model = Buffer()
-    model |= buff_model(input="input")
+    model |= buff_model.connect(input="input")
     mult = Multiply()
-    model |= mult(
+    model |= mult.connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output="output",
@@ -210,14 +210,14 @@ def test_diff_inference_data_key_to_differentiable_input():
 def test_diff_inference_with_data_keys_3():
     model = Model()
     buff_model = Buffer()
-    model |= buff_model(input="input", output="buff_out")
+    model |= buff_model.connect(input="input", output="buff_out")
     mult = Multiply()
-    model |= mult(
+    model |= mult.connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output=IOKey("mult_out"),
     )
-    model |= Add()(
+    model |= Add().connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=buff_model.output,
         output=IOKey("add_out"),
@@ -235,14 +235,16 @@ def test_diff_inference_with_trainable_keys():
     buff_model.set_types(input=Tensor)
     buff_model.set_differentiability(input=False)
 
-    model |= buff_model(input="input", output="buff_out")
+    model |= buff_model.connect(input="input", output="buff_out")
     mult = Multiply()
-    model |= mult(
+    model |= mult.connect(
         left=IOKey("left", type=Tensor),
         right=model.cout,
         output=IOKey("mult_out"),
     )
-    model |= Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
+    model |= Add().connect(
+        left="left", right=buff_model.output, output=IOKey("add_out")
+    )
     model.set_differentiability(left=False)
 
     backend = JaxBackend()
@@ -253,7 +255,7 @@ def test_diff_inference_with_trainable_keys():
 
 def test_diff_inference_floor_div():
     model = Model()
-    model += FloorDivide()("input", "denom", "output")
+    model += FloorDivide().connect("input", "denom", "output")
 
     pm = mithril.compile(model, JaxBackend(), inference=True)
 
@@ -265,7 +267,7 @@ def test_diff_inference_relational_ops():
 
     for primitive in primitives:
         model = Model()
-        model += primitive()("input", "denom", "output")
+        model += primitive().connect("input", "denom", "output")
 
         pm = mithril.compile(model, JaxBackend(), inference=True)
 
@@ -274,7 +276,7 @@ def test_diff_inference_relational_ops():
 
 def test_diff_inference_constant_keys_1():
     model = Model()
-    model += Multiply()(IOKey("input", differentiable=True), "denom", "output")
+    model += Multiply().connect(IOKey("input", differentiable=True), "denom", "output")
 
     pm = mithril.compile(model, JaxBackend(), constant_keys={"denom": 1.0})
 
@@ -284,7 +286,7 @@ def test_diff_inference_constant_keys_1():
 
 def test_diff_inference_constant_keys_2():
     model = Model()
-    model += Multiply()(IOKey("input", differentiable=True), "denom", "output")
+    model += Multiply().connect(IOKey("input", differentiable=True), "denom", "output")
 
     backend = JaxBackend()
 
@@ -302,7 +304,7 @@ def test_diff_inference_constant_keys_2():
 
 def test_diff_inference_add():
     model = Model()
-    model += Add()("left", "right", "output")
+    model += Add().connect("left", "right", "output")
     assert not model.left.metadata.differentiable  # type: ignore
     assert not model.right.metadata.differentiable  # type: ignore
     assert not model.output.metadata.differentiable  # type: ignore
@@ -318,7 +320,7 @@ def test_diff_inference_add():
 
 def test_diff_inference_add_connection():
     model = Model()
-    model += (add := Add())("left", "right", "output")
+    model += (add := Add()).connect("left", "right", "output")
 
     assert not model.left.metadata.differentiable  # type: ignore
     assert not model.right.metadata.differentiable  # type: ignore
@@ -339,5 +341,5 @@ def test_diff_inference_add_connection_without_model():
     left.set_differentiability(False)
     assert left.metadata.differentiable is False
     model = Model()
-    model += Add()(left, "right", "output")
+    model += Add().connect(left, "right", "output")
     assert not model.left.metadata.differentiable  # type: ignore
