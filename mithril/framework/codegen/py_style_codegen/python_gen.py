@@ -13,12 +13,15 @@
 # limitations under the License.
 
 import ast
+import enum
 import importlib
 import keyword
 from collections.abc import Callable
 from functools import partial
 from posixpath import basename, splitext
 from typing import Any, Generic, Protocol
+
+from mithril.types import Dtype
 
 from ....backends.backend import ParallelBackend
 from ....common import PythonGenConfig
