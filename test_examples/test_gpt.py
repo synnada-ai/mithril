@@ -72,7 +72,10 @@ result_prompts = {
         " The answer is a little more complicated than that, because,"
         " in the book, Platonism states that all creation is made by God "
     ),
-    "jax": ("How does that matter? How does that matter matter that much?"),
+    "jax": (
+        "As my own students have noticed, religion seems to be the only "
+        "way in which you can"
+    ),
     "numpy": (
         "That's the question you should ask yourself when you're "
         "designing your own homes. Maybe you want to create something"
@@ -82,8 +85,8 @@ result_prompts = {
 
 if os.environ.get("CI") == "true":
     result_prompts["torch"] = (
-        " It's easy to say that the answer to life is in heaven. "
-        "There is no heaven, nor there is there any universe to be found."
+        "The answer is a little more complicated than that, because, in the book,"
+        " Platonism states that all creation is made by God "
     )
 
     result_prompts["jax"] = (
