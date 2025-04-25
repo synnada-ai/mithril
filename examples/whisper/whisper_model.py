@@ -155,7 +155,7 @@ def whisper_decoder(num_layers: int, input_dim: int, num_heads: int, ffn_dim: in
     ).connect(output="embedded_positions")  # Positional embedding for decoder ids
     model |= Add().connect("embedded_tokens", model.cout)
     decoder_layers = decoder_block(num_layers, input_dim, num_heads, ffn_dim)
-    model += decoder_layers(encoder_hidden_states="encoder_hidden_states")
+    model += decoder_layers.connect(encoder_hidden_states="encoder_hidden_states")
     model += LayerNorm(name="layer_norm")
     return model
 
@@ -169,7 +169,7 @@ def whisper_model(
         input="input", encoder_hidden_states="encoder_hidden_states"
     )
     decoder_model = whisper_decoder(num_layers, input_dim, num_heads, ffn_dim)
-    model |= decoder_model(
+    model |= decoder_model.connect(
         encoder_hidden_states="encoder_hidden_states",
         decoder_input_ids="decoder_input_ids",
     )

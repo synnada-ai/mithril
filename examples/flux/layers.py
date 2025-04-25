@@ -169,8 +169,8 @@ def qk_norm(dim: int, *, name: str | None = None):
     query_norm = rms_norm(dim, name="query_norm")
     key_norm = rms_norm(dim, name="key_norm")
 
-    block |= query_norm(input="q_in", output=IOKey("q_out"))
-    block |= key_norm(input="k_in", output=IOKey("k_out"))
+    block |= query_norm.connect(input="q_in", output=IOKey("q_out"))
+    block |= key_norm.connect(input="k_in", output=IOKey("k_out"))
     return block
 
 
