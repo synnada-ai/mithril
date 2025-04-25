@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import KeysView, Mapping, Sequence
+from collections.abc import Callable, KeysView, Mapping, Sequence
 from dataclasses import dataclass
 from types import EllipsisType
 from typing import Any, Self
@@ -95,6 +95,7 @@ __all__ = [
     "ConnectionType",
     "ConnectionInstanceType",
     "define_unique_names",
+    "functional",
 ]
 
 
@@ -124,10 +125,10 @@ class Connection(ConnectionData):
     ) -> Connection:
         match key:
             case slice():
-                slice_output = create_provisional_model(
+                slice_output = extend_with_op_model(
                     connections=[key.start, key.stop, key.step], model=SliceOp
                 )
-                output = create_provisional_model(
+                output = extend_with_op_model(
                     connections=[self, slice_output], model=IndexerOp
                 )
 
@@ -143,103 +144,101 @@ class Connection(ConnectionData):
                 ] = []
                 for item in key:
                     if isinstance(item, slice):
-                        slice_output = create_provisional_model(
+                        slice_output = extend_with_op_model(
                             connections=[item.start, item.stop, item.step],
                             model=SliceOp,
                         )
                         connections.append(slice_output)
                     else:
                         connections.append(item)
-                tuple_template = create_provisional_model(
+                tuple_template = extend_with_op_model(
                     connections=connections,  # type: ignore
                     model=ToTupleOp,
                     defaults={"n": len(key)},
                 )
-                output = create_provisional_model(
+                output = extend_with_op_model(
                     connections=[self, tuple_template], model=IndexerOp
                 )
 
             case int() | EllipsisType() | None | Tensor() | Sequence() | IOKey():
-                output = create_provisional_model(
+                output = extend_with_op_model(
                     connections=[self, key],  # type: ignore
                     model=IndexerOp,
                 )
         return output
 
     def __add__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=AddOp)
+        return extend_with_op_model(connections=[self, other], model=AddOp)
 
     def __radd__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=AddOp)
+        return extend_with_op_model(connections=[other, self], model=AddOp)
 
     def __sub__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=SubtractOp)
+        return extend_with_op_model(connections=[self, other], model=SubtractOp)
 
     def __rsub__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=SubtractOp)
+        return extend_with_op_model(connections=[other, self], model=SubtractOp)
 
     def __mul__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=MultiplyOp)
+        return extend_with_op_model(connections=[self, other], model=MultiplyOp)
 
     def __rmul__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=MultiplyOp)
+        return extend_with_op_model(connections=[other, self], model=MultiplyOp)
 
     def __truediv__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=DivideOp)
+        return extend_with_op_model(connections=[self, other], model=DivideOp)
 
     def __rtruediv__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=DivideOp)
+        return extend_with_op_model(connections=[other, self], model=DivideOp)
 
     def __floordiv__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=FloorDivideOp)
+        return extend_with_op_model(connections=[self, other], model=FloorDivideOp)
 
     def __rfloordiv__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=FloorDivideOp)
+        return extend_with_op_model(connections=[other, self], model=FloorDivideOp)
 
     def __pow__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(
+        return extend_with_op_model(
             connections=[self, other], model=PowerOp, defaults={"robust": False}
         )
 
     def __rpow__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(
+        return extend_with_op_model(
             connections=[other, self], model=PowerOp, defaults={"robust": False}
         )
 
     def __matmul__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(
-            connections=[self, other], model=MatrixMultiplyOp
-        )
+        return extend_with_op_model(connections=[self, other], model=MatrixMultiplyOp)
 
     def __gt__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=GreaterOp)
+        return extend_with_op_model(connections=[self, other], model=GreaterOp)
 
     def __rgt__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=GreaterOp)
+        return extend_with_op_model(connections=[other, self], model=GreaterOp)
 
     def __ge__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=GreaterEqualOp)
+        return extend_with_op_model(connections=[self, other], model=GreaterEqualOp)
 
     def __rge__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=GreaterEqualOp)
+        return extend_with_op_model(connections=[other, self], model=GreaterEqualOp)
 
     def __lt__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=LessOp)
+        return extend_with_op_model(connections=[self, other], model=LessOp)
 
     def __rlt__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=LessOp)
+        return extend_with_op_model(connections=[other, self], model=LessOp)
 
     def __le__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=LessEqualOp)
+        return extend_with_op_model(connections=[self, other], model=LessEqualOp)
 
     def __rle__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=LessEqualOp)
+        return extend_with_op_model(connections=[other, self], model=LessEqualOp)
 
     def eq(self, other: object) -> Connection:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
-            return create_provisional_model(connections=[self, other], model=EqualOp)
+            return extend_with_op_model(connections=[self, other], model=EqualOp)
         else:
             raise ValueError("Unsupported type for equality operation.")
 
@@ -247,64 +246,64 @@ class Connection(ConnectionData):
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
-            return create_provisional_model(connections=[self, other], model=NotEqualOp)
+            return extend_with_op_model(connections=[self, other], model=NotEqualOp)
         else:
             raise ValueError("Unsupported type for equality operation.")
 
     def __and__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=LogicalAndOp)
+        return extend_with_op_model(connections=[self, other], model=LogicalAndOp)
 
     def __rand__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=LogicalAndOp)
+        return extend_with_op_model(connections=[other, self], model=LogicalAndOp)
 
     def __or__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=LogicalOrOp)
+        return extend_with_op_model(connections=[self, other], model=LogicalOrOp)
 
     def __ror__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=LogicalOrOp)
+        return extend_with_op_model(connections=[other, self], model=LogicalOrOp)
 
     def __xor__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=LogicalXOrOp)
+        return extend_with_op_model(connections=[self, other], model=LogicalXOrOp)
 
     def __rxor__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=LogicalXOrOp)
+        return extend_with_op_model(connections=[other, self], model=LogicalXOrOp)
 
     def __lshift__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=ShiftLeftOp)
+        return extend_with_op_model(connections=[self, other], model=ShiftLeftOp)
 
     def __rlshift__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=ShiftLeftOp)
+        return extend_with_op_model(connections=[other, self], model=ShiftLeftOp)
 
     def __rshift__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[self, other], model=ShiftRightOp)
+        return extend_with_op_model(connections=[self, other], model=ShiftRightOp)
 
     def __rrshift__(self, other: TemplateConnectionType) -> Connection:
-        return create_provisional_model(connections=[other, self], model=ShiftRightOp)
+        return extend_with_op_model(connections=[other, self], model=ShiftRightOp)
 
     def __invert__(self) -> Connection:
-        return create_provisional_model(connections=[self], model=LogicalNotOp)
+        return extend_with_op_model(connections=[self], model=LogicalNotOp)
 
     def __neg__(self) -> Connection:
-        return create_provisional_model(connections=[self], model=NegateOp)
+        return extend_with_op_model(connections=[self], model=NegateOp)
 
     def abs(self) -> Connection:
-        return create_provisional_model(connections=[self], model=AbsoluteOp)
+        return extend_with_op_model(connections=[self], model=AbsoluteOp)
 
     def len(self) -> Connection:
-        return create_provisional_model(connections=[self], model=LengthOp)
+        return extend_with_op_model(connections=[self], model=LengthOp)
 
     @property
     def shape(self) -> Connection:
-        return create_provisional_model(connections=[self], model=ShapeOp)
+        return extend_with_op_model(connections=[self], model=ShapeOp)
 
     def reshape(self, shape: tuple[int | Connection, ...] | Connection) -> Connection:
-        return create_provisional_model(connections=[self, shape], model=ReshapeOp)
+        return extend_with_op_model(connections=[self, shape], model=ReshapeOp)
 
     def size(self, dim: int | tuple[int, ...] | Connection | None = None) -> Connection:
-        return create_provisional_model(connections=[self, dim], model=SizeOp)
+        return extend_with_op_model(connections=[self, dim], model=SizeOp)
 
     def tensor(self) -> Connection:
-        return create_provisional_model(
+        return extend_with_op_model(
             connections=[self], model=ToTensorOp, defaults={"dtype": None}
         )
 
@@ -313,35 +312,35 @@ class Connection(ConnectionData):
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_provisional_model(connections=[self, axis, keepdim], model=MeanOp)
+        return extend_with_op_model(connections=[self, axis, keepdim], model=MeanOp)
 
     def sum(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_provisional_model(connections=[self, axis, keepdim], model=SumOp)
+        return extend_with_op_model(connections=[self, axis, keepdim], model=SumOp)
 
     def max(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_provisional_model(connections=[self, axis, keepdim], model=MaxOp)
+        return extend_with_op_model(connections=[self, axis, keepdim], model=MaxOp)
 
     def min(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_provisional_model(connections=[self, axis, keepdim], model=MinOp)
+        return extend_with_op_model(connections=[self, axis, keepdim], model=MinOp)
 
     def prod(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_provisional_model(connections=[self, axis, keepdim], model=ProdOp)
+        return extend_with_op_model(connections=[self, axis, keepdim], model=ProdOp)
 
     def var(
         self,
@@ -349,44 +348,44 @@ class Connection(ConnectionData):
         keepdim: bool = False,
         correction: float | None = 0.0,
     ) -> Connection:
-        return create_provisional_model(
+        return extend_with_op_model(
             connections=[self, axis, keepdim, correction], model=VarianceOp
         )
 
     def sqrt(self) -> Connection:
-        return create_provisional_model(
+        return extend_with_op_model(
             connections=[self], model=SqrtOp, defaults={"robust": False}
         )
 
     def exp(self) -> Connection:
-        return create_provisional_model(connections=[self], model=ExponentialOp)
+        return extend_with_op_model(connections=[self], model=ExponentialOp)
 
     def transpose(self, axes: tuple[int, ...] | Connection | None = None) -> Connection:
-        return create_provisional_model(connections=[self, axes], model=TransposeOp)
+        return extend_with_op_model(connections=[self, axes], model=TransposeOp)
 
     @property
     def T(self) -> Connection:  # noqa: N802
-        return create_provisional_model(
+        return extend_with_op_model(
             connections=[self], model=TransposeOp, defaults={"axes": None}
         )
 
     def item(self) -> Connection:
-        return create_provisional_model(connections=[self], model=ItemOp)
+        return extend_with_op_model(connections=[self], model=ItemOp)
 
     def cast(self, dtype: Connection | CoreDtype | None = None) -> Connection:
-        return create_provisional_model(connections=[self, dtype], model=CastOp)
+        return extend_with_op_model(connections=[self, dtype], model=CastOp)
 
     def dtype(self) -> Connection:
-        return create_provisional_model(connections=[self], model=DtypeOp)
+        return extend_with_op_model(connections=[self], model=DtypeOp)
 
     def sin(self) -> Connection:
-        return create_provisional_model(connections=[self], model=SineOp)
+        return extend_with_op_model(connections=[self], model=SineOp)
 
     def cos(self) -> Connection:
-        return create_provisional_model(connections=[self], model=CosineOp)
+        return extend_with_op_model(connections=[self], model=CosineOp)
 
     def atleast_1d(self) -> Connection:
-        return create_provisional_model(connections=[self], model=AtLeast1DOp)
+        return extend_with_op_model(connections=[self], model=AtLeast1DOp)
 
 
 IOKey = Connection
@@ -442,10 +441,53 @@ UnrollTriggerTypes = ConnectionData | Connection | IOKey | Tensor  # type: ignor
 
 
 class Model(BaseModel):
+    @classmethod
+    def create(
+        cls, *args: Connection, name: str | None = None, **kwargs: Connection
+    ) -> Model:
+        """
+        Create a new instance of the Model class.
+        """
+        model = Model(name=name)
+
+        for value in list(args) + list(kwargs.values()):
+            assert value.model is not None
+            extract_m = value.model._get_outermost_parent()
+            assert isinstance(extract_m, Model)
+            model.extend_extracted_model(extract_m, value)
+
+        for key, value in kwargs.items():
+            model.rename_key(value, key)
+        model._freeze()
+        return model
+
     def connect(
         self, **kwargs: ConnectionType | MainValueType | Tensor[int | float | bool]
     ) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
+
+    def __call__(
+        self,
+        *args: ConnectionType | MainValueType | Tensor[int | float | bool],
+        **kwargs: ConnectionType | MainValueType | Tensor[int | float | bool],
+    ) -> Connection | list[Connection]:
+        keys = list(args) + list(kwargs.values())
+        provisional_model, _conns = create_provisional_model(connections=keys)  # type: ignore
+        _args = {
+            key: con for key, _, con in zip(self.input_keys, args, _conns, strict=False)
+        }
+
+        _kwargs = {
+            key: con
+            for key, con in zip(kwargs.keys(), _conns[len(args) :], strict=True)
+        }
+
+        provisional_model._extend(self, _args | _kwargs)
+        outputs = list(self.conns.output_connections)
+
+        if len(outputs) == 1:
+            return outputs[0]  # type: ignore
+        return outputs  # type: ignore
 
     def _create_connection(
         self, metadata: IOHyperEdge, key: str | None = None
@@ -790,9 +832,7 @@ class Model(BaseModel):
 
 def create_provisional_model(
     connections: list[TemplateConnectionType],
-    model: type[Operator],
-    defaults: dict[str, Any] | None = None,
-) -> Connection:
+) -> tuple[Model, list[TemplateConnectionType]]:
     """
     Create a provisional model for connection-based operations (e.g. +, abs(), etc.).
     If any connection contains an associated model, that is considered the main model.
@@ -873,7 +913,39 @@ def create_provisional_model(
             provisional_model._extend_with_submodels(m, clear=True)
         else:
             provisional_model._extend(m)
-    return provisional_model._extend_op_model(_connections, model, defaults)
+    return provisional_model, _connections  # type: ignore
+
+
+def extend_with_op_model(
+    connections: list[TemplateConnectionType],
+    model: type[Operator],
+    defaults: dict[str, Any] | None = None,
+) -> Connection:
+    provisional_model, _connections = create_provisional_model(connections)
+    return provisional_model._extend_op_model(_connections, model, defaults)  # type: ignore
+
+
+# Define the model decorator
+def functional(name: str | None = None) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        # TODO: We should check if all inputs are connections.
+
+        # Get only positional arguments.
+        code = func.__code__
+        input_strings = list(code.co_varnames[: code.co_argcount])
+
+        def wrapper(*args, **kwargs) -> Any:  # type: ignore
+            inputs = [IOKey() for _ in range(len(args))]
+            result = func(*inputs, **kwargs)
+            m = Model.create(result, name=name)
+            for key, con in zip(input_strings, inputs, strict=False):
+                m.rename_key(con, key)
+            call_keys = {key: con for key, con in zip(input_strings, args, strict=True)}
+            return m(**call_keys)
+
+        return wrapper
+
+    return decorator
 
 
 def define_unique_names(
