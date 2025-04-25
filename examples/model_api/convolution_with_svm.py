@@ -54,9 +54,9 @@ SVM_Model = LinearSVM()
 
 logical_model = Model()
 logical_model |= backbone
-logical_model |= age_head(input=backbone.cout, output=ml.IOKey("age"))
-logical_model |= gender_head(input=backbone.cout)
-logical_model |= SVM_Model(
+logical_model |= age_head.connect(input=backbone.cout, output=ml.IOKey("age"))
+logical_model |= gender_head.connect(input=backbone.cout)
+logical_model |= SVM_Model.connect(
     input=gender_head.output,
     output=ml.IOKey("gender"),
     decision_output=ml.IOKey("pred_gender"),

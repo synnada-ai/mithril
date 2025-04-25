@@ -31,7 +31,7 @@ from mithril.models import (
 
 def test_conv1d():
     mithril_model = Model()
-    mithril_model += Convolution1D(3, 18, name="conv1d")(input="input")
+    mithril_model += Convolution1D(3, 18, name="conv1d").connect(input="input")
 
     backend = ml.TorchBackend()
     pm_mithril = ml.compile(
@@ -61,7 +61,7 @@ def test_conv1d():
 
 def test_conv2d():
     mithril_model = Model()
-    mithril_model += Convolution2D(3, 18, name="conv2d")(input="input")
+    mithril_model += Convolution2D(3, 18, name="conv2d").connect(input="input")
 
     backend = ml.TorchBackend()
     pm_mithril = ml.compile(
@@ -91,7 +91,7 @@ def test_conv2d():
 
 def test_linear():
     mithril_model = Model()
-    mithril_model += Linear(18, name="linear")(input="input")
+    mithril_model += Linear(18, name="linear").connect(input="input")
 
     backend = ml.TorchBackend()
     pm_mithril = ml.compile(
@@ -121,7 +121,7 @@ def test_linear():
 
 def test_layernorm():
     mithril_model = Model()
-    mithril_model += LayerNorm(name="layernorm")(input="input")
+    mithril_model += LayerNorm(name="layernorm").connect(input="input")
 
     backend = ml.TorchBackend()
     pm_mithril = ml.compile(
@@ -151,7 +151,7 @@ def test_layernorm():
 
 def test_groupnorm():
     mithril_model = Model()
-    mithril_model += GroupNorm(3, name="groupnorm")(input="input")
+    mithril_model += GroupNorm(3, name="groupnorm").connect(input="input")
 
     backend = ml.TorchBackend()
 
@@ -182,9 +182,9 @@ def test_groupnorm():
 
 def test_multi_layer():
     mithril_model = Model()
-    mithril_model += Linear(18, name="linear1")(input="input")
-    mithril_model += Relu(name="relu")()
-    mithril_model += Linear(18, name="linear2")()
+    mithril_model += Linear(18, name="linear1").connect(input="input")
+    mithril_model += Relu(name="relu").connect()
+    mithril_model += Linear(18, name="linear2").connect()
 
     backend = ml.TorchBackend()
     pm_mithril = ml.compile(
@@ -216,12 +216,12 @@ def test_multi_layer():
 
 def test_multi_layer_cascaded():
     submodel = Model(name="submodel")
-    submodel += Linear(18, name="linear1")(input="input")
-    submodel += Relu(name="relu")()
-    submodel += Linear(18, name="linear2")()
+    submodel += Linear(18, name="linear1").connect(input="input")
+    submodel += Relu(name="relu").connect()
+    submodel += Linear(18, name="linear2").connect()
 
     mithril_model = Model()
-    mithril_model += submodel(input="input")
+    mithril_model += submodel.connect(input="input")
     mithril_model += Linear(36, name="linear")
     mithril_model += Linear(36, name="linear2")
 

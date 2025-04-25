@@ -48,7 +48,7 @@ def list_full(fill_value, *shapes):
 @with_temp_file(".py")
 def test_single_input_primitive(file_path):
     model = Model()
-    model += Relu()(input=IOKey("input", differentiable=True), output="output")
+    model += Relu().connect(input=IOKey("input", differentiable=True), output="output")
     model.set_shapes(input=[1, 2, 3])
     backend = NumpyBackend()
 
@@ -104,7 +104,7 @@ def test_single_input_primitive(file_path):
 @with_temp_file(".py")
 def test_multi_input_primitive(file_path: str):
     model = Model()
-    model += Linear()(
+    model += Linear().connect(
         input=IOKey("input", differentiable=True), weight="w", bias="b", output="output"
     )
     model.set_differentiability(input=True)
@@ -190,7 +190,7 @@ def test_multi_input_primitive(file_path: str):
 @with_temp_file(".py")
 def test_variadic_input_primitive_1(file_path: str):
     model = Model()
-    model += Concat()(
+    model += Concat().connect(
         input=[
             IOKey("input1", differentiable=True),
             IOKey("input2", differentiable=True),
@@ -261,7 +261,7 @@ def test_variadic_input_primitive_1(file_path: str):
 @with_temp_file(".py")
 def test_variadic_input_primitive_2(file_path: str):
     model = Model()
-    model += ToTensor()(input="input", output="output")
+    model += ToTensor().connect(input="input", output="output")
     backend = NumpyBackend()
 
     # mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
@@ -323,7 +323,7 @@ def test_variadic_input_primitive_2(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_1(file_path: str):
     model = Model()
-    model += Mean()(input=IOKey("input", differentiable=True))
+    model += Mean().connect(input=IOKey("input", differentiable=True))
 
     backend = NumpyBackend()
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
@@ -384,7 +384,7 @@ def test_default_kwarg_reduction_1(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_2(file_path: str):
     model = Model()
-    model += Mean(axis=3)(input=IOKey("input", differentiable=True))
+    model += Mean(axis=3).connect(input=IOKey("input", differentiable=True))
 
     backend = NumpyBackend()
 
@@ -436,7 +436,7 @@ def test_default_kwarg_reduction_2(file_path: str):
 @with_temp_file(".py")
 def test_array_creation_primitive(file_path: str):
     model = Model()
-    model += Arange(dtype=mithril.bfloat16)(stop="stop", output="output")
+    model += Arange(dtype=mithril.bfloat16).connect(stop="stop", output="output")
 
     backend = TorchBackend()
     mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
@@ -459,7 +459,7 @@ def test_inline_caching_1(file_path: str):
     model = Model()
     model += Convolution1D(
         out_channels=384, kernel_size=3, stride=1, padding=1, name="conv1"
-    )(input="input", output="conv1_out")
+    ).connect(input="input", output="conv1_out")
     backend = TorchBackend()
 
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)

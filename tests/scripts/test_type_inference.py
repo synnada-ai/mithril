@@ -145,7 +145,7 @@ class BaseTypeInference:
         }
 
         main_model = Model()
-        main_model |= model(**kwargs)
+        main_model |= model.connect(**kwargs)
 
         for key, value in zip(external_keys, results, strict=False):
             conn: Connection = getattr(main_model, key)
@@ -468,7 +468,7 @@ class TestComposite:
         output = input1 + input2 + input3
 
         model = Model()
-        model += Buffer()(output, IOKey("output"))
+        model += Buffer().connect(output, IOKey("output"))
         model.set_types(output=Tensor[bool])
         assert isinstance(model, SupportsThreeInputs)
 
@@ -487,7 +487,7 @@ class TestComposite:
         output = input1 | input2 & input3
 
         model = Model()
-        model += Buffer()(output, IOKey("output"))
+        model += Buffer().connect(output, IOKey("output"))
         model.set_types(output=bool)
         assert isinstance(model, SupportsThreeInputs)
 
@@ -509,7 +509,7 @@ class TestComposite:
         out = input2 + shp1
 
         model = Model()
-        model += Buffer()(out, IOKey("output"))
+        model += Buffer().connect(out, IOKey("output"))
         assert isinstance(model, SupportsTwoInputs)
         output: Connection = model.output
         assert output.metadata._type == Tensor[int]
@@ -523,7 +523,7 @@ class TestComposite:
         out = input1 // ((input2 + input3) @ input4)
 
         model = Model()
-        model += Buffer()(out, IOKey("output"))
+        model += Buffer().connect(out, IOKey("output"))
         assert isinstance(model, SupportsFourInputs)
         output: Connection = model.output
         assert output.metadata._type == Tensor[float | int]

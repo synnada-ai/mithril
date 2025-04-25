@@ -21,7 +21,7 @@ from mithril.models import Model, Power, Tensor
 def test_power_call_threshold_iokey():
     model = Model()
     pow = Power(robust=True, threshold=ml.TBD)
-    model += pow(threshold=ml.IOKey("t", Tensor(0.1)))
+    model += pow.connect(threshold=ml.IOKey("t", Tensor(0.1)))
     assert model.t.metadata.value == 0.1  # type: ignore
 
 
@@ -29,7 +29,7 @@ def test_error_not_robust_power_call_threshold_iokey():
     pow = Power(robust=False, threshold=ml.TBD)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold=ml.IOKey("t", 0.1))
+        pow.connect(threshold=ml.IOKey("t", 0.1))
 
     error_msg = str(error_info.value)
     assert error_msg == "Power does not accept threshold argument when robust is False."
@@ -39,7 +39,7 @@ def test_error_not_robust_power_call_threshold_str():
     pow = Power(robust=False, threshold=ml.TBD)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold="t")
+        pow.connect(threshold="t")
 
     error_msg = str(error_info.value)
     assert error_msg == "Power does not accept threshold argument when robust is False."
@@ -49,7 +49,7 @@ def test_error_not_robust_power_call_threshold_float():
     pow = Power(robust=False, threshold=ml.TBD)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold=Tensor(0.1))
+        pow.connect(threshold=Tensor(0.1))
 
     error_msg = str(error_info.value)
     assert error_msg == "Power does not accept threshold argument when robust is False."
@@ -70,13 +70,13 @@ def test_compile_robust_power_call_with_default_threshold():
 def test_error_robust_power_call_threshold_re_set_value():
     rob_pow = Model()
     primitive_pow = Power(robust=True)
-    rob_pow += primitive_pow(threshold="threshold")
+    rob_pow += primitive_pow.connect(threshold="threshold")
     primitive_pow.set_values(threshold=1.3)
     from mithril.types import Constant
 
     mean_model = Model()
     with pytest.raises(ValueError):
-        mean_model += rob_pow(threshold=Constant.MIN_POSITIVE_SUBNORMAL)
+        mean_model += rob_pow.connect(threshold=Constant.MIN_POSITIVE_SUBNORMAL)
 
 
 @pytest.mark.skip(
@@ -86,11 +86,11 @@ def test_error_robust_power_call_threshold_re_set_value():
 def test_error_robust_power_call_threshold_input_keys():
     model1 = Model()
     pow1 = Power(robust=True)
-    model1 += pow1(threshold=ml.IOKey("thres", 0.1))
+    model1 += pow1.connect(threshold=ml.IOKey("thres", 0.1))
 
     model2 = Model()
     pow2 = Power(robust=True)
-    model2 += pow2(threshold="thres")
+    model2 += pow2.connect(threshold="thres")
     model2.set_values(thres=0.1)
 
     assert model1.input_keys == model2.input_keys

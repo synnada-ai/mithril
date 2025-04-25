@@ -128,8 +128,8 @@ def run(
 
     img = IOKey("img")
     if "schnell" not in model_name:
-        flux_pipeline |= Ones(shape=(1,))(output="guidance_vec")
-        flux_pipeline |= Multiply()(
+        flux_pipeline |= Ones(shape=(1,)).connect(output="guidance_vec")
+        flux_pipeline |= Multiply().connect(
             left="guidance_vec", right=guidance, output="guidance"
         )
 
@@ -139,7 +139,7 @@ def run(
     for idx, (t_curr, t_prev) in tqdm(
         enumerate(zip(timesteps[:-1], timesteps[1:], strict=False))
     ):
-        flux_pipeline |= Ones(shape=(1,))(output=f"t_vec{idx}")
+        flux_pipeline |= Ones(shape=(1,)).connect(output=f"t_vec{idx}")
         t_vec = getattr(flux_pipeline, f"t_vec{idx}")
         t_vec *= t_curr
 
@@ -166,14 +166,14 @@ def run(
             "guidance": "guidance",
             "output": flow_out,
         }
-        flux_pipeline |= _flow_model(**kwargs)
+        flux_pipeline |= _flow_model.connect(**kwargs)
 
         img = img + (t_prev - t_curr) * getattr(flux_pipeline, flow_out)
 
     unpacked_img = unpack_logical(flux_pipeline, img, opts.height, opts.width)
 
     flux_pipeline |= decoder_lm(input=unpacked_img, output="decoded")
-    flux_pipeline |= Transpose(axes=(0, 2, 3, 1))(
+    flux_pipeline |= Transpose(axes=(0, 2, 3, 1)).connect(
         input="decoded", output=IOKey("output")
     )
 

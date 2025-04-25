@@ -30,7 +30,7 @@ from ..utils import with_temp_file
 def test_cbackend_1():
     model = Model()
 
-    model += Add()(left="left", right="right", output="output")
+    model += Add().connect(left="left", right="right", output="output")
     model.set_types(left=Tensor, right=Tensor)
     model.set_differentiability(left=True, right=True)
 
@@ -116,8 +116,8 @@ def test_cbackend_1():
 def test_cbackend_2(file_path: str):
     model = Model()
 
-    model |= Add()(left="left", right="right", output=IOKey(name="output"))
-    model |= Add()(left="left2", right="output", output=IOKey(name="output2"))
+    model |= Add().connect(left="left", right="right", output=IOKey(name="output"))
+    model |= Add().connect(left="left2", right="output", output=IOKey(name="output2"))
     model.set_types(left=Tensor, left2=Tensor, right=Tensor)
     model.set_differentiability(left=True, left2=True, right=True)
 
@@ -186,9 +186,13 @@ def test_cbackend_3():
     model = Model()
     add = Add()
 
-    model |= add(left="left", right="right")
-    model |= Multiply()(left=add.output, right="mul", output=IOKey(name="output"))
-    model |= Multiply()(left=add.output, right="output", output=IOKey(name="output2"))
+    model |= add.connect(left="left", right="right")
+    model |= Multiply().connect(
+        left=add.output, right="mul", output=IOKey(name="output")
+    )
+    model |= Multiply().connect(
+        left=add.output, right="output", output=IOKey(name="output2")
+    )
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -251,7 +255,7 @@ def test_cbackend_immediate_inputs():
     model = Model()
     mean = Mean(axis=(1, 2, 3))
 
-    model |= mean(input=IOKey(name="input", differentiable=True))
+    model |= mean.connect(input=IOKey(name="input", differentiable=True))
     # model.set_types(input=Tensor)
 
     c_backend = CBackend()
@@ -302,7 +306,9 @@ def test_broadcast_to_ggml():
 
     for input_shape, target_shape in zip(input_shapes, target_shapes, strict=False):
         model = Model()
-        model |= BroadcastTo()(input="left", shape=target_shape, output="output1")
+        model |= BroadcastTo().connect(
+            input="left", shape=target_shape, output="output1"
+        )
         model.set_types(left=Tensor)
 
         ggml_backend = GGMLBackend()
@@ -334,7 +340,7 @@ def test_implicit_broadcast_ops():
 
     for op, shape, backend in product(ops, shapes, backends):
         model = Model()
-        model |= deepcopy(op[0])(left="left", right="right", output="output")
+        model |= deepcopy(op[0]).connect(left="left", right="right", output="output")
         model.set_types(left=Tensor, right=Tensor)
 
         ggml_pm = compile(

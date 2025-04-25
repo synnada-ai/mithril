@@ -151,7 +151,7 @@ class MyAdd2(PrimitiveModel):
         )
         self._add_constraint(fn=bcast, keys=[Operator.output_key, "left", "right"])
 
-    def __call__(  # type: ignore
+    def connect(  # type: ignore
         self,
         left: ConnectionType = NOT_GIVEN,
         right: ConnectionType = NOT_GIVEN,
@@ -219,7 +219,7 @@ def test_shape_constraint_counter_1():
 def test_shape_constraint_counter_2():
     model = Model()
     model |= (add1 := Add())
-    model |= (add2 := Add())(left=add1.output)
+    model |= (add2 := Add()).connect(left=add1.output)
 
     ref_dict = make_reference_dict(
         {
@@ -264,8 +264,8 @@ def test_shape_constraint_counter_2():
 def test_shape_constraint_counter_3():
     model = Model()
     model |= (add1 := Add())
-    model |= (add2 := Add())(left=add1.output)
-    model |= (add3 := Add())(left=add2.output)
+    model |= (add2 := Add()).connect(left=add1.output)
+    model |= (add3 := Add()).connect(left=add2.output)
 
     ref_dict = make_reference_dict(
         {
@@ -318,12 +318,12 @@ def test_shape_constraint_counter_3():
 def test_shape_constraint_counter_4():
     model = Model()
     model |= (add1 := Add())
-    model |= (add2 := Add())(left=add1.output)
-    model |= (add3 := Add())(left=add2.output)
-    model |= (add4 := Add())(left=add3.output)
+    model |= (add2 := Add()).connect(left=add1.output)
+    model |= (add3 := Add()).connect(left=add2.output)
+    model |= (add4 := Add()).connect(left=add3.output)
 
     model = Model()
-    model |= Buffer()([IOKey("in2"), IOKey("in2")])
+    model |= Buffer().connect([IOKey("in2"), IOKey("in2")])
 
     ref_dict = make_reference_dict(
         {
@@ -376,11 +376,11 @@ def test_shape_constraint_counter_4():
 def test_shape_constraint_counter_5():
     model = Model()
     model |= (add1 := Add())
-    model |= (add2 := Add())(left=add1.output)
-    model |= (add3 := Add())(left=add2.output)
-    model |= (add4 := Add())(left=add3.output)
-    model |= (add5 := Add())(left=add4.output)
-    model |= (add6 := Add())(left=add5.output)
+    model |= (add2 := Add()).connect(left=add1.output)
+    model |= (add3 := Add()).connect(left=add2.output)
+    model |= (add4 := Add()).connect(left=add3.output)
+    model |= (add5 := Add()).connect(left=add4.output)
+    model |= (add6 := Add()).connect(left=add5.output)
     ref_dict = make_reference_dict(
         {
             add1.left: [0, 0, 0, 0, 1],
@@ -759,8 +759,8 @@ def test_shape_constraint_counter_11():
 
 def test_shape_constraint_counter_12():
     model = Model()
-    model |= (model_1 := Add())(left="input1", right="input2")
-    model |= (model_2 := Add())(left="input1", right=model_1.output)
+    model |= (model_1 := Add()).connect(left="input1", right="input2")
+    model |= (model_2 := Add()).connect(left="input1", right=model_1.output)
     ref_dict = make_reference_dict(
         {
             model_1.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
@@ -833,10 +833,10 @@ def test_shape_constraint_counter_13():
     model_3 = Add()
     model_4 = Add()
     model |= slice_model
-    model |= model_1(index=slice_model.output)
-    model |= model_2(left=model_1.output)
-    model |= model_3(left=model_2.output)
-    model |= model_4(left=model_3.output)
+    model |= model_1.connect(index=slice_model.output)
+    model |= model_2.connect(left=model_1.output)
+    model |= model_3.connect(left=model_2.output)
+    model |= model_4.connect(left=model_3.output)
     ref_dict = make_reference_dict(
         {
             slice_model.start: [],
@@ -884,9 +884,9 @@ def test_shape_constraint_counter_14():
     model_4 = Add()
 
     model |= model_1
-    model |= model_2(left=model_1.output)
-    model |= model_3(left=model_2.output)
-    model |= model_4(left=model_3.output)
+    model |= model_2.connect(left=model_1.output)
+    model |= model_3.connect(left=model_2.output)
+    model |= model_4.connect(left=model_3.output)
     ref_dict = make_reference_dict(
         {
             model_1.left: [0, 0, 0, 0, 1],
@@ -966,26 +966,32 @@ def test_shape_constraint_counter_15():
     item_model_4 = Indexer()
 
     model_1 = Model()
-    model_1 |= slice_1(start="start", stop="stop", step="step")
-    model_1 |= item_model_1(input="input", index=slice_1.output)
+    model_1 |= slice_1.connect(start="start", stop="stop", step="step")
+    model_1 |= item_model_1.connect(input="input", index=slice_1.output)
     model_1.expose_keys(output=item_model_1.output)
 
     model_2 = Model()
-    model_2 |= slice_2(start="start", stop="stop", step="step")
-    model_2 |= item_model_2(input="input", index=slice_2.output, output=IOKey("output"))
+    model_2 |= slice_2.connect(start="start", stop="stop", step="step")
+    model_2 |= item_model_2.connect(
+        input="input", index=slice_2.output, output=IOKey("output")
+    )
 
     model_3 = Model()
-    model_3 |= slice_3(start="start", stop="stop", step="step")
-    model_3 |= item_model_3(input="input", index=slice_3.output, output=IOKey("output"))
+    model_3 |= slice_3.connect(start="start", stop="stop", step="step")
+    model_3 |= item_model_3.connect(
+        input="input", index=slice_3.output, output=IOKey("output")
+    )
 
     model_4 = Model()
-    model_4 |= slice_4(start="start", stop="stop", step="step")
-    model_4 |= item_model_4(input="input", index=slice_4.output, output=IOKey("output"))
+    model_4 |= slice_4.connect(start="start", stop="stop", step="step")
+    model_4 |= item_model_4.connect(
+        input="input", index=slice_4.output, output=IOKey("output")
+    )
 
-    model |= model_1(start=1, stop=None, step=None)
-    model += model_2(start=1, stop=None, step=None)
-    model += model_3(start=1, stop=None, step=None)
-    model += model_4(start=1, stop=None, step=None)
+    model |= model_1.connect(start=1, stop=None, step=None)
+    model += model_2.connect(start=1, stop=None, step=None)
+    model += model_3.connect(start=1, stop=None, step=None)
+    model += model_4.connect(start=1, stop=None, step=None)
     ref_dict = make_reference_dict(
         {
             model_1.input: [2],  # type: ignore
@@ -1052,7 +1058,7 @@ def test_shape_constraint_counter_16():
     model_2.set_types(left=Tensor, right=Tensor)
 
     model |= model_1
-    model |= model_2(left=model_1.output)
+    model |= model_2.connect(left=model_1.output)
     ref_dict = make_reference_dict(
         {
             model_1.left: [0, 1, 1],
@@ -1126,7 +1132,7 @@ def test_init_shape_constraints_2():
     buff = Buffer()
     relu = Relu()
     add_model_1 = MyAdd2(left=[1, 4], right=[4, 1], output=[("Var1", ...)])
-    model |= buff(input="my_input", output="output")
+    model |= buff.connect(input="my_input", output="output")
     ref_dict = make_reference_dict(
         {
             add_model_1.left: [],
@@ -1138,7 +1144,7 @@ def test_init_shape_constraints_2():
     )
     assert_constr_counts(ref_dict)
 
-    model |= relu(input="output", output="output1")
+    model |= relu.connect(input="output", output="output1")
     ref_dict = make_reference_dict(
         {
             add_model_1.left: [],
@@ -1151,7 +1157,7 @@ def test_init_shape_constraints_2():
     )
     assert_constr_counts(ref_dict)
 
-    model |= add_model_1(output="my_input", left="left", right="right")
+    model |= add_model_1.connect(output="my_input", left="left", right="right")
     ref_dict = make_reference_dict(
         {
             add_model_1.left: [],

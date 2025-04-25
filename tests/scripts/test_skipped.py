@@ -25,8 +25,8 @@ from mithril.models import Mean, Model
 def test_auto_connect_in_call():
     mean = Mean(axis=ml.TBD)
     model = Model()
-    model += mean(axis=ml.IOKey(name="my_axis", expose=True))
-    model += Mean(axis=3)(axis=mean.axis)
+    model += mean.connect(axis=ml.IOKey(name="my_axis", expose=True))
+    model += Mean(axis=3).connect(axis=mean.axis)
 
     # This should be equivalent to the above
     # mean = Mean(axis=ml.TBD)

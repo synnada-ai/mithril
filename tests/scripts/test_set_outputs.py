@@ -56,14 +56,28 @@ def test_1():
     while it is set by using IOKey in the second model.
     """
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output="output1"
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model.expose_keys("output1")
     model_1 = model
 
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output=IOKey("output1")
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model_2 = model
 
     # Provide backend and data.
@@ -91,14 +105,21 @@ def test_2():
     """
     model = Model()
     lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin.connect(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model |= Linear(4).connect(input=lin.output, weight="w", bias="b", output="output")
     model.expose_keys(output1=lin.output)
     model_1 = model
 
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output=IOKey("output1")
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model_2 = model
 
     # Provide backend and data.
@@ -127,14 +148,21 @@ def test_3():
     """
     model = Model()
     lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin.connect(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model |= Linear(4).connect(input=lin.output, weight="w", bias="b", output="output")
     model.expose_keys("output", output1=lin.output)
     model_1 = model
 
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output=IOKey("output1")
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model.expose_keys("output")
     model_2 = model
 
@@ -163,14 +191,21 @@ def test_4():
     """
     model = Model()
     lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin.connect(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model |= Linear(4).connect(input=lin.output, weight="w", bias="b", output="output")
     model.expose_keys(out="output", output1=lin.output)
     model_1 = model
 
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output=IOKey("out"))  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output=IOKey("output1")
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output=IOKey("out"),
+    )
     model_2 = model
 
     # Provide backend and data.
@@ -201,9 +236,9 @@ def test_5():
     sig1 = Sigmoid()
     sig2 = Sigmoid()
     sig3 = Sigmoid()
-    model |= sig1(input="input", output="sub_out1")
-    model |= sig2(input="sub_out1", output="sub_out2")
-    model |= sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1.connect(input="input", output="sub_out1")
+    model |= sig2.connect(input="sub_out1", output="sub_out2")
+    model |= sig3.connect(input="sub_out2", output=IOKey("output"))
     model.expose_keys(output1="sub_out1", output2="sub_out2")
 
     ref_logical_outputs = {"output", "output1", "output2"}
@@ -226,9 +261,9 @@ def test_6():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model |= sig1(input="input", output="sub_out1")
-    model |= sig2(input="sub_out1", output="sub_out2")
-    model |= sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1.connect(input="input", output="sub_out1")
+    model |= sig2.connect(input="sub_out1", output="sub_out2")
+    model |= sig3.connect(input="sub_out2", output=IOKey("output"))
 
     model.expose_keys(output1="sub_out1")
 
@@ -254,9 +289,9 @@ def test_7():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model |= sig1(input="input", output="sub_out1")
-    model |= sig2(input="sub_out1", output="sub_out2")
-    model |= sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1.connect(input="input", output="sub_out1")
+    model |= sig2.connect(input="sub_out1", output="sub_out2")
+    model |= sig3.connect(input="sub_out2", output=IOKey("output"))
 
     model.expose_keys("sub_out1", "sub_out2")
 
@@ -279,9 +314,9 @@ def test_8():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model |= sig1(input="input", output="sub_out1")
-    model |= sig2(input="sub_out1", output="sub_out2")
-    model |= sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1.connect(input="input", output="sub_out1")
+    model |= sig2.connect(input="sub_out1", output="sub_out2")
+    model |= sig3.connect(input="sub_out2", output=IOKey("output"))
 
     model.expose_keys(sig1.output, sig2.output)
 
@@ -296,10 +331,10 @@ def test_8():
 def test_9():
     model = Model()
     two_sig_model = Model()
-    two_sig_model |= (sig1 := Sigmoid())("input1", IOKey("output1"))
-    two_sig_model |= Sigmoid()("input2", IOKey("output2"))
+    two_sig_model |= (sig1 := Sigmoid()).connect("input1", IOKey("output1"))
+    two_sig_model |= Sigmoid().connect("input2", IOKey("output2"))
 
-    model |= two_sig_model(input1="input1", input2="input2")
+    model |= two_sig_model.connect(input1="input1", input2="input2")
     model.expose_keys(output3=sig1.output)
 
     ref_logical_outputs = {"output3"}
@@ -326,8 +361,8 @@ def test_5_error():
     model = Model()
     lin_1 = Linear(2)
     lin_2 = Linear(4)
-    model |= lin_1(input="input", weight="w_1", bias="b_1")
-    model |= lin_2(input=lin_1.output, weight="w", bias="b")
+    model |= lin_1.connect(input="input", weight="w_1", bias="b_1")
+    model |= lin_2.connect(input=lin_1.output, weight="w", bias="b")
 
     with pytest.raises(KeyError) as err_info:
         model.expose_keys(lin_2.output, output1=lin_1.output)
@@ -344,10 +379,10 @@ def test_10_error():
 
     two_sig_model = Model()
 
-    two_sig_model |= Sigmoid()(input="input1", output="output1")
-    two_sig_model |= Sigmoid()(input="input2", output="output2")
+    two_sig_model |= Sigmoid().connect(input="input1", output="output1")
+    two_sig_model |= Sigmoid().connect(input="input2", output="output2")
 
-    model |= two_sig_model(input1="input1", input2="input2")
+    model |= two_sig_model.connect(input1="input1", input2="input2")
     with pytest.raises(Exception) as err_info:
         two_sig_model.expose_keys(output5="output1")
     assert str(err_info.value) == "Child model's outputs cannot be set."
@@ -355,7 +390,9 @@ def test_10_error():
 
 def test_expose_latent_inputs():
     model = Model()
-    model |= Mean(axis=1, keepdim=True)(axis="axis", keepdim="keepdim", input="input")
+    model |= Mean(axis=1, keepdim=True).connect(
+        axis="axis", keepdim="keepdim", input="input"
+    )
 
     assert_inputs(model, ref_inputs={"input"}, ref_pm_inputs={"input"})
     model.expose_keys("axis", "keepdim")
@@ -365,14 +402,28 @@ def test_expose_latent_inputs():
 
 def test_connection_with_model():
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output="output1"
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model.output1.expose()  # type: ignore
     model_1 = model
 
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output=IOKey("output1")
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model_2 = model
 
     # Provide backend and data.
@@ -390,13 +441,25 @@ def test_connection_without_model():
     key = IOKey("output1")
     key.expose()
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=key)
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(input="input", weight="w_1", bias="b_1", output=key)
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model_1 = model
 
     model = Model()
-    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2).connect(
+        input="input", weight="w_1", bias="b_1", output=IOKey("output1")
+    )
+    model |= Linear(4).connect(
+        input=model.output1,  # type: ignore
+        weight="w",
+        bias="b",
+        output="output",
+    )
     model_2 = model
 
     # Provide backend and data.

@@ -39,12 +39,12 @@ def assert_keys(model, logical_ref, physical_ref, include_internals=False):
 
 def test_finalize_keys_0():
     model = Model()
-    model |= Linear(10)(weight="weight_2")
+    model |= Linear(10).connect(weight="weight_2")
     model += Linear(10)
     model += Linear(10)
     model += Linear(10)
     model += Linear(10)
-    model += Linear(10)(bias="bias_3", output=IOKey(name="output1"))
+    model += Linear(10).connect(bias="bias_3", output=IOKey(name="output1"))
     pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm.input_keys) == set(
         (
@@ -67,7 +67,7 @@ def test_finalize_keys_0():
 
 def test_finalize_keys_1():
     model = Model()
-    model += Linear(10)(weight="weight_4", bias="bias_4")
+    model += Linear(10).connect(weight="weight_4", bias="bias_4")
     model += Linear(10)
     model += Linear(10)
     model += Linear(10)
@@ -109,7 +109,7 @@ def test_finalize_keys_1():
     )
 
     model = Model()
-    model += Linear(10)(weight="weight_1", bias="bias_1")
+    model += Linear(10).connect(weight="weight_1", bias="bias_1")
     model += Linear(10)
     model += Linear(10)
     pm = mithril.compile(model, TorchBackend(), safe_names=False)
@@ -144,7 +144,7 @@ def test_generate_input_keys_0():
             "$6": "$bias_1",
         }
 
-        model |= (lin3 := Linear(10))(input=lin1.output)
+        model |= (lin3 := Linear(10)).connect(input=lin1.output)
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
             "$1": "$weight_0",
@@ -156,7 +156,7 @@ def test_generate_input_keys_0():
             "$9": "$bias_2",
         }
 
-        model |= Add()(left=lin2.output, right=lin3.output)
+        model |= Add().connect(left=lin2.output, right=lin3.output)
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
             "$1": "$weight_0",
@@ -169,7 +169,7 @@ def test_generate_input_keys_0():
         }
 
         # Extend from input
-        model |= Linear(10)(output=lin1.input)
+        model |= Linear(10).connect(output=lin1.input)
         key_mappings = model.generate_keys(include_internals=False)
         assert key_mappings == {
             "$12": "$weight_0",
@@ -186,8 +186,8 @@ def test_generate_input_keys_0():
 
 def test_generate_input_keys_1():
     model = Model()
-    # key_mappings = model.generate_keys(include_internals = False)
-    # assert key_mappings == {}
+    key_mappings = model.generate_keys(include_internals=False)
+    assert key_mappings == {}
 
     model |= Linear(10)
     key_mappings = model.generate_keys(include_internals=False)
@@ -215,7 +215,7 @@ def test_generate_input_keys_1():
         "$9": "$bias_2",
     }
 
-    model |= Linear(10)(output=model.cin)
+    model |= Linear(10).connect(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$11": "$weight_0",
@@ -249,7 +249,7 @@ def test_generate_input_keys_2():
         "$6": "$bias_1",
     }
 
-    model |= Linear(10)(input="input", weight="weight_0")
+    model |= Linear(10).connect(input="input", weight="weight_0")
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$_weight_0",
@@ -265,8 +265,8 @@ def test_generate_input_keys_3():
     sig1 = Sigmoid()
     sig2 = Sigmoid()
     model = Model()
-    model |= sig1(input="in_left", output=IOKey(name="out_left"))
-    model |= sig2(input="in_right", output=IOKey(name="out_right"))
+    model |= sig1.connect(input="in_left", output=IOKey(name="out_left"))
+    model |= sig2.connect(input="in_right", output=IOKey(name="out_right"))
     model.set_cin("in_left")
     model.set_cout("out_left")
     model1 = deepcopy(model)
@@ -291,8 +291,8 @@ def test_generate_input_keys_4():
     sig1 = Sigmoid()
     sig2 = Sigmoid()
     model = Model()
-    model |= sig1(input="in_left", output=IOKey(name="out_left"))
-    model |= sig2(input="in_right", output=IOKey(name="out_right"))
+    model |= sig1.connect(input="in_left", output=IOKey(name="out_left"))
+    model |= sig2.connect(input="in_right", output=IOKey(name="out_right"))
     model.set_cin("in_left")
     model.set_cout("out_left")
     model1 = deepcopy(model)
@@ -303,7 +303,9 @@ def test_generate_input_keys_4():
     model_0 += model1
     model_0 += model2
     model_0 += model3
-    model_0 |= Linear(10)(input=model_0.cout, weight="in_left_1", bias="in_right_1")
+    model_0 |= Linear(10).connect(
+        input=model_0.cout, weight="in_left_1", bias="in_right_1"
+    )
     key_mappings = model_0.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$input",
@@ -318,7 +320,7 @@ def test_generate_input_keys_5():
     model = Model()
     for _ in range(5):
         model += Sigmoid()
-    model |= Linear()(input=model.cout, weight="input")
+    model |= Linear().connect(input=model.cout, weight="input")
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {"$1": "$_input", "$7": "$bias"}
 
@@ -329,7 +331,7 @@ def test_generate_input_keys_6():
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {"$1": "$weight", "$2": "$input", "$3": "$bias"}
 
-    model |= Linear()(output=model.cin)
+    model |= Linear().connect(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$5": "$weight_0",
@@ -339,7 +341,7 @@ def test_generate_input_keys_6():
         "$3": "$bias_1",
     }
 
-    model |= Linear()(output=model.cin)
+    model |= Linear().connect(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$8": "$weight_0",
@@ -351,7 +353,7 @@ def test_generate_input_keys_6():
         "$3": "$bias_2",
     }
 
-    model |= Linear()(output=model.cin)
+    model |= Linear().connect(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$11": "$weight_0",
@@ -365,7 +367,7 @@ def test_generate_input_keys_6():
         "$3": "$bias_3",
     }
 
-    model |= Linear()(output=model.cin)
+    model |= Linear().connect(output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$14": "$weight_0",
@@ -389,8 +391,8 @@ def test_generate_input_keys_7():
     con_2 = ToList(n=4)
     con_3 = ToList(n=5)
     model += con_1
-    model |= con_2(input1=con_1.output)
-    model |= con_3(input1=con_2.output)
+    model |= con_2.connect(input1=con_1.output)
+    model |= con_3.connect(input1=con_2.output)
 
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
@@ -430,7 +432,7 @@ def test_generate_input_keys_9():
     con_1.set_cin("input1")
     con_2 = ToList(n=2)
     con_2.set_cin("input1")
-    model_1 += con_1(input2="input2_0")
+    model_1 += con_1.connect(input2="input2_0")
     model_1 += con_2
     model_2 = deepcopy(model_1)
     model_1 += model_2
@@ -454,7 +456,7 @@ def test_generate_input_keys_10():
     con3.set_cin("input1")
     model1 += con1
     model1 += con2
-    model1 |= con3(input1=model1.cout, input2="input2_1")
+    model1 |= con3.connect(input1=model1.cout, input2="input2_1")
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
     model4 = deepcopy(model3)
@@ -500,8 +502,8 @@ def test_generate_key_naming_1():
 
 def test_generate_key_naming_2():
     model = Model()
-    model += (add := Add())(IOKey(type=Tensor), IOKey(type=Tensor))
-    model += Add()(right=IOKey(type=Tensor))
+    model += (add := Add()).connect(IOKey(type=Tensor), IOKey(type=Tensor))
+    model += Add().connect(right=IOKey(type=Tensor))
     model.set_cin(add.left)
     logical_ref = {"$1": "$input", "$2": "$right_0", "$4": "$right_1"}
     physical_ref = {"right_1", "left", "right_0"}
@@ -510,9 +512,9 @@ def test_generate_key_naming_2():
 
 def test_generate_key_naming_3():
     model = Model()
-    model += (add := Add())(IOKey(type=Tensor), IOKey(type=Tensor))
-    model += Subtract()(right=IOKey(type=Tensor))
-    model += Add()(right=IOKey(type=Tensor))
+    model += (add := Add()).connect(IOKey(type=Tensor), IOKey(type=Tensor))
+    model += Subtract().connect(right=IOKey(type=Tensor))
+    model += Add().connect(right=IOKey(type=Tensor))
     model.set_cin(add.left)
     logical_ref = {"$1": "$input", "$2": "$right_0", "$4": "$right_1", "$6": "$right_2"}
     physical_ref = {"left", "right_0", "right_1", "right_2"}
@@ -525,7 +527,7 @@ def test_generate_key_naming_4():
     add.set_cin("left")
 
     add_model = Model()
-    add_model += add(IOKey(type=Tensor), IOKey(type=Tensor))
+    add_model += add.connect(IOKey(type=Tensor), IOKey(type=Tensor))
     add_model_1 = deepcopy(add_model)
     add_model_2 = deepcopy(add_model)
     add_model_3 = deepcopy(add_model)
@@ -548,11 +550,11 @@ def test_generate_key_naming_4():
 def test_generate_key_naming_5():
     model = Model()
     two_buff_model = Model()
-    two_buff_model |= Buffer()(input="input1", output=IOKey(name="output1"))
-    two_buff_model |= Buffer()(input="input2", output=IOKey(name="output2"))
-    model |= two_buff_model(input1="input1", output2=IOKey(name="output2"))
+    two_buff_model |= Buffer().connect(input="input1", output=IOKey(name="output1"))
+    two_buff_model |= Buffer().connect(input="input2", output=IOKey(name="output2"))
+    model |= two_buff_model.connect(input1="input1", output2=IOKey(name="output2"))
     buff1 = Buffer()
-    model |= buff1(input=two_buff_model.output1, output=two_buff_model.input2)  # type: ignore
+    model |= buff1.connect(input=two_buff_model.output1, output=two_buff_model.input2)  # type: ignore
     logical_ref = dict[str, str]()
     physical_ref = {"input1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -560,7 +562,7 @@ def test_generate_key_naming_5():
 
 def test_generate_key_naming_6():
     model = Model()
-    model += Linear()(input="input2", output="output")
+    model += Linear().connect(input="input2", output="output")
     logical_ref = {"$1": "$weight", "$2": "$bias"}
     physical_ref = {"input2", "weight", "bias"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -568,7 +570,7 @@ def test_generate_key_naming_6():
 
 def test_generate_key_naming_7():
     model = Model()
-    model += Linear()(weight="_weight", output="output")
+    model += Linear().connect(weight="_weight", output="output")
     logical_ref = {"$1": "$input", "$2": "$bias"}
     physical_ref = {"input", "_weight", "bias"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -576,8 +578,8 @@ def test_generate_key_naming_7():
 
 def test_generate_key_naming_8():
     model = Model()
-    model |= Linear()(weight="_weight", output=IOKey(name="output1"))
-    model |= (lin := Linear())(output=IOKey(name="output2"))
+    model |= Linear().connect(weight="_weight", output=IOKey(name="output1"))
+    model |= (lin := Linear()).connect(output=IOKey(name="output2"))
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$_input",
@@ -592,9 +594,9 @@ def test_generate_key_naming_8():
 
 def test_generate_key_naming_9():
     model = Model()
-    model |= Buffer()(output=IOKey(name="output1"))
-    model |= Buffer()(output=IOKey(name="output2"))
-    model |= (buff := Buffer())(output=IOKey(name="output3"))
+    model |= Buffer().connect(output=IOKey(name="output1"))
+    model |= Buffer().connect(output=IOKey(name="output2"))
+    model |= (buff := Buffer()).connect(output=IOKey(name="output3"))
     model.set_cin(buff.input)
     logical_ref = {"$1": "$_input_0", "$2": "$_input_1", "$3": "$input"}
     physical_ref = {"input_1", "input_2", "input_0"}
@@ -603,9 +605,9 @@ def test_generate_key_naming_9():
 
 def test_generate_key_naming_10():
     model = Model()
-    model |= Buffer()(output=IOKey(name="output1"))
-    model |= Buffer()(input="_input", output=IOKey(name="output2"))
-    model |= (buff := Buffer())(output=IOKey(name="output3"))
+    model |= Buffer().connect(output=IOKey(name="output1"))
+    model |= Buffer().connect(input="_input", output=IOKey(name="output2"))
+    model |= (buff := Buffer()).connect(output=IOKey(name="output3"))
     model.set_cin(buff.input)
     logical_ref = {"$1": "$__input", "$2": "$input"}
     physical_ref = {"input_0", "input_1", "_input"}
@@ -614,10 +616,10 @@ def test_generate_key_naming_10():
 
 def test_generate_key_naming_11():
     model = Model()
-    model |= Buffer()(output=IOKey(name="output1"))
-    model |= Buffer()(input="_input", output=IOKey(name="output2"))
-    model |= Buffer()(output=IOKey(name="output3"))
-    model |= (buff := Buffer())(output=IOKey(name="output4"))
+    model |= Buffer().connect(output=IOKey(name="output1"))
+    model |= Buffer().connect(input="_input", output=IOKey(name="output2"))
+    model |= Buffer().connect(output=IOKey(name="output3"))
+    model |= (buff := Buffer()).connect(output=IOKey(name="output4"))
     model.set_cin(buff.input)
 
     logical_ref = {
@@ -631,8 +633,8 @@ def test_generate_key_naming_11():
 
 def test_generate_key_naming_12():
     model = Model()
-    model |= Linear()(output=IOKey(name="output1"))
-    model |= (lin := Linear())(output=IOKey(name="output2"))
+    model |= Linear().connect(output=IOKey(name="output1"))
+    model |= (lin := Linear()).connect(output=IOKey(name="output2"))
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$weight_0",
@@ -648,8 +650,8 @@ def test_generate_key_naming_12():
 
 def test_generate_key_naming_13():
     model = Model()
-    model |= Linear()(output=IOKey(name="output1"))
-    model |= (lin := Linear())(weight="_weight", output=IOKey(name="output2"))
+    model |= Linear().connect(output=IOKey(name="output1"))
+    model |= (lin := Linear()).connect(weight="_weight", output=IOKey(name="output2"))
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$weight",
@@ -664,8 +666,8 @@ def test_generate_key_naming_13():
 
 def test_generate_key_naming_14():
     model = Model()
-    model |= Linear()(output=IOKey(name="output1"))
-    model |= (lin := Linear())(weight="weight", output=IOKey(name="output2"))
+    model |= Linear().connect(output=IOKey(name="output1"))
+    model |= (lin := Linear()).connect(weight="weight", output=IOKey(name="output2"))
     model.set_cin(lin.input)
 
     logical_ref = {
@@ -681,9 +683,9 @@ def test_generate_key_naming_14():
 
 def test_generate_key_naming_15():
     model = Model()
-    model |= Linear()(output=IOKey(name="output1"))
-    model |= Linear()(weight="weight", output=IOKey(name="output2"))
-    model |= (lin := Linear())(weight="_weight", output=IOKey(name="output3"))
+    model |= Linear().connect(output=IOKey(name="output1"))
+    model |= Linear().connect(weight="weight", output=IOKey(name="output2"))
+    model |= (lin := Linear()).connect(weight="_weight", output=IOKey(name="output3"))
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight",
@@ -710,10 +712,10 @@ def test_generate_key_naming_15():
 
 def test_generate_key_naming_16():
     model = Model()
-    model |= Linear()(output=IOKey(name="output1"))
-    model |= Linear()(weight="weight", output=IOKey(name="output2"))
-    model |= Linear()(weight="_weight", output=IOKey(name="output3"))
-    model |= (lin := Linear())(output=IOKey(name="output4"))
+    model |= Linear().connect(output=IOKey(name="output1"))
+    model |= Linear().connect(weight="weight", output=IOKey(name="output2"))
+    model |= Linear().connect(weight="_weight", output=IOKey(name="output3"))
+    model |= (lin := Linear()).connect(output=IOKey(name="output4"))
     model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight_0",
@@ -747,13 +749,13 @@ def test_generate_key_naming_16():
 def test_generate_key_naming_17():
     model = Model()
     outer_model = Model()
-    model |= Linear()(output=IOKey(name="output1"))
-    model |= Linear()(weight="weight", output=IOKey(name="output2"))
-    outer_model |= model(
+    model |= Linear().connect(output=IOKey(name="output1"))
+    model |= Linear().connect(weight="weight", output=IOKey(name="output2"))
+    outer_model |= model.connect(
         weight="weight", output1=IOKey(name="output1"), output2=IOKey(name="output2")
     )
-    outer_model |= Linear()(weight="_weight", output=IOKey(name="output3"))
-    outer_model |= (lin := Linear())(output=IOKey(name="output4"))
+    outer_model |= Linear().connect(weight="_weight", output=IOKey(name="output3"))
+    outer_model |= (lin := Linear()).connect(output=IOKey(name="output4"))
     outer_model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight_0",
@@ -791,10 +793,10 @@ def test_generate_key_naming_18():
     lin3 = Linear()
     lin4 = Linear()
 
-    model |= lin1(weight="weight_0", output=IOKey(name="output1"))
-    model |= lin2(weight="weight", output=IOKey(name="output2"))
-    model |= lin3(output=IOKey(name="output3"))
-    model |= lin4(output=IOKey(name="output4"))
+    model |= lin1.connect(weight="weight_0", output=IOKey(name="output1"))
+    model |= lin2.connect(weight="weight", output=IOKey(name="output2"))
+    model |= lin3.connect(output=IOKey(name="output3"))
+    model |= lin4.connect(output=IOKey(name="output4"))
     model.set_cin(lin4.input)
     logical_ref = {
         "$1": "$_input_0",

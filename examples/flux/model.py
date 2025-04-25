@@ -54,26 +54,34 @@ def flux(params: FluxParams):
     timesteps = IOKey("timesteps", shape=[1])
     y = IOKey("y", shape=[1, 768])
 
-    flux |= timestep_embedding(dim=256)(input=timesteps, output="time_embed")
-    flux |= mlp_embedder(params.hidden_size, name="time_in")(
+    flux |= timestep_embedding(dim=256).connect(input=timesteps, output="time_embed")
+    flux |= mlp_embedder(params.hidden_size, name="time_in").connect(
         input="time_embed", output="time_vec"
     )
-    flux |= mlp_embedder(params.hidden_size, name="vector_in")(input=y, output="y_vec")
-    flux |= Add()(left="time_vec", right="y_vec", output="vec")
+    flux |= mlp_embedder(params.hidden_size, name="vector_in").connect(
+        input=y, output="y_vec"
+    )
+    flux |= Add().connect(left="time_vec", right="y_vec", output="vec")
 
     if params.guidance_embed:
         guidance = IOKey("guidance", shape=[1])
-        flux |= timestep_embedding(dim=256)(input=guidance, output="guidance_embed")
-        flux |= mlp_embedder(params.hidden_size, name="guidance_in")(
+        flux |= timestep_embedding(dim=256).connect(
+            input=guidance, output="guidance_embed"
+        )
+        flux |= mlp_embedder(params.hidden_size, name="guidance_in").connect(
             input="guidance_embed", output="guidance_vec"
         )
-        flux |= Add()(left="vec", right="guidance_vec", output="guided_vec")
+        flux |= Add().connect(left="vec", right="guidance_vec", output="guided_vec")
 
-    flux |= Linear(params.hidden_size, name="img_in")(input=img, output="img_vec")
-    flux |= Linear(params.hidden_size, name="txt_in")(input=txt, output="txt_vec")
-    flux |= Concat(axis=1)(input=[txt_ids, img_ids], output="ids")
+    flux |= Linear(params.hidden_size, name="img_in").connect(
+        input=img, output="img_vec"
+    )
+    flux |= Linear(params.hidden_size, name="txt_in").connect(
+        input=txt, output="txt_vec"
+    )
+    flux |= Concat(axis=1).connect(input=[txt_ids, img_ids], output="ids")
 
-    flux |= embed_nd(params.theta, params.axes_dim)(input="ids", output="pe")
+    flux |= embed_nd(params.theta, params.axes_dim).connect(input="ids", output="pe")
 
     img_name = "img_vec"
     txt_name = "txt_vec"
@@ -84,7 +92,7 @@ def flux(params: FluxParams):
             params.mlp_ratio,
             params.qkv_bias,
             name=f"double_blocks_{i}",
-        )(
+        ).connect(
             img=img_name,
             txt=txt_name,
             pe="pe",
@@ -95,7 +103,7 @@ def flux(params: FluxParams):
         img_name = f"img{i}"
         txt_name = f"txt{i}"
 
-    flux |= Concat(axis=1)(
+    flux |= Concat(axis=1).connect(
         input=[getattr(flux, txt_name), getattr(flux, img_name)], output="img_concat"
     )
 
@@ -106,7 +114,7 @@ def flux(params: FluxParams):
             num_heads=params.num_heads,
             mlp_ratio=params.mlp_ratio,
             name=f"single_blocks_{i}",
-        )(
+        ).connect(
             input=img_name,
             pe="pe",
             vec="vec" if not params.guidance_embed else "guided_vec",
@@ -118,7 +126,7 @@ def flux(params: FluxParams):
     # TODO: [:, txt.shape[1] :, ...]
     img = img[:, 512:, ...]  # type: ignore
 
-    flux |= last_layer(params.hidden_size, 1, params.in_channels, name="final_layer")(
-        input=img, vec="vec", output=IOKey("output")
-    )
+    flux |= last_layer(
+        params.hidden_size, 1, params.in_channels, name="final_layer"
+    ).connect(input=img, vec="vec", output=IOKey("output"))
     return flux
