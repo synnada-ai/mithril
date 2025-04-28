@@ -205,7 +205,7 @@ class BinaryOp(Expr):
 
 @dataclass
 class Cast(Expr):
-    target_type: str
+    target_type: str | Expr
     value: Expr
 
 
@@ -403,14 +403,20 @@ class CStyleCodeGenerator(NodeVisitor):
     def visit_addressof(self, node: AddressOf) -> str:
         return f"&{self.visit(node.target)}"
 
-    def visit_cast(self, node: Cast) -> str:
-        return f"({node.target_type}) {self.visit(node.value)}"
-
     def visit_binaryop(self, node: BinaryOp) -> str:
         """Visit a binary operation node."""
         left = self.visit(node.left)
         right = self.visit(node.right)
         return f"{left} {node.op} {right}"
+
+    def visit_cast(self, node: Cast) -> str:
+        type_str = (
+            self.visit(node.target_type)
+            if isinstance(node.target_type, Expr)
+            else node.target_type
+        )
+        value_str = self.visit(node.value)
+        return f"({type_str}) {value_str}"
 
     def _format_type(self, node: str | Expr) -> str:
         if isinstance(node, Expr):

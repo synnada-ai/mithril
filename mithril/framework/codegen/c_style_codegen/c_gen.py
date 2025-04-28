@@ -444,7 +444,7 @@ class CGen(CodeGen[PyArray]):
                         c_ast.Call(
                             "accumulate_grads",
                             [
-                                "eval_grad_static_ctx",
+                                "eval_backend_static_ctx",
                                 op_call,
                                 self.create_key_ref(input_key, context="eval_grad"),
                             ],
@@ -772,3 +772,6 @@ class CGen(CodeGen[PyArray]):
             return self.pm.shapes[key.replace(utils.BACKWARD_FN_SUFFIX, "")]  # type: ignore
         else:
             raise ValueError(f"Shape for key {key} not found")
+
+    def generate_dup_tensor(self, key: str, context: str) -> c_ast.Stmt:  # type: ignore
+        pass
