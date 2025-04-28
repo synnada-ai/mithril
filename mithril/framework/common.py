@@ -842,9 +842,7 @@ def find_intersection_type(
     return None
 
 
-def enhanced_isinstance[T](
-    obj: ScalarValueType | TensorValueType, type_def: type[T]
-) -> TypeGuard[T]:
+def enhanced_isinstance[T](obj: Any, type_def: type[T]) -> TypeGuard[T]:
     return bool(find_intersection_type(find_type(obj), type_def))
 
 
@@ -1431,6 +1429,9 @@ class IOHyperEdge:
             updated_tensors = {}
 
         match (value, self_value):
+            case (val1, val2) if val1 == val2:
+                return val1
+
             case (Tensor(), Tensor()):
                 # check if Tensors are already updated in previous iterations.
                 # If yes, replace them with updated ones.
@@ -1463,17 +1464,15 @@ class IOHyperEdge:
                 }
 
             case (val, ToBeDetermined()) | (ToBeDetermined(), val):
-                # add value to updates to inform constraints later on
-                updates.add(self, UpdateType.VALUE)
-                updates.value_updates.add(self)
+                if self_value is TBD:
+                    # add value to updates to inform constraints later on
+                    updates.add(self, UpdateType.VALUE)
+                    updates.value_updates.add(self)
 
                 # if val is a tensor (or a container that includes Tensor)
                 # update Tensor's IOHyperEdge referees and also return
                 # updated tensors
                 return self.update_tensor_values(val, updates, updated_tensors)
-
-            case (val1, val2) if val1 == val2:
-                return val1
 
             case _:
                 raise ValueError(

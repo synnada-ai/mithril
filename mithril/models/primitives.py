@@ -36,8 +36,6 @@ from ..framework.constraints import (
     bcast_error_check,
     broadcast_to_constraints,
     concat_constraints,
-    conv_1d_constraints,
-    conv_2d_constraints,
     cross_entropy_constraint,
     distance_matrix_const,
     eye_constraints,
@@ -1251,7 +1249,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._add_constraint(
-            fn=conv_1d_constraints,
+            fn=sliding_window_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
 
@@ -1356,7 +1354,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._add_constraint(
-            fn=conv_2d_constraints,
+            fn=sliding_window_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
 

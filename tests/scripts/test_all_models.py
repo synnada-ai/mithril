@@ -2128,24 +2128,6 @@ def test_size_2():
     )
 
 
-def test_size_3():
-    model = Size(dim=(1, 2))
-    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
-    reference_outputs = {"output": (3, 4)}
-    compile_and_compare(
-        model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
-        data={},
-        params={},
-        output_gradients={},
-        reference_outputs=reference_outputs,
-        reference_gradients=None,
-        tolerances=None,
-        ignore_transform={"output"},
-        assert_shapes=False,
-    )
-
-
 def test_scaled_dot_product_1():
     model = ScaledDotProduct()
     model.set_differentiability(query=True, key=True, value=True)

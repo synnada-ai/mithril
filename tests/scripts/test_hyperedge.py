@@ -1018,7 +1018,7 @@ def test_match_four_tensors_in_two_nested_containers_with_tbd():
 
     assert set(edge1.tensors) == {t1, t4}
 
-    assert updates.value_updates == {edge1}
+    assert updates.value_updates == set()
 
 
 def test_list_of_tensors_with_three_hyperedges():
@@ -1056,7 +1056,7 @@ def test_list_of_tensors_with_three_hyperedges():
 
     assert set(edge1.tensors) == {t1, t3}
 
-    assert updates.value_updates == {edge1}
+    assert updates.value_updates == set()
 
     edge3 = IOHyperEdge(value=[[TBD, t3], TBD])
 

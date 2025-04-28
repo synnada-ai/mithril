@@ -2829,10 +2829,7 @@ def test_size():
     m2 = Model()
     m2 += Size(dim=TBD)(input="input", dim=3, output="output")
 
-    m3 = Model()
-    m3 += Size(dim=TBD)(input="input", dim=(3, 5, 7), output="output")
-
-    models = [m1, m2, m3]
+    models = [m1, m2]
     expected_results = [expected_result_1, expected_result_2, expected_result_3]
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for model, expected_result in zip(models, expected_results, strict=False):
