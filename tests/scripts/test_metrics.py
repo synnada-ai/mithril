@@ -20,7 +20,6 @@ from mithril.models import (
     AUC,
     F1,
     Accuracy,
-    IOKey,
     Metric,
     Model,
     Precision,
@@ -35,40 +34,40 @@ TOLERANCE = 1e-6
 
 def test_metrics_1():
     model = Model()
-    model |= AUC(3, False).connect("pred", "label", IOKey("AUC_OvR"))
+    model |= AUC(3, False).connect("pred", "label", "AUC_OvR")
     model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = np.array(
         [
@@ -123,38 +122,38 @@ def test_metrics_1():
 def test_metrics_2():
     model = Model()
     model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = np.array(
         [
@@ -204,38 +203,38 @@ def test_metrics_2():
 def test_metrics_3():
     model = Model()
     model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = np.array(
         [
@@ -286,38 +285,38 @@ def test_metrics_3():
 def test_metrics_4():
     model = Model()
     model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = np.array(
         [
@@ -368,38 +367,38 @@ def test_metrics_4():
 def test_metrics_5():
     model = Model()
     model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=True
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = np.array(
         [
@@ -449,7 +448,7 @@ def test_metrics_5():
 
 def test_metrics_6():
     model = Model()
-    model |= Metric().connect(pred="pred", label="label", output=IOKey("output"))
+    model |= Metric().connect(pred="pred", label="label", output="output")
 
     pred = [[0, 1, 0], [1, 0, 0], [0, 0, 1]]
     label = [[0, 1, 0], [1, 0, 0], [0, 1, 0]]
@@ -472,7 +471,7 @@ def test_metrics_6():
 
 def test_metrics_7():
     model = Model()
-    model |= Metric().connect(pred="pred", label="label", output=IOKey("output"))
+    model |= Metric().connect(pred="pred", label="label", output="output")
     pred = [[0, 1, 0], [0, 1, 0], [1, 0, 0]]
     label = [[0, 1, 0], [1, 0, 0], [0, 1, 0]]
 
@@ -495,7 +494,7 @@ def test_metrics_7():
 def test_metrics_8():
     model = Model()
     model |= Metric(is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("output")
+        pred="pred", label="label", output="output"
     )
     pred = [[0, 1, 0], [0, 1, 0], [1, 0, 0]]
     label = [1, 0, 1]
@@ -519,7 +518,7 @@ def test_metrics_8():
 def test_metrics_9():
     model = Model()
     model |= Metric(is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("output")
+        pred="pred", label="label", output="output"
     )
     pred = [1, 1, 0]
     label = [1, 0, 1]
@@ -545,7 +544,7 @@ def test_metrics_10():
     model = Model()
     model |= Metric(
         threshold=0.3, is_binary=True, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("output"))
+    ).connect(pred="pred", label="label", output="output")
     pred = [0.5, 0.2, 0.1]
     label = [1, 0, 1]
 
@@ -574,7 +573,7 @@ def test_metrics_11():
     model = Model()
     model |= Metric(
         threshold=0.3, is_binary=True, is_label_one_hot=True, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("output"))
+    ).connect(pred="pred", label="label", output="output")
     pred = [0.5, 0.2, 0.1]
     label = [[0, 1], [1, 0], [0, 1]]
 
@@ -601,38 +600,38 @@ def test_metrics_11():
 def test_metrics_12():
     model = Model()
     model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = [0, 0, 0, 2, 0, 2, 0, 0]
     label = [0, 1, 0, 2, 0, 1, 0, 2]
@@ -674,38 +673,38 @@ def test_metrics_12():
 def test_metrics_13():
     model = Model()
     model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = [1, 2, 0, 2, 1, 2, 2, 1]
     label = [0, 1, 0, 2, 0, 1, 0, 2]
@@ -748,38 +747,38 @@ def test_metrics_13():
 def test_metrics_14():
     model = Model()
     model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = [0, 0, 0, 0, 0, 0, 0, 0]
     label = [0, 1, 0, 2, 0, 1, 0, 2]
@@ -821,38 +820,38 @@ def test_metrics_14():
 def test_metrics_15():
     model = Model()
     model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = [0, 1, 0, 2, 0, 1, 0, 2]
     label = [0, 1, 0, 2, 0, 1, 0, 2]
@@ -894,38 +893,38 @@ def test_metrics_15():
 def test_metrics_16():
     model = Model()
     model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = [0, 0, 0, 2, 0, 2, 0, 2]
     label = [0, 1, 0, 2, 0, 1, 0, 2]
@@ -967,38 +966,38 @@ def test_metrics_16():
 def test_metrics_17():
     model = Model()
     model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Accuracy")
+        pred="pred", label="label", output="Accuracy"
     )
 
     model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_F1")
+        pred="pred", label="label", output="Micro_F1"
     )
     model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_F1")
+        pred="pred", label="label", output="Macro_F1"
     )
     model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Weighted_F1")
+        pred="pred", label="label", output="Weighted_F1"
     )
 
     model |= Precision(
         "micro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Micro_Precision"))
+    ).connect(pred="pred", label="label", output="Micro_Precision")
     model |= Precision(
         "macro", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Macro_Precision"))
+    ).connect(pred="pred", label="label", output="Macro_Precision")
     model |= Precision(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Precision"))
+    ).connect(pred="pred", label="label", output="Weighted_Precision")
 
     model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Micro_Recall")
+        pred="pred", label="label", output="Micro_Recall"
     )
     model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False).connect(
-        pred="pred", label="label", output=IOKey("Macro_Recall")
+        pred="pred", label="label", output="Macro_Recall"
     )
     model |= Recall(
         "weighted", 3, is_label_one_hot=False, is_pred_one_hot=False
-    ).connect(pred="pred", label="label", output=IOKey("Weighted_Recall"))
+    ).connect(pred="pred", label="label", output="Weighted_Recall")
 
     pred = [2, 2, 2, 1, 2, 0, 2, 0]
     label = [0, 1, 0, 2, 0, 1, 0, 2]

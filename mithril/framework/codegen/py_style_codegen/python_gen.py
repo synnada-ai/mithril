@@ -675,7 +675,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if len(outputs) == 0:
             raise ValueError(
                 "To evaluate gradients you must provide gradients for"
-                " at least one of the {list(aux.keys())}"
+                f" at least one of the {list(aux.keys())}"
             )
 
         return outputs, aux  # type: ignore

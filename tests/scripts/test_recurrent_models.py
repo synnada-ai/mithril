@@ -213,7 +213,7 @@ class MySimpleRNNCellWithLinear(Cell):
         self |= indexer.connect(input=shp_model.output, index=0)
         self |= slice_1.connect(start=indexer.output)
         self |= tensor_item_1.connect(
-            input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
+            input="prev_hidden", index=slice_1.output, output="hidden_compl"
         )
 
         self |= slice_2.connect(start="", stop=indexer.output)
@@ -233,14 +233,14 @@ class MySimpleRNNCellWithLinear(Cell):
             left=sum_model_2.output,
             right=IOKey("bias_ih", type=Tensor, differentiable=True),
         )
-        self |= tanh.connect(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= tanh.connect(input=sum_model_3.output, output="hidden")
         self |= mult_model_3.connect(
             left="hidden", right=IOKey("w_ho", differentiable=True)
         )
         self |= sum_model_4.connect(
             left=mult_model_3.output,
             right=IOKey("bias_o", type=Tensor, differentiable=True),
-            output=IOKey("output"),
+            output="output",
         )
 
         # TODO: Commented code below does not work while above code does.
@@ -278,9 +278,10 @@ class MySimpleRNNCellWithLinear(Cell):
             "bias_ih": ["d_hid"],
             "bias_o": ["d_out"],
         }
+
+        self.expose_keys("hidden", "hidden_compl", "output")
         self.set_cin("input", safe=False)
         self.set_cout("output")
-
         self._set_shapes(**shapes)
         self._freeze()
 
@@ -348,7 +349,7 @@ class MyRNNCell(Cell):
         self |= indexer.connect(input=shp_model.output, index=0)
         self |= slice_1.connect(start=indexer.output)
         self |= tensor_item_1.connect(
-            input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
+            input="prev_hidden", index=slice_1.output, output="hidden_compl"
         )
         self |= slice_2.connect(start="", stop=indexer.output)
         self |= tensor_item_2.connect(input="prev_hidden", index=slice_2.output)
@@ -367,7 +368,7 @@ class MyRNNCell(Cell):
             left=sum_model_2.output,
             right=IOKey("bias_ih", type=Tensor, differentiable=True),
         )
-        self |= tanh.connect(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= tanh.connect(input=sum_model_3.output, output="hidden")
 
         shapes: dict[str, list[str | int]] = {
             "input": ["N", 1, "d_in"],
@@ -377,6 +378,8 @@ class MyRNNCell(Cell):
             "bias_hh": ["d_hid"],
             "bias_ih": ["d_hid"],
         }
+
+        self.expose_keys("hidden", "hidden_compl")
         self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("hidden")

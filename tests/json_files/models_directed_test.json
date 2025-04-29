@@ -8373,10 +8373,7 @@
                 "m1": {
                     "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
                     "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "left": "right",
@@ -8385,13 +8382,11 @@
                 "m3": {
                     "left": {"key": {"connect": [["m2","output"]]}},
                     "right": {"key": {"connect": [["m2","output"]]}},
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }}
+                    "output": "output"
                 }
             },
-            "assigned_differentiabilities": [["left", true], ["right", true]]
+            "assigned_differentiabilities": [["left", true], ["right", true]],
+            "exposed_keys": ["output", "output1"]
         },
         "inputs": {
             "left": [1.0, 2.0, 3.0],
@@ -8738,10 +8733,7 @@
             },
             "connections" : { 
                 "m4": {
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }},
+                    "output": "output",
                     "input": "my_input"
                 },
                 "m3": {
@@ -8754,10 +8746,9 @@
                     "output": "my_input",
                     "input": "input1"
                 }
-
-
             },
-            "assigned_differentiabilities": [["input1", true]]
+            "assigned_differentiabilities": [["input1", true]],
+            "exposed_keys": ["output"]
         },
         "inputs": {
             "input1": [[[[1.0, 2.0, 3.0]]]]
@@ -8793,10 +8784,7 @@
             },
             "connections" : {
                 "m4": {
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }}
+                    "output": "output"
                 }, 
                 "m3": {
                     "input": {"key": {"connect": [["m4","input"]]}}
@@ -8809,7 +8797,8 @@
                     "input": {"key": {"connect": [["m2","input"]]}}
                 }
             },
-            "assigned_differentiabilities": [["my_input", true]]
+            "assigned_differentiabilities": [["my_input", true]],
+            "exposed_keys": ["output"]
         },
         "inputs": {
             "my_input": [[[[1.0, 2.0, 3.0]]]]
@@ -8845,10 +8834,7 @@
             },
             "connections" : {
                 "m4": {
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }}
+                    "output": "output"
                 }, 
                 "m3": {
                     "input": {"key": {"connect": [["m4","input"]]}}
@@ -8861,7 +8847,8 @@
                     "input": {"key": {"connect": [["m2","input"]]}}
                 }
             },
-            "assigned_differentiabilities": [["my_input", true]]
+            "assigned_differentiabilities": [["my_input", true]],
+            "exposed_keys": ["output"]
         },
         "inputs": {
             "my_input": [[[[1.0, 2.0, 3.0]]]]

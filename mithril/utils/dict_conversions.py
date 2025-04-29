@@ -74,7 +74,6 @@ GeneralType = type | UnionType | ScalarType | type[Tensor[int | float | bool]]
 
 class KeyDict(TypedDict, total=False):
     name: str
-    expose: bool | None
     shape: list[int | str | None]
     value: TensorValueType | MainValueType | ToBeDetermined | str
     connect: list[list[str]]
@@ -109,6 +108,7 @@ class ModelDict(TypedDict, total=False):
     assigned_constraints: list[AssignedConstraintType]
     assigned_cins: list[tuple[str, int] | str]
     assigned_couts: list[tuple[str, int] | str]
+    exposed_keys: list[str]
     tuples: list[str]
     enums: dict[str, str]
     unnamed_keys: list[str]
@@ -486,7 +486,6 @@ def create_iokey_kwargs(
             for value in conns
         }
     kwargs["name"] = info_cpy.get("name")
-    kwargs["expose"] = info_cpy.get("expose")
     kwargs["differentiable"] = info_cpy.get("differentiable")
     return kwargs
 
@@ -521,6 +520,7 @@ def dict_to_model(
         params.get("connections", {})
     )
     submodels: dict[str, ModelDict] = params.get("submodels", {})
+    exposed_keys = params.get("exposed_keys", [])
 
     if connections.keys() != submodels.keys():
         raise KeyError("Requires submodel keys and connections keys to be compatible!")
@@ -594,11 +594,13 @@ def dict_to_model(
                         val = value_dict.get(val, val)
                         assert not isinstance(val, Dtype)
                     mappings[k] = Tensor(val)
+
         model |= m.connect(**mappings)
         for key, conns in mergings.items():
             con = getattr(m, key)
             model.merge_connections(con, *conns)
-
+    # Expose given keys.
+    model.expose_keys(*exposed_keys)
     # Set all assigned info.
     assigned_types = [
         (info, _deserialize_type_info(typ))
@@ -668,6 +670,18 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
             "submodels": submodels,
         }
 
+    # Save exposed output keys and exposed valued input keys.
+    # NOTE: This is because we set valued edges values at inner
+    # models since we are creating and adding them first. Then
+    # setting values in inner layers results in becoming latent
+    # inputs early. In order to avoiid this, we need to expose
+    # these inputs as well.
+    exposed_valued_input_keys = [
+        conn.key for conn in model.conns.input_connections if conn.metadata.is_valued
+    ]
+    model_dict["exposed_keys"] = list(model.output_keys) + exposed_valued_input_keys
+
+    # Save assigned info.
     (
         assigned_shapes,
         assigned_types,
@@ -711,7 +725,7 @@ def connection_to_dict(
             key_value = {}
             key_value["key"] = {"connect": [related_conn]}
             if connection.key in model.output_keys:
-                key_value["key"] |= {"name": connection.key, "expose": True}
+                key_value["key"] |= {"name": connection.key}
         elif is_valued and connection in model.conns.input_connections:
             val = connection.metadata.value
             if isinstance(val, Constant | Dtype):
@@ -723,21 +737,10 @@ def connection_to_dict(
                 key_value = val
             else:
                 key_value = {}
-                key_value["key"] = {
-                    "name": connection.key,
-                    "value": val,
-                    "expose": True,
-                }
+                key_value["key"] = {"name": connection.key, "value": val}
         elif not connection.key.startswith("$"):
-            # Check if the connection is exposed.
-            if key in submodel.output_keys and connection.key in model.output_keys:
-                expose: bool | None = True
-            else:
-                # If the connection is an output of submodel but not
-                # output of the model, set expose to False. Else None.
-                expose = False if key in submodel.output_keys else None
             key_value = {}
-            key_value["key"] = {"name": connection.key, "expose": expose}
+            key_value["key"] = {"name": connection.key}
 
         if key_value is not None:
             connection_dict[key] = key_value

@@ -1354,20 +1354,18 @@ def test_static_input_6():
     model_1 |= add_1.connect(
         left=IOKey(value=TBD, name="left"),
         right=IOKey(value=TBD, name="right"),
-        output=IOKey(name="out1"),
+        output="out1",
     )
-    model_1 |= add_2.connect(
-        left=add_1.left + 1.0, right=add_1.right, output=IOKey(name="out2")
-    )
+    model_1 |= add_2.connect(left=add_1.left + 1.0, right=add_1.right, output="out2")
+    model_1.expose_keys("out1", "out2")
 
     model_2 |= add_3.connect(
         left=IOKey(value=Tensor(3.0), name="left"),
         right=IOKey(value=Tensor(4.0), name="right"),
-        output=IOKey(name="output"),
+        output="output",
     )
-    model_2 |= model_1.connect(
-        left=add_3.left, right=add_3.right, out2=IOKey(name="output_1")
-    )
+    model_2 |= model_1.connect(left=add_3.left, right=add_3.right, out2="output_1")
+    model_2.expose_keys("output", "output_1")
 
     backend = JaxBackend()
     comp_model = ml.compile(model=model_2, backend=backend, jit=False, inference=True)
@@ -2132,14 +2130,13 @@ def test_nontensor_gradient():
 
     model |= shape_model.connect(input=IOKey("input", differentiable=True))
     model |= relu.connect(input="input")
-    model |= to_tensor_model.connect(
-        input=shape_model.output, output=IOKey(name="out1")
-    )
+    model |= to_tensor_model.connect(input=shape_model.output, output="out1")
     model |= add_model.connect(
         left=IOKey("in1", type=Tensor, differentiable=True),
         right=relu.output,
-        output=IOKey(name="out2"),
+        output="out2",
     )
+    model.expose_keys("out1", "out2")
 
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="out1", reduce_steps=[Sum()])
@@ -2217,9 +2214,8 @@ def test_nontensor_gradient_3():
     shape_model = Shape()
     to_tensor_model = ToTensor()
     model |= shape_model.connect(input=IOKey("input", differentiable=True))
-    model |= to_tensor_model.connect(
-        input=shape_model.output, output=IOKey(name="output")
-    )
+    model |= to_tensor_model.connect(input=shape_model.output, output="output")
+    model.expose_keys("output")
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Sum()])
     input = backend.randn(3, 4, 5, 6, 5)
@@ -2238,8 +2234,9 @@ def test_numpy_without_shape():
     model |= add_model.connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=IOKey("right", type=Tensor, differentiable=True),
-        output=IOKey(name="output"),
+        output="output",
     )
+    model.expose_keys("output")
     model.set_shapes(left=[], right=[])
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
@@ -2629,26 +2626,11 @@ def test_valued_conns_elevated_with_iokey():
     flatten = Flatten()
     model += flatten.connect(
         input="input",
-        start_dim=IOKey("start_dim"),
+        start_dim="start_dim",
         end_dim="end_dim",
-        output=IOKey(name="output"),
+        output="output",
     )
-    # Note that string naming does not cause the connection
-    # to be elevated as input to the upper level model.
-    assert model.input_keys == {"input", "start_dim"}
-    assert model.conns.latent_input_keys == {"end_dim"}
-
-
-# pytest.mark.skip(reason="Not implemented yet")
-def test_valued_conns_elevated_with_unexposed_iokey():
-    model = Model()
-    flatten = Flatten()
-    model += flatten.connect(
-        input="input",
-        start_dim=IOKey("start_dim"),
-        end_dim=IOKey("end_dim", expose=False),
-        output=IOKey(name="output"),
-    )
+    model.expose_keys("output", "start_dim")
     # Note that string naming does not cause the connection
     # to be elevated as input to the upper level model.
     assert model.input_keys == {"input", "start_dim"}
@@ -2658,9 +2640,8 @@ def test_valued_conns_elevated_with_unexposed_iokey():
 def test_scalar_conns_elevated_with_immediate_extend_value():
     model = Model()
     flatten = Flatten(start_dim=TBD, end_dim=TBD)
-    model += flatten.connect(
-        input="input", start_dim=0, end_dim=4, output=IOKey(name="output")
-    )
+    model += flatten.connect(input="input", start_dim=0, end_dim=4, output="output")
+    model.expose_keys("output")
     assert len(model.input_keys) == 3
     assert len(model.conns.latent_input_keys) == 0
 

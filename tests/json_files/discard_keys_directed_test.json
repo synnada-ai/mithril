@@ -145,23 +145,18 @@
                 },
                 "m6": {
                     "input": {"key": {"connect": [["m5", "output"]]}},
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m7": {
                     "input": {"key": {"connect": [["m4", "output"]]}}
                 },
                 "m8": {
                     "input": {"key": {"connect": [["m7", "output"]]}},
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
             }
         },
+        "exposed_keys": ["output1", "output2"],
         "discard_keys": ["output1"],
         "results": {
             "output_keys": ["output2"],

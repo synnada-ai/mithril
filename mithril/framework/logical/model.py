@@ -462,8 +462,10 @@ class Model(BaseModel):
         assert isinstance(_conn, ConnectionData)
         return _conn
 
-    def rename_key(self, connection: ConnectionData, key: str) -> None:
-        super().rename_key(connection, key)
+    def _rename_key(
+        self, connection: ConnectionData, key: str, check_key: bool = True
+    ) -> None:
+        super()._rename_key(connection, key, check_key)
         conn = self.conns.get_extracted_connection(connection)
         setattr(self, key, conn)
 
