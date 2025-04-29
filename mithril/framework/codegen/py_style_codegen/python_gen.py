@@ -13,15 +13,12 @@
 # limitations under the License.
 
 import ast
-import enum
 import importlib
 import keyword
 from collections.abc import Callable
 from functools import partial
 from posixpath import basename, splitext
 from typing import Any, Generic, Protocol
-
-from mithril.types import Dtype
 
 from ....backends.backend import ParallelBackend
 from ....common import PythonGenConfig
@@ -716,14 +713,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         local_input_keys = list(model.input_keys)
 
         return model, global_input_keys, local_input_keys
-
-    def is_static_scalar(self, key: str) -> bool:
-        return (
-            key in self.pm.flat_graph.cached_data
-            and not bool(self.pm.data[key].tensors)
-            and self.pm.data[key].edge_type != Dtype
-            and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
-        )
 
     # Variable references will be created with this function
     def _var_ref_ast(self, name: str, ctx: ast.expr_context) -> ast.Name:
