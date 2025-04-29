@@ -36,6 +36,8 @@ from ..framework.constraints import (
     bcast_error_check,
     broadcast_to_constraints,
     concat_constraints,
+    conv_1d_constraints,
+    conv_2d_constraints,
     cross_entropy_constraint,
     distance_matrix_const,
     eye_constraints,
@@ -45,9 +47,9 @@ from ..framework.constraints import (
     padding_1d_constraint,
     padding_2d_constraint,
     polynomial_features_constraints,
+    pool_1d_constraints,
+    pool_2d_constraints,
     randn_constraints,
-    sliding_window_1d_constraints,
-    sliding_window_2d_constraints,
     squeeze_constraints,
     stride_constraint,
     sum_fn,
@@ -1249,7 +1251,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._add_constraint(
-            fn=sliding_window_1d_constraints,
+            fn=conv_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
 
@@ -1354,7 +1356,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._add_constraint(
-            fn=sliding_window_2d_constraints,
+            fn=conv_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
 
@@ -1488,7 +1490,7 @@ class PrimitiveMaxPool1D(PrimitiveModel):
             dilation=BaseKey(type=int, value=dilation),
         )
         self._add_constraint(
-            fn=sliding_window_1d_constraints,
+            fn=pool_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
@@ -1739,7 +1741,7 @@ class PrimitivePool2D(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=sliding_window_2d_constraints,
+            fn=pool_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
 

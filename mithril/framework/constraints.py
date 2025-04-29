@@ -65,8 +65,10 @@ __all__ = [
     "slice_constraints",
     "bcast",
     "bcast_matrix_mult",
-    "sliding_window_1d_constraints",
-    "sliding_window_2d_constraints",
+    "pool_1d_constraints",
+    "conv_1d_constraints",
+    "conv_2d_constraints",
+    "pool_2d_constraints",
     "flatten_constrains",
     "concat_constraints",
     "reduce_constraints",
@@ -2258,13 +2260,13 @@ def sliding_window_constraint_helper(
     return val
 
 
-def sliding_window_1d_constraints(
+def sliding_window_1d_constraints_helper(
     output: IOHyperEdge,
     input: IOHyperEdge,
-    stride: IOHyperEdge,
-    padding: IOHyperEdge,
-    dilation: IOHyperEdge,
-    kernel: IOHyperEdge,
+    stride: int | ToBeDetermined,
+    padding: int | ToBeDetermined | tuple[int | ToBeDetermined, int | ToBeDetermined],
+    dilation: int | ToBeDetermined,
+    kernel: int | ToBeDetermined,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2272,46 +2274,35 @@ def sliding_window_1d_constraints(
     assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
-    kernel_shape: ShapeRepr | None = kernel._temp_shape
 
     input_val = input_shape[-1].value if len(input_shape.reverse) >= 1 else None
 
-    if kernel_shape is not None:
-        kernel_val = kernel_shape[-1].value if len(kernel_shape.reverse) >= 1 else None
-    else:
-        kernel_val = kernel._value if isinstance(kernel._value, int) else None
-        assert isinstance(kernel_val, int | None), "Invalid kernel value!"
-
-    stride_val = stride.value
-    padding_val = padding.value
-    dilation_val = dilation.value
-
-    assert isinstance(stride_val, int | ToBeDetermined), "Invalid stride value!"
-    assert isinstance(dilation_val, int | ToBeDetermined), "Invalid dilation value!"
-    assert isinstance(padding_val, int | ToBeDetermined) or enhanced_isinstance(
-        padding_val, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    assert isinstance(stride, int | ToBeDetermined), "Invalid stride value!"
+    assert isinstance(dilation, int | ToBeDetermined), "Invalid dilation value!"
+    assert isinstance(padding, int | ToBeDetermined) or enhanced_isinstance(
+        padding, tuple[int | ToBeDetermined, int | ToBeDetermined]
     ), "Invalid padding value!"
 
     if (
-        not isinstance(stride_val, ToBeDetermined)
-        and not isinstance(padding_val, ToBeDetermined)
-        and not isinstance(dilation_val, ToBeDetermined)
+        not isinstance(stride, ToBeDetermined)
+        and not isinstance(padding, ToBeDetermined)
+        and not isinstance(dilation, ToBeDetermined)
     ):
         output_shape_val: int | None = None
         if (
             isinstance(input_val, int)
             and (
-                isinstance(padding_val, int)
-                or enhanced_isinstance(padding_val, tuple[int, int])
+                isinstance(padding, int)
+                or enhanced_isinstance(padding, tuple[int, int])
             )
-            and isinstance(kernel_val, int)
+            and isinstance(kernel, int)
         ):
             output_shape_val = sliding_window_constraint_helper(
                 input_val,
-                stride_val,
-                padding_val,
-                dilation_val,
-                kernel_val,
+                stride,
+                padding,
+                dilation,
+                kernel,
             )
         updates |= output_shape.inner_match(
             prefix=[], root=Variadic(), suffix=[Uniadic(output_shape_val)]
@@ -2321,20 +2312,23 @@ def sliding_window_1d_constraints(
     return status, updates
 
 
-def sliding_window_2d_constraints(
+def sliding_window_2d_constraints_helper(
     output: IOHyperEdge,
     input: IOHyperEdge,
-    stride: IOHyperEdge,
-    padding: IOHyperEdge,
-    dilation: IOHyperEdge,
-    kernel: IOHyperEdge,
+    stride: tuple[int | ToBeDetermined, int | ToBeDetermined],
+    padding: tuple[int | ToBeDetermined, int | ToBeDetermined]
+    | tuple[
+        tuple[int | ToBeDetermined, int | ToBeDetermined],
+        tuple[int | ToBeDetermined, int | ToBeDetermined],
+    ],
+    dilation: tuple[int | ToBeDetermined, int | ToBeDetermined],
+    kernel: tuple[int | ToBeDetermined, int | ToBeDetermined],
 ) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of Convolution2D is not set!"
     assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
-    kernel_shape: ShapeRepr | None = kernel._temp_shape
 
     if len(input_shape.reverse) >= 2:
         input_val = (input_shape[-2].value, input_shape[-1].value)
@@ -2343,55 +2337,16 @@ def sliding_window_2d_constraints(
     else:
         input_val = (None, None)
 
-    if kernel_shape is not None:
-        if len(kernel_shape.reverse) >= 2:
-            kernel_val = (kernel_shape[-2].value, kernel_shape[-1].value)
-        elif len(kernel_shape.reverse) == 1:
-            kernel_val = (None, kernel_shape[-1].value)
-        else:
-            kernel_val = (None, None)
-    else:
-        kernel_val = kernel._value  # type: ignore
-        assert enhanced_isinstance(
-            kernel_val, tuple[int | ToBeDetermined, int | ToBeDetermined]
-        ), "Invalid kernel value!"
-
-    stride_val = stride.value
-    padding_val = padding.value
-    dilation_val = dilation.value
-
-    assert enhanced_isinstance(
-        stride_val, tuple[int | ToBeDetermined, int | ToBeDetermined]
-    ) or isinstance(stride_val, ToBeDetermined), "Invalid stride value!"
-    assert enhanced_isinstance(
-        dilation_val, tuple[int | ToBeDetermined, int | ToBeDetermined]
-    ) or isinstance(dilation_val, ToBeDetermined), "Invalid stride value!"
-    assert (
-        enhanced_isinstance(
-            padding_val, tuple[int | ToBeDetermined, int | ToBeDetermined]
-        )
-        or isinstance(padding_val, ToBeDetermined)
-        or enhanced_isinstance(
-            padding_val,
-            tuple[
-                tuple[int | ToBeDetermined, int | ToBeDetermined],
-                tuple[int | ToBeDetermined, int | ToBeDetermined],
-            ],
-        )
-    ), "Invalid padding value!"
-
-    # To calculate maxpool constraint we need to know ... and last 2 dimension of
-    # the input
     if (
-        not isinstance(stride_val, ToBeDetermined)
-        and not isinstance(padding_val, ToBeDetermined)
-        and not isinstance(dilation_val, ToBeDetermined)
+        not isinstance(stride, ToBeDetermined)
+        and not isinstance(padding, ToBeDetermined)
+        and not isinstance(dilation, ToBeDetermined)
     ):
         input_h, input_w = input_val
-        stride_h, stride_w = stride_val
-        padding_h, padding_w = padding_val
-        dilation_h, dilation_w = dilation_val
-        kernel_h, kernel_w = kernel_val
+        stride_h, stride_w = stride
+        padding_h, padding_w = padding
+        dilation_h, dilation_w = dilation
+        kernel_h, kernel_w = kernel
 
         output_shape_h: int | None = None
         output_shape_w: int | None = None
@@ -2437,11 +2392,128 @@ def sliding_window_2d_constraints(
         )
 
     status = (
-        len(output_shape) >= 2
+        len(output_shape.reverse) >= 2
         and output_shape[-2].value is not None
         and output_shape[-1].value is not None
     )
     return status, updates
+
+
+def pool_1d_constraints(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
+) -> ConstrainResultType:
+    assert isinstance(stride.value, int | ToBeDetermined)
+    assert enhanced_isinstance(
+        padding.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ) or isinstance(padding.value, int | ToBeDetermined)
+
+    assert isinstance(dilation.value, int | ToBeDetermined)
+    assert isinstance(kernel.value, int | ToBeDetermined)
+    return sliding_window_1d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, kernel.value
+    )
+
+
+def pool_2d_constraints(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
+) -> ConstrainResultType:
+    assert enhanced_isinstance(
+        stride.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    assert enhanced_isinstance(
+        padding.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ) or enhanced_isinstance(
+        padding.value,
+        tuple[
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+        ],
+    )
+    assert enhanced_isinstance(
+        dilation.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    assert enhanced_isinstance(
+        kernel.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    return sliding_window_2d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, kernel.value
+    )
+
+
+def conv_1d_constraints(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
+) -> ConstrainResultType:
+    assert isinstance(kernel._temp_shape, ShapeRepr)
+    kernel_shp: ShapeRepr = kernel._temp_shape
+    kernel_val = kernel_shp[-1].value if kernel_shp[-1].value is not None else TBD
+
+    assert isinstance(stride.value, int | ToBeDetermined)
+    assert isinstance(padding.value, int | ToBeDetermined) or enhanced_isinstance(
+        padding.value,
+        tuple[int | ToBeDetermined, int | ToBeDetermined],
+    )
+    assert isinstance(dilation.value, int | ToBeDetermined)
+
+    return sliding_window_1d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, kernel_val
+    )
+
+
+def conv_2d_constraints(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
+) -> ConstrainResultType:
+    assert isinstance(kernel._temp_shape, ShapeRepr)
+    kernel_shp: ShapeRepr = kernel._temp_shape
+
+    if len(kernel_shp.reverse) >= 2:
+        kernel_w = kernel_shp[-2].value if kernel_shp[-2].value is not None else TBD
+        kernel_h = kernel_shp[-1].value if kernel_shp[-1].value is not None else TBD
+    elif len(kernel_shp.reverse) == 1:
+        kernel_w = kernel_shp[-1].value if kernel_shp[-1].value is not None else TBD
+        kernel_h = TBD
+    else:
+        kernel_w = TBD
+        kernel_h = TBD
+
+    assert enhanced_isinstance(
+        stride.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    assert enhanced_isinstance(
+        padding.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ) or enhanced_isinstance(
+        padding.value,
+        tuple[
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+        ],
+    )
+    assert enhanced_isinstance(
+        dilation.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+
+    return sliding_window_2d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, (kernel_w, kernel_h)
+    )
 
 
 def flatten_constrains(
@@ -2998,7 +3070,7 @@ def size_constraints(
         )
         if (
             len(input_shape.prefix) > dim_val >= 0
-            or -len(input_shape.suffix) <= dim_val < 0
+            or -len(input_shape.reverse) <= dim_val < 0
         ):
             uni = input_shape[dim_val]
             if uni.value is not None:

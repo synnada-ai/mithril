@@ -57,6 +57,7 @@ from mithril.framework.constraints import (
     pad_constraints,
     padding_2d_constraint,
     polynomial_features_constraints,
+    pool_2d_constraints,
     randn_constraints,
     reduce_constraints,
     reduce_type_constraint,
@@ -67,7 +68,6 @@ from mithril.framework.constraints import (
     shape_constraints,
     size_constraints,
     slice_constraints,
-    sliding_window_2d_constraints,
     squeeze_constraints,
     stride_constraint,
     swap_axes_constraints,
@@ -2717,7 +2717,7 @@ def test_max_pool_1():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2748,7 +2748,7 @@ def test_max_pool_2():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2769,7 +2769,7 @@ def test_max_pool_3_error():
 
     with pytest.raises(Exception) as err_info:
         assert_constraint_results(
-            shapes, {}, {}, {}, sliding_window_2d_constraints, True, set(), given_data
+            shapes, {}, {}, {}, pool_2d_constraints, True, set(), given_data
         )
     assert (
         str(err_info.value)
@@ -2801,7 +2801,7 @@ def test_max_pool_4():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2832,7 +2832,7 @@ def test_max_pool_5():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2863,7 +2863,7 @@ def test_max_pool_6():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2894,7 +2894,7 @@ def test_max_pool_7():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2925,7 +2925,7 @@ def test_max_pool_8():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2956,7 +2956,7 @@ def test_max_pool_9():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output", "input"},
         given_data,
@@ -2987,7 +2987,7 @@ def test_max_pool_10():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -3018,7 +3018,7 @@ def test_max_pool_11():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
         {"output"},
         given_data,
@@ -3049,7 +3049,7 @@ def test_max_pool_12():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
         {"output"},
         given_data,
@@ -3080,7 +3080,7 @@ def test_max_pool_13():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
         {"output"},
         given_data,
@@ -8426,7 +8426,7 @@ def test_reduce_partial_3():
     )
 
 
-def test_pad_partial_forward_with_tbd():
+def test_pad_partial_forward():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("V1", ...)],
         "input": [1, 2, 3, 4],
@@ -8442,7 +8442,7 @@ def test_pad_partial_forward_with_tbd():
     )
 
 
-def test_pad_partial_backward_with_tbd():
+def test_pad_partial_backward():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [6, 7, 8, 9],
         "input": [("V1", ...)],
@@ -9035,7 +9035,7 @@ def test_slding_window_2d_partial_height():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
         {"output"},
         given_data,
@@ -9066,7 +9066,7 @@ def test_slding_window_2d_partial_width():
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
         {"output"},
         given_data,

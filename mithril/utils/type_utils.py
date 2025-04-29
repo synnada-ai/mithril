@@ -36,55 +36,12 @@ def is_list_int(t: Any) -> TypeGuard[list[int]]:
     return isinstance(t, list) and all(isinstance(i, int) for i in t)
 
 
-def is_list_str(t: Any) -> TypeGuard[list[str]]:
-    return isinstance(t, list) and all(isinstance(i, str) for i in t)
-
-
-def is_list_int_or_none(t: Any) -> TypeGuard[list[int | None]]:
-    return isinstance(t, list) and all(isinstance(i, int | None) for i in t)
-
-
-def is_tuple_int_or_none(t: Any) -> TypeGuard[tuple[int | None, ...]]:
-    return isinstance(t, tuple) and all(isinstance(i, int | None) for i in t)
-
-
-def is_axis_reduce_type(
-    axis: Any,
-) -> TypeGuard[int | tuple[int, ...] | None]:
-    is_int = isinstance(axis, int)
-    is_int_tuple = is_tuple_int(axis)
-    is_none = axis is None
-    return is_int or is_int_tuple or is_none
-
-
-def is_axis_reverse_type(
-    axis: Any,
-) -> TypeGuard[list[int] | tuple[int, ...] | None]:
-    is_list = is_list_int(axis)
-    is_tuple = is_tuple_int(axis)
-    is_none = axis is None
-    return is_list or is_none or is_tuple
-
-
 def is_tuple_of_two_ints(obj: Any) -> TypeGuard[tuple[int, int]]:
     return (
         isinstance(obj, tuple)
         and len(obj) == 2
         and all(isinstance(i, int) for i in obj)
     )
-
-
-def is_padding_type(
-    padding: Any,
-) -> TypeGuard[tuple[tuple[int, int], tuple[int, int]] | tuple[int, int]]:
-    is_padding = False
-    if isinstance(padding, tuple) and len(padding) == 2:
-        is_padding = (
-            is_tuple_of_two_ints(padding[0])
-            and is_tuple_of_two_ints(padding[1])
-            or is_tuple_of_two_ints(padding)
-        )
-    return is_padding
 
 
 def is_union_type(
