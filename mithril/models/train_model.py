@@ -77,8 +77,8 @@ def _create_size() -> Model:
     # This is a temporary function to create size model with tensor output.
     # Convert _create_size() to directly Size() model after type constraints added.
     size_model = Model()
-    size_model |= Size(dim=TBD)(input="input", dim="dim")
-    size_model += ToTensor()(output="output")
+    size_model |= Size(dim=TBD).connect(input="input", dim="dim")
+    size_model += ToTensor().connect(output="output")
     return size_model
 
 
@@ -176,7 +176,7 @@ class TrainModel(Model):
 
         if {
             key
-            for key, value in loss_model(**kwargs).connections.items()
+            for key, value in loss_model.connect(**kwargs).connections.items()
             if value is NOT_GIVEN and key in loss_model.input_keys
         } - {
             conn.key
@@ -249,7 +249,7 @@ class TrainModel(Model):
                 raise KeyError("Output of the loss model cannot be defined!")
         # self._extend(loss_model(**kwargs))
         # self._extend(loss_model, kwargs)
-        self._extend(loss_model, loss_model(**kwargs).connections)
+        self._extend(loss_model, loss_model.connect(**kwargs).connections)
         prev_out_key = self.get_single_output(loss_model)
         if (prev_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
             raise KeyError("Given key does not belong to the Model!")
@@ -407,7 +407,7 @@ class TrainModel(Model):
                 kwargs[out.key] = IOKey(name=key_name)
 
             keywords: dict[str, ConnectionType] = {}
-            for key, value in model(**kwargs).connections.items():
+            for key, value in model.connect(**kwargs).connections.items():
                 if isinstance(value, Connection):
                     keywords[key] = value
                 else:
@@ -437,7 +437,7 @@ class TrainModel(Model):
             model,
             {
                 key: value if isinstance(value, Connection) else value
-                for key, value in model(**kwargs).connections.items()
+                for key, value in model.connect(**kwargs).connections.items()
             },
         )
 

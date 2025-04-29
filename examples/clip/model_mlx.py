@@ -44,8 +44,8 @@ backend_torch = ml.TorchBackend()
 def quick_gelu(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    block |= Sigmoid()((1.702 * input), output="sigmoid")
-    block |= Buffer()(input * block.sigmoid, output=IOKey("output"))  # type: ignore
+    block |= Sigmoid().connect((1.702 * input), output="sigmoid")
+    block |= Buffer().connect(input * block.sigmoid, output=IOKey("output"))  # type: ignore
     return block
 
 
@@ -72,9 +72,13 @@ def attention(
     keys = IOKey("keys")
     values = IOKey("values")
 
-    block |= Linear(dims, name="q_proj", use_bias=bias)(queries, output="queries_proj")
-    block |= Linear(dims, name="k_proj", use_bias=bias)(keys, output="keys_proj")
-    block |= Linear(value_dims, name="v_proj", use_bias=bias)(
+    block |= Linear(dims, name="q_proj", use_bias=bias).connect(
+        queries, output="queries_proj"
+    )
+    block |= Linear(dims, name="k_proj", use_bias=bias).connect(
+        keys, output="keys_proj"
+    )
+    block |= Linear(value_dims, name="v_proj", use_bias=bias).connect(
         values, output="values_proj"
     )
 
@@ -90,7 +94,7 @@ def attention(
 
     if use_mask:
         block |= (mask_model := build_attention_mask())
-        block |= ScaledDotProduct(is_causal=False, use_attn_mask=True)(
+        block |= ScaledDotProduct(is_causal=False, use_attn_mask=True).connect(
             query=queries,
             key=keys,
             value=values,
@@ -98,28 +102,28 @@ def attention(
             output="scores",
         )
     else:
-        block |= ScaledDotProduct(is_causal=False, use_attn_mask=False)(
+        block |= ScaledDotProduct(is_causal=False, use_attn_mask=False).connect(
             query=queries, key=keys, value=values, output="scores"
         )
 
     values_hat = block.scores.transpose((0, 2, 1, 3)).reshape((B, L, -1))  # type: ignore
-    block |= Linear(value_output_dims, name="out_proj")(
+    block |= Linear(value_output_dims, name="out_proj").connect(
         values_hat, output=IOKey("output")
     )
-    # block |= Buffer()(input=block.out, output=IOKey("output"))  # type: ignore
+    # block |= Buffer().connect(input=block.out, output=IOKey("output"))  # type: ignore
     return block
 
 
 def mlp(config: dict[str, Any], name: str | None = None):
     block = Model(name=name)
-    block |= Linear(config["intermediate_size"], name="fc1")(
+    block |= Linear(config["intermediate_size"], name="fc1").connect(
         input="input", output="fc1_output"
     )
-    block |= quick_gelu(name="activation_fn")(
+    block |= quick_gelu(name="activation_fn").connect(
         input=block.fc1_output,  # type: ignore[attr-defined]
         output="gelu_output",
     )
-    block |= Linear(config["hidden_size"], name="fc2")(
+    block |= Linear(config["hidden_size"], name="fc2").connect(
         input=block.gelu_output,  # type: ignore
         output=IOKey("output"),
     )
@@ -131,7 +135,7 @@ def encode_layer(
 ):
     block = Model(name=name)
     input = IOKey("input")
-    block |= LayerNorm(eps=config["layer_norm_eps"], name="layer_norm1")(
+    block |= LayerNorm(eps=config["layer_norm_eps"], name="layer_norm1").connect(
         input=input, output="ln_1_output"
     )
     block |= attention(
@@ -140,21 +144,21 @@ def encode_layer(
         bias=True,
         use_mask=use_mask,
         name="self_attn",
-    )(
+    ).connect(
         queries=block.ln_1_output,  # type: ignore[attr-defined]
         keys=block.ln_1_output,  # type: ignore[attr-defined]
         values=block.ln_1_output,  # type: ignore[attr-defined]
         output="attn_output",
     )
-    block |= LayerNorm(eps=config["layer_norm_eps"], name="layer_norm2")(
+    block |= LayerNorm(eps=config["layer_norm_eps"], name="layer_norm2").connect(
         input=input + block.attn_output,  # type: ignore[attr-defined]
         output="ln_2_output",
     )
-    block |= mlp(config, name="mlp")(
+    block |= mlp(config, name="mlp").connect(
         input=block.ln_2_output,  # type: ignore[attr-defined]
         output="mlp_output",
     )
-    block |= Buffer()(
+    block |= Buffer().connect(
         input + block.attn_output + block.mlp_output,  # type: ignore[attr-defined]
         output=IOKey("output"),
     )
@@ -169,11 +173,11 @@ def encoder(
     block = Model(name=name)
     input_key = "input"
     for idx in range(config["num_hidden_layers"]):
-        block |= encode_layer(config, use_mask=use_mask, name=f"layers_{idx}")(
+        block |= encode_layer(config, use_mask=use_mask, name=f"layers_{idx}").connect(
             input=input_key, output=f"attn_output_{idx}"
         )
         input_key = f"attn_output_{idx}"
-    block |= Buffer()(input=f"attn_output_{idx}", output=IOKey("output"))
+    block |= Buffer().connect(input=f"attn_output_{idx}", output=IOKey("output"))
     return block
 
 
@@ -184,17 +188,17 @@ def text_embeddings(
     block = Model(name=name)
     input = IOKey("input")
     embed_dim = config["hidden_size"]
-    block |= Embedding(config["vocab_size"], embed_dim, name="token_embedding")(
+    block |= Embedding(config["vocab_size"], embed_dim, name="token_embedding").connect(
         input=input, output="token_embedding_output"
     )
     block |= Embedding(
         config["max_position_embeddings"], embed_dim, name="position_embedding"
-    )(
+    ).connect(
         input=input,
         weight="position_embedding_weight",
         output="position_embedding_output",
     )
-    block |= Buffer()(
+    block |= Buffer().connect(
         input=block.token_embedding_output  # type: ignore
         + block.position_embedding_weight[: input.shape[1]],  # type: ignore
         output=IOKey("output"),
@@ -207,24 +211,24 @@ def clip_text_model(config: dict[str, Any], name: str | None = None):
     input = IOKey("input")
     B, _ = input.shape[0], input.shape[1]
 
-    block |= text_embeddings(config, name="embeddings")(
+    block |= text_embeddings(config, name="embeddings").connect(
         input=input, output="embeddings_output"
     )
 
-    block |= encoder(config, use_mask=True, name="encoder")(
+    block |= encoder(config, use_mask=True, name="encoder").connect(
         input=block.embeddings_output,  # type: ignore
         output="t_encoder_output",
     )
 
-    block |= LayerNorm(name="final_layer_norm")(
+    block |= LayerNorm(name="final_layer_norm").connect(
         input=block.t_encoder_output,  # type: ignore
         output="last_hidden_state",
     )
-    block |= Arange(dtype=ml.int64)(stop=B, output="arange_output")
-    block |= ArgMax(axis=-1)(input=input, output="argmax_output")
+    block |= Arange(dtype=ml.int64).connect(stop=B, output="arange_output")
+    block |= ArgMax(axis=-1).connect(input=input, output="argmax_output")
 
     # TODO: Add block.argmax_output
-    block |= Buffer()(
+    block |= Buffer().connect(
         input=block.last_hidden_state[block.arange_output, block.argmax_output],  # type: ignore
         output=IOKey("output"),
     )
@@ -245,25 +249,25 @@ def vision_embeddings(config: dict[str, Any], name: str | None = None):
         stride=c_patch_size,
         use_bias=False,
         name="patch_embedding",
-    )(input=input, output="patch_embeddings")
+    ).connect(input=input, output="patch_embeddings")
     patch_embeddings: ml.Connection = block.patch_embeddings.reshape(  # type: ignore
         (batch_size, c_embed_dim, -1)
     ).transpose((0, 2, 1))
 
-    block |= Randn()(shape=(batch_size, 1, c_embed_dim), output="rand_1")  # type: ignore
-    block |= ZerosLike()(input=block.rand_1, output="zeros_out")  # type: ignore
+    block |= Randn().connect(shape=(batch_size, 1, c_embed_dim), output="rand_1")  # type: ignore
+    block |= ZerosLike().connect(input=block.rand_1, output="zeros_out")  # type: ignore
     class_embedding = IOKey("class_embedding", differentiable=True, shape=[c_embed_dim])
 
-    block |= Concat(axis=1)(
+    block |= Concat(axis=1).connect(
         input=[class_embedding + block.zeros_out, patch_embeddings],  # type: ignore
         output="embeddings",
     )
-    block |= Embedding(num_positions, c_embed_dim, name="position_embedding")(
+    block |= Embedding(num_positions, c_embed_dim, name="position_embedding").connect(
         input=input,
         weight="position_embedding_weight",
         output="position_embedding_output",
     )
-    block |= Buffer()(
+    block |= Buffer().connect(
         input=(block.embeddings + block.position_embedding_weight),  # type: ignore
         output=IOKey("output"),
     )
@@ -273,22 +277,22 @@ def vision_embeddings(config: dict[str, Any], name: str | None = None):
 def clip_vision_model(config: dict[str, Any], name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    block |= vision_embeddings(config, name="embeddings")(
+    block |= vision_embeddings(config, name="embeddings").connect(
         input=input, output="v_embeddings_output"
     )
-    block |= LayerNorm(name="pre_layrnorm")(
+    block |= LayerNorm(name="pre_layrnorm").connect(
         input=block.v_embeddings_output,  # type: ignore
         output="pre_layrnorm_output",
     )
-    block |= encoder(config, False, name="encoder")(
+    block |= encoder(config, False, name="encoder").connect(
         input=block.pre_layrnorm_output,  # type: ignore
         output="v_encoder_output",
     )
-    block |= LayerNorm(name="post_layernorm")(
+    block |= LayerNorm(name="post_layernorm").connect(
         input=block.v_encoder_output,  # type: ignore
         output="post_layernorm_output",
     )
-    block |= Buffer()(
+    block |= Buffer().connect(
         input=block.post_layernorm_output[:, 0, :],  # type: ignore
         output=IOKey("output"),
     )
@@ -306,17 +310,17 @@ def norm(
     block = Model(name=name)
     input = IOKey("input")
     if p == "inf":
-        block += Max(axis=axis, keepdim=keepdim)(input=input.abs())
+        block += Max(axis=axis, keepdim=keepdim).connect(input=input.abs())
     elif p == 1:
-        block += Sum(axis=axis, keepdim=keepdim)(input=input.abs())
+        block += Sum(axis=axis, keepdim=keepdim).connect(input=input.abs())
     elif p == 2:
-        block += Sum(axis=axis, keepdim=keepdim)(input=(input**2))
+        block += Sum(axis=axis, keepdim=keepdim).connect(input=(input**2))
         block += Sqrt()
     else:
         assert isinstance(p, int)
-        block += Sum(axis=axis, keepdim=keepdim)(input=(input.abs() ** p))
+        block += Sum(axis=axis, keepdim=keepdim).connect(input=(input.abs() ** p))
         block += Power(exponent=(1 / p))
-    block += Buffer()(output=IOKey("output"))
+    block += Buffer().connect(output=IOKey("output"))
     return block
 
 
@@ -328,7 +332,7 @@ def clip_model(config: dict[str, Any], name: str | None = None):
     projection_dim = config["projection_dim"]
 
     text_model = clip_text_model(config["text_config"], name="text_model")
-    block |= text_model(input=input_ids, output="text_pooler_output")
+    block |= text_model.connect(input=input_ids, output="text_pooler_output")
     text_projection_weight = IOKey(
         "text_projection_weight",
         differentiable=True,
@@ -339,36 +343,36 @@ def clip_model(config: dict[str, Any], name: str | None = None):
         block.text_pooler_output @ text_projection_weight.transpose()  # type: ignore
     )
 
-    block |= norm(p=2, axis=1, keepdim=True)(
+    block |= norm(p=2, axis=1, keepdim=True).connect(
         input=text_projection_output, output="norm_text_output"
     )
     text_embeds = text_projection_output / block.norm_text_output  # type: ignore
 
     vision_model = clip_vision_model(config["vision_config"], name="vision_model")
-    block |= vision_model(input=pixel_values, output="visual_pooler_output")
+    block |= vision_model.connect(input=pixel_values, output="visual_pooler_output")
 
-    block |= Linear(projection_dim, use_bias=False, name="visual_projection")(
+    block |= Linear(projection_dim, use_bias=False, name="visual_projection").connect(
         input=block.visual_pooler_output,  # type: ignore
         output="visual_projection_output",
     )
 
-    block |= norm(p=2, axis=1, keepdim=True)(
+    block |= norm(p=2, axis=1, keepdim=True).connect(
         input=block.visual_projection_output,  # type: ignore
         output="norm_visual_output",
     )
     image_embeds = block.visual_projection_output / block.norm_visual_output  # type: ignore
 
-    block |= Buffer()(input=image_embeds, output=IOKey("image_embeds"))
-    block |= Buffer()(input=text_embeds, output=IOKey("text_embeds"))
+    block |= Buffer().connect(input=image_embeds, output=IOKey("image_embeds"))
+    block |= Buffer().connect(input=text_embeds, output=IOKey("text_embeds"))
     return block
 
 
 def build_attention_mask() -> Model:
     block = Model()
-    block |= Arange(stop=77)(output="arange_out_1")
-    block |= Arange(stop=77)(output="arange_out_2")
+    block |= Arange(stop=77).connect(output="arange_out_1")
+    block |= Arange(stop=77).connect(output="arange_out_2")
     upper_bool_triu = block.arange_out_1[..., None] >= block.arange_out_2[None, ...]  # type: ignore
-    block |= Where()(
+    block |= Where().connect(
         cond=upper_bool_triu,
         input1=Tensor(0.0),
         input2=Tensor(float("-inf")),

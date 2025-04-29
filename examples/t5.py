@@ -94,13 +94,13 @@ def multihead_attention(
     keys = IOKey("keys", shape=(None, None, d_model))
     values = IOKey("values", shape=(None, None, d_model))
 
-    block |= Linear(inner_dim, name="query_proj", use_bias=False)(
+    block |= Linear(inner_dim, name="query_proj", use_bias=False).connect(
         queries, output="queries_proj"
     )
-    block |= Linear(inner_dim, name="key_proj", use_bias=False)(
+    block |= Linear(inner_dim, name="key_proj", use_bias=False).connect(
         keys, output="keys_proj"
     )
-    block |= Linear(inner_dim, name="value_proj", use_bias=False)(
+    block |= Linear(inner_dim, name="value_proj", use_bias=False).connect(
         values, output="values_proj"
     )
 
@@ -119,15 +119,17 @@ def multihead_attention(
     if use_mask:
         scores = scores + IOKey("mask").cast(scores.dtype())
 
-    block |= Softmax(axis=-1)(scores.cast(ml.float32), output="attention_weights")
+    block |= Softmax(axis=-1).connect(
+        scores.cast(ml.float32), output="attention_weights"
+    )
 
     scores = block.attention_weights.cast(scores.dtype())  # type: ignore
     values_hat = (scores @ values).transpose((0, 2, 1, 3)).reshape((B, L, -1))
-    block |= Linear(d_model, name="out_proj", use_bias=False)(
+    block |= Linear(d_model, name="out_proj", use_bias=False).connect(
         values_hat, output=IOKey("output")
     )
-    block |= Buffer()(keys, output=IOKey("keys_out"))
-    block |= Buffer()(values, output=IOKey("values_out"))
+    block |= Buffer().connect(keys, output=IOKey("keys_out"))
+    block |= Buffer().connect(values, output=IOKey("values_out"))
 
     return block
 
@@ -140,7 +142,7 @@ def rms_norm(dim: int, *, name: str | None = None):
         "weight", shape=[dim], differentiable=True
     )  # TODO: weight must be initialized with ones.
     rrms = input / ((input**2).mean(axis=-1, keepdim=True) + 1e-5).sqrt()
-    block += Multiply()(left=rrms, right=weight, output=IOKey("output"))
+    block += Multiply().connect(left=rrms, right=weight, output=IOKey("output"))
     block.set_cin("input")
     return block
 
@@ -166,16 +168,20 @@ def dense_activation(config: dict[str, Any], *, name: str | None = None):
     input = IOKey("input")
 
     if is_gated:
-        block |= Linear(mlp_dims, use_bias=False, name="wi_0")(input)
-        block += activation(output="hidden_act")
-        block |= Linear(mlp_dims, use_bias=False, name="wi_1")(input, output="lin_out")
-        block |= Multiply()(left="hidden_act", right="lin_out", output="hidden_out")
+        block |= Linear(mlp_dims, use_bias=False, name="wi_0").connect(input)
+        block += activation.connect(output="hidden_act")
+        block |= Linear(mlp_dims, use_bias=False, name="wi_1").connect(
+            input, output="lin_out"
+        )
+        block |= Multiply().connect(
+            left="hidden_act", right="lin_out", output="hidden_out"
+        )
         block.set_cout("hidden_out")
     else:
-        block |= Linear(mlp_dims, name="wi", use_bias=False)(input)
-        block += Relu()(output="hidden_out")
+        block |= Linear(mlp_dims, name="wi", use_bias=False).connect(input)
+        block += Relu().connect(output="hidden_out")
 
-    block += Linear(config["d_model"], name="wo", use_bias=False)(
+    block += Linear(config["d_model"], name="wo", use_bias=False).connect(
         output=IOKey("output")
     )
     return block
@@ -194,8 +200,8 @@ def relative_position_bucket(
         relative_buckets += (relative_position > 0).cast(ml.int16) * num_buckets
         relative_position = relative_position.abs()  # type: ignore
     else:
-        block |= ZerosLike()(relative_position, output="zeros_like")
-        block |= Minimum()(
+        block |= ZerosLike().connect(relative_position, output="zeros_like")
+        block |= Minimum().connect(
             left=relative_position, right="zeros_like", output="minimum_out"
         )
 
@@ -207,21 +213,23 @@ def relative_position_bucket(
     is_small = relative_position < max_exact
     scale = (num_buckets - max_exact) / math.log(max_distance / max_exact)
 
-    block |= Log()((relative_position.cast(ml.float32) / max_exact), output="log_out")
+    block |= Log().connect(
+        (relative_position.cast(ml.float32) / max_exact), output="log_out"
+    )
 
-    block |= Minimum()(
+    block |= Minimum().connect(
         left=(max_exact + block.log_out * scale).cast(ml.int16),  # type: ignore
         right=ml.Tensor(num_buckets - 1),
         output="relative_position_if_large_2",
     )
-    block |= Where()(
+    block |= Where().connect(
         cond=is_small,
         input1=relative_position,
         input2="relative_position_if_large_2",
         output="where_out",
     )
 
-    block |= Add()(relative_buckets, "where_out", output=IOKey("output"))
+    block |= Add().connect(relative_buckets, "where_out", output=IOKey("output"))
 
     return block
 
@@ -232,8 +240,12 @@ def transformer_encoder_layer(config: dict[str, Any], *, name: str | None = None
     input = IOKey("input")
     mask = IOKey("mask")
 
-    block |= rms_norm(config["d_model"], name="ln1")(input=input, output="input_norm")
-    block |= multihead_attention(config=config, use_mask=True, name="attention")(
+    block |= rms_norm(config["d_model"], name="ln1").connect(
+        input=input, output="input_norm"
+    )
+    block |= multihead_attention(
+        config=config, use_mask=True, name="attention"
+    ).connect(
         queries="input_norm",
         keys="input_norm",
         values="input_norm",
@@ -241,12 +253,14 @@ def transformer_encoder_layer(config: dict[str, Any], *, name: str | None = None
         output="attn_out",
     )
 
-    block |= Add()(left="input", right="attn_out", output="attn_out2")
-    block |= rms_norm(config["d_model"], name="ln2")(input="attn_out2", output="norm2")
-    block |= dense_activation(config=config, name="dense")(
+    block |= Add().connect(left="input", right="attn_out", output="attn_out2")
+    block |= rms_norm(config["d_model"], name="ln2").connect(
+        input="attn_out2", output="norm2"
+    )
+    block |= dense_activation(config=config, name="dense").connect(
         input="norm2", output="ff_out"
     )
-    block |= Add()(left="attn_out2", right="ff_out", output=IOKey("output"))
+    block |= Add().connect(left="attn_out2", right="ff_out", output=IOKey("output"))
     block.set_cout("output")
     return block
 
@@ -263,10 +277,10 @@ def relative_position_bias(
     key_length = IOKey("key_length", type=int)
     offset = IOKey("offset", type=int)
 
-    block |= Arange(start=ml.TBD)(
+    block |= Arange(start=ml.TBD).connect(
         start=offset, stop=query_length, output="context_position"
     )
-    block |= Arange()(stop=key_length, output="memory_position")
+    block |= Arange().connect(stop=key_length, output="memory_position")
 
     context_position: ml.Connection = block.context_position[:, None]  # type: ignore
     memory_position: ml.Connection = block.memory_position[None, :]  # type: ignore
@@ -275,11 +289,11 @@ def relative_position_bias(
 
     block |= relative_position_bucket(
         bidirectional=bidirectional, num_buckets=num_buckets, max_distance=max_distance
-    )(relative_position=relative_position, output="relative_position_buckets")
-    block |= Embedding(num_embeddings=num_buckets, dim=num_heads, name="embeddings")(
-        input="relative_position_buckets", output="values"
-    )
-    block |= Transpose(axes=(2, 0, 1))(input="values", output=IOKey("output"))
+    ).connect(relative_position=relative_position, output="relative_position_buckets")
+    block |= Embedding(
+        num_embeddings=num_buckets, dim=num_heads, name="embeddings"
+    ).connect(input="relative_position_buckets", output="values")
+    block |= Transpose(axes=(2, 0, 1)).connect(input="values", output=IOKey("output"))
 
     return block
 
@@ -290,7 +304,7 @@ def transformer_encoder(config: dict[str, Any], *, name: str | None = None):
 
     block |= relative_position_bias(
         config, bidirectional=True, name="relative_attention_bias"
-    )(
+    ).connect(
         query_length=input.shape[1],
         key_length=input.shape[1],
         offset=0,
@@ -299,12 +313,12 @@ def transformer_encoder(config: dict[str, Any], *, name: str | None = None):
 
     input_key = "input"
     for idx in range(config["num_layers"]):
-        block |= transformer_encoder_layer(config, name=f"layers_{idx}")(
+        block |= transformer_encoder_layer(config, name=f"layers_{idx}").connect(
             input=input_key, mask="pos_bias", output=f"output_{idx}"
         )
         input_key = f"output_{idx}"
 
-    block |= rms_norm(config["d_model"], name="ln")(
+    block |= rms_norm(config["d_model"], name="ln").connect(
         input=input_key, output=IOKey("output")
     )
     return block
@@ -318,33 +332,37 @@ def transformer_decoder_layer(
     mask = IOKey("mask")
     memory = IOKey("memory")
 
-    block |= rms_norm(config["d_model"], name="ln1")(input=input, output="input_norm")
+    block |= rms_norm(config["d_model"], name="ln1").connect(
+        input=input, output="input_norm"
+    )
     block |= multihead_attention(
         config=config, use_mask=use_mask, name="self_attention"
-    )(
+    ).connect(
         queries="input_norm",
         keys="input_norm",
         values="input_norm",
         mask=mask,
         output="self_attn_out",
     )
-    block |= Add()(left="input", right="self_attn_out", output="self_attn_out2")
-    block |= rms_norm(config["d_model"], name="ln2")(
+    block |= Add().connect(left="input", right="self_attn_out", output="self_attn_out2")
+    block |= rms_norm(config["d_model"], name="ln2").connect(
         input="self_attn_out2", output="norm2"
     )
-    block |= multihead_attention(config=config, use_mask=False, name="cross_attention")(
-        queries="norm2", keys=memory, values=memory, output="cross_attn_out"
-    )
-    block |= Add()(
+    block |= multihead_attention(
+        config=config, use_mask=False, name="cross_attention"
+    ).connect(queries="norm2", keys=memory, values=memory, output="cross_attn_out")
+    block |= Add().connect(
         left="self_attn_out2", right="cross_attn_out", output="cross_attn_out2"
     )
-    block |= rms_norm(config["d_model"], name="ln3")(
+    block |= rms_norm(config["d_model"], name="ln3").connect(
         input="cross_attn_out2", output="norm3"
     )
-    block |= dense_activation(config=config, name="dense")(
+    block |= dense_activation(config=config, name="dense").connect(
         input="norm3", output="ff_out"
     )
-    block |= Add()(left="cross_attn_out2", right="ff_out", output=IOKey("output"))
+    block |= Add().connect(
+        left="cross_attn_out2", right="ff_out", output=IOKey("output")
+    )
     block.set_cout("output")
 
     return block
@@ -360,7 +378,7 @@ def transformer_decoder(config: dict[str, Any], *, name: str | None = None):
 
     block += relative_position_bias(
         config, bidirectional=False, name="relative_attention_bias"
-    )(
+    ).connect(
         query_length=input.shape[1],
         key_length=input.shape[1],
         offset=offset,
@@ -369,19 +387,19 @@ def transformer_decoder(config: dict[str, Any], *, name: str | None = None):
 
     input_key = "input"
     for idx in range(n_layers):
-        block |= transformer_decoder_layer(config, True, name=f"layers_{idx}")(
+        block |= transformer_decoder_layer(config, True, name=f"layers_{idx}").connect(
             input=input_key, mask="pos_bias", memory=memory, output=f"output_{idx}"
         )
         input_key = f"output_{idx}"
 
-    block += rms_norm(config["d_model"], name="ln")(output=IOKey("output"))
+    block += rms_norm(config["d_model"], name="ln").connect(output=IOKey("output"))
 
     return block
 
 
 def output_head(config: dict[str, Any], *, name: str | None = None):
     block = Model(name=name)
-    block += Linear(config["vocab_size"], use_bias=False, name="linear")(
+    block += Linear(config["vocab_size"], use_bias=False, name="linear").connect(
         IOKey("input"), output=IOKey("output")
     )
     return block
@@ -392,8 +410,8 @@ def t5_encode(config: dict[str, Any], name: str | None = None):
     input = IOKey("input")
     block |= Embedding(
         name="wte", num_embeddings=config["vocab_size"], dim=config["d_model"]
-    )(input, output="wte_out")
-    block |= transformer_encoder(config, name="encoder")(
+    ).connect(input, output="wte_out")
+    block |= transformer_encoder(config, name="encoder").connect(
         input="wte_out", pos_bias="pos_bias", output=IOKey("output")
     )
 
@@ -409,19 +427,19 @@ def t5_decode(config: dict[str, Any], *, name: str | None = None):
     wte = Embedding(
         name="wte", num_embeddings=config["vocab_size"], dim=config["d_model"]
     )
-    block |= wte(input, output="wte_out")
-    block |= transformer_decoder(config, name="decoder")(
+    block |= wte.connect(input, output="wte_out")
+    block |= transformer_decoder(config, name="decoder").connect(
         input="wte_out", memory=memory, output="decoder_out"
     )
 
     if not tie_word_embeddings:
-        block |= output_head(config, name="lm_head")(
+        block |= output_head(config, name="lm_head").connect(
             input="decoder_out", output=IOKey("output")
         )
     else:
         decoder_out = block.decoder_out  # type: ignore
         decoder_out *= config["d_model"] ** -0.5
-        block |= MatrixMultiply()(
+        block |= MatrixMultiply().connect(
             decoder_out, wte.weight.transpose(), output=IOKey("output")
         )
 

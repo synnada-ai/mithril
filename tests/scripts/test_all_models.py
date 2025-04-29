@@ -2203,8 +2203,10 @@ def test_slice_1():
     item_model = Indexer()
 
     model = Model()
-    model |= slice_model(start=2, stop=3)
-    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model.connect(start=2, stop=3)
+    model |= item_model.connect(
+        input="input", index=slice_model.output, output=IOKey("output")
+    )
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2233,8 +2235,10 @@ def test_slice_2():
     item_model = Indexer()
 
     model = Model()
-    model |= slice_model(stop=3)
-    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model.connect(stop=3)
+    model |= item_model.connect(
+        input="input", index=slice_model.output, output=IOKey("output")
+    )
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2263,8 +2267,10 @@ def test_slice_3():
     item_model = Indexer()
 
     model = Model()
-    model |= slice_model(stop=3, step=2)
-    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model.connect(stop=3, step=2)
+    model |= item_model.connect(
+        input="input", index=slice_model.output, output=IOKey("output")
+    )
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2293,8 +2299,10 @@ def test_slice_4():
     item_model = Indexer()
 
     model = Model()
-    model |= slice_model(step=2)
-    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model.connect(step=2)
+    model |= item_model.connect(
+        input="input", index=slice_model.output, output=IOKey("output")
+    )
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -4323,7 +4331,9 @@ def test_tensor_item_with_slice_1():
     slice_model = Slice(start=0, stop=1, step=None)
 
     model |= slice_model
-    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= item_model.connect(
+        input="input", index=slice_model.output, output=IOKey("output")
+    )
 
     input = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]}
 
@@ -4359,7 +4369,9 @@ def test_tensor_item_with_slice_2():
     slice_model = Slice(start=0, stop=2, step=None)
 
     model |= slice_model
-    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= item_model.connect(
+        input="input", index=slice_model.output, output=IOKey("output")
+    )
 
     input = {"input": [[[1.0, 2.0]], [[3.0, 4.0]], [[5.0, 6.0]]]}
 
@@ -4398,8 +4410,8 @@ def test_concat_1():
     input2 = IOKey("input2", type=Tensor)
     input3 = IOKey("input3", type=Tensor)
 
-    model |= to_list(input1=input1, input2=input2, input3=input3)
-    model += concat(output="output")
+    model |= to_list.connect(input1=input1, input2=input2, input3=input3)
+    model += concat.connect(output="output")
 
     params = {"input1": [[1.0, 2.0]], "input2": [[3.0, 4.0]], "input3": [[5.0, 6.0]]}
 
@@ -4437,9 +4449,9 @@ def test_concat_2():
     input2 = IOKey("input2", type=Tensor)
     input3 = IOKey("input3", type=Tensor)
 
-    model |= to_list(input1=input1, input2=input2, input3=input3)
-    model += concat_1(output="output_1")
-    model |= concat_2(input=to_list.output, output="output_2")
+    model |= to_list.connect(input1=input1, input2=input2, input3=input3)
+    model += concat_1.connect(output="output_1")
+    model |= concat_2.connect(input=to_list.output, output="output_2")
 
     params = {"input1": [[1.0, 2.0]], "input2": [[3.0, 4.0]], "input3": [[5.0, 6.0]]}
 
@@ -4483,10 +4495,10 @@ def test_concat_3_with_indexer_list_input():
     input2 = IOKey("input2", type=Tensor)
     input3 = IOKey("input3", type=Tensor)
 
-    model |= to_list(input1=input1, input2=input2, input3=input3)
-    model += concat_1(output=IOKey("output_1"))
+    model |= to_list.connect(input1=input1, input2=input2, input3=input3)
+    model += concat_1.connect(output=IOKey("output_1"))
     indexed_data = to_list.output[-2:]
-    model |= concat_2(input=indexed_data, output=IOKey("output_2"))
+    model |= concat_2.connect(input=indexed_data, output=IOKey("output_2"))
 
     params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
     data = {"input2": [[3.0, 4.0]]}
@@ -4532,10 +4544,10 @@ def test_concat_3_with_indexer_tuple_input():
     input2 = IOKey("input2", type=Tensor)
     input3 = IOKey("input3", type=Tensor)
 
-    model |= to_tuple(input1=input1, input2=input2, input3=input3)
-    model += concat_1(output=IOKey("output_1"))
+    model |= to_tuple.connect(input1=input1, input2=input2, input3=input3)
+    model += concat_1.connect(output=IOKey("output_1"))
     indexed_data = to_tuple.output[-2:]
-    model |= concat_2(input=indexed_data, output=IOKey("output_2"))
+    model |= concat_2.connect(input=indexed_data, output=IOKey("output_2"))
 
     params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
     data = {"input2": [[3.0, 4.0]]}
@@ -4571,7 +4583,7 @@ def test_concat_3_with_indexer_tuple_input():
 
 
 def test_avg_pool_2d_1():
-    model = Model() | AvgPool2D((2, 2), 2, 0, 1)(
+    model = Model() | AvgPool2D((2, 2), 2, 0, 1).connect(
         input=IOKey("input"), output=IOKey("output")
     )
 
@@ -4622,7 +4634,7 @@ def test_avg_pool_2d_1():
 
 
 def test_avg_pool_2d_2():
-    model = Model() | AvgPool2D((2, 2), 1, 0, 1)(
+    model = Model() | AvgPool2D((2, 2), 1, 0, 1).connect(
         input=IOKey("input"), output=IOKey("output")
     )
 
@@ -4673,7 +4685,7 @@ def test_avg_pool_2d_2():
 
 
 def test_avg_pool_2d_3():
-    model = Model() | AvgPool2D((2, 2), 1, 0, 1)(
+    model = Model() | AvgPool2D((2, 2), 1, 0, 1).connect(
         input=IOKey("input"), output=IOKey("output")
     )
 
@@ -4722,7 +4734,7 @@ def test_avg_pool_2d_3():
 def test_split_1():
     model = Model()
     input = IOKey("input", differentiable=True)
-    model |= Split(split_size=2, axis=0)(input=input, output="output")
+    model |= Split(split_size=2, axis=0).connect(input=input, output="output")
 
     output = [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
     output_grad = [[[1.0, 2.0], [5.0, 6.0]], [[3.0, 4.0], [0.0, 0.0]]]
@@ -4752,8 +4764,8 @@ def test_split_1():
 def test_split_with_concat():
     model = Model()
     input = IOKey("input", differentiable=True, shape=(4, 2))
-    model |= Split(split_size=2, axis=0)(input=input, output="split_output")
-    model |= Concat(axis=1)(input="split_output", output=IOKey("output"))
+    model |= Split(split_size=2, axis=0).connect(input=input, output="split_output")
+    model |= Concat(axis=1).connect(input="split_output", output=IOKey("output"))
 
     params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
     ref_out = {"output": [[1.0, 2.0, 5.0, 6.0], [3.0, 4.0, 7.0, 8.0]]}
@@ -4780,9 +4792,11 @@ def test_split_with_concat():
 def test_split_with_2_concat():
     model = Model()
     input = IOKey("input", differentiable=True, shape=(4, 2))
-    model |= (split := Split(split_size=2, axis=0))(input=input, output="split_output")
-    model |= Concat(axis=1)(input=split.output[0:1], output=IOKey("output_1"))
-    model |= Concat(axis=1)(input=split.output[1:2], output=IOKey("output_2"))
+    model |= (split := Split(split_size=2, axis=0)).connect(
+        input=input, output="split_output"
+    )
+    model |= Concat(axis=1).connect(input=split.output[0:1], output=IOKey("output_1"))
+    model |= Concat(axis=1).connect(input=split.output[1:2], output=IOKey("output_2"))
 
     params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
     ref_out = {
@@ -4815,9 +4829,11 @@ def test_split_with_2_concat():
 def test_split_with_2_concat_4_split():
     model = Model()
     input = IOKey("input", differentiable=True, shape=(4, 2))
-    model |= (split := Split(split_size=4, axis=0))(input=input, output="split_output")
-    model |= Concat(axis=1)(input=split.output[0:2], output=IOKey("output_1"))
-    model |= Concat(axis=1)(input=split.output[2:4], output=IOKey("output_2"))
+    model |= (split := Split(split_size=4, axis=0)).connect(
+        input=input, output="split_output"
+    )
+    model |= Concat(axis=1).connect(input=split.output[0:2], output=IOKey("output_1"))
+    model |= Concat(axis=1).connect(input=split.output[2:4], output=IOKey("output_2"))
 
     params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
     ref_out = {"output_1": [[1.0, 2.0, 3.0, 4.0]], "output_2": [[5.0, 6.0, 7.0, 8.0]]}
@@ -4844,7 +4860,7 @@ def test_split_with_2_concat_4_split():
 def test_split_2():
     model = Model()
     input = IOKey("input", differentiable=True)
-    model |= Split(split_size=2, axis=0)(input=input, output="output")
+    model |= Split(split_size=2, axis=0).connect(input=input, output="output")
 
     output = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
     output_grad = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
@@ -4874,7 +4890,7 @@ def test_split_2():
 def test_split_3():
     model = Model()
     input = IOKey("input", differentiable=True)
-    model |= Split(split_size=1, axis=0)(input=input, output="output")
+    model |= Split(split_size=1, axis=0).connect(input=input, output="output")
 
     output = [[1.0]]
     output_grad = [[0.5]]
@@ -4904,7 +4920,7 @@ def test_split_3():
 def test_split_4():
     model = Model()
     input = IOKey("input", differentiable=True)
-    model |= Split(split_size=1, axis=0)(input=input, output="output")
+    model |= Split(split_size=1, axis=0).connect(input=input, output="output")
 
     output: list[list[float]] = [[]]
     output_grad: list[list[float]] = [[]]
@@ -4934,7 +4950,7 @@ def test_split_4():
 def test_split_5():
     model = Model()
     input = IOKey("input", differentiable=True)
-    model |= Split(split_size=2, axis=-1)(input=input, output="output")
+    model |= Split(split_size=2, axis=-1).connect(input=input, output="output")
 
     output = [[[1.0], [3.0], [5.0]], [[2.0], [4.0], [6.0]]]
     output_grad = [[[0.1], [0.2], [0.3]], [[0.4], [0.5], [0.6]]]
@@ -4964,8 +4980,10 @@ def test_split_5():
 def test_split_6():
     model = Model()
     input = IOKey("input", differentiable=True)
-    model |= (split := Split(split_size=2, axis=-1))(input=input, output="output")
-    model |= Concat(axis=0)(input=split.output[0:1], output="output_concat")
+    model |= (split := Split(split_size=2, axis=-1)).connect(
+        input=input, output="output"
+    )
+    model |= Concat(axis=0).connect(input=split.output[0:1], output="output_concat")
 
     output = [[1.0], [3.0], [5.0]]
     output_grad = [[0.1], [0.2], [0.3]]
@@ -4996,10 +5014,10 @@ def test_list_of_list_type_data_flow():
     model = Model()
     input_1 = IOKey("input_1", differentiable=True)
     input_2 = IOKey("input_2", value=Tensor(2.0))
-    model |= (tl_1 := ToList(n=2))(input1=input_1, input2=input_2)
-    model |= (tl_2 := ToList(n=2))(input1=input_2, input2=input_2)
-    model |= (tl_3 := ToList(n=2))(input1=tl_1.output, input2=tl_2.output)
-    model |= Buffer()(tl_3.output[0][0], output=IOKey("output"))
+    model |= (tl_1 := ToList(n=2)).connect(input1=input_1, input2=input_2)
+    model |= (tl_2 := ToList(n=2)).connect(input1=input_2, input2=input_2)
+    model |= (tl_3 := ToList(n=2)).connect(input1=tl_1.output, input2=tl_2.output)
+    model |= Buffer().connect(tl_3.output[0][0], output=IOKey("output"))
 
     output = [1.0]
     output_grad = [0.1]

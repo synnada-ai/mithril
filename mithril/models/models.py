@@ -193,16 +193,16 @@ class Pool1D(Model):
         stride_conv = StrideConverter()
         pad_conv = PaddingConverter1D()
 
-        self |= stride_conv(
+        self |= stride_conv.connect(
             input=IOKey(name="stride", value=stride),
             kernel_size=IOKey(name="kernel_size", value=kernel_size),
         )
 
-        self |= pad_conv(
+        self |= pad_conv.connect(
             input=IOKey(name="padding", value=pad), kernel_size="kernel_size"
         )
 
-        self |= self.pool_model()(
+        self |= self.pool_model().connect(
             input=IOKey("input", value=input),
             kernel_size="kernel_size",
             stride=stride_conv.output,
@@ -214,7 +214,7 @@ class Pool1D(Model):
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         kernel_size: ConnectionType | int = NOT_GIVEN,
@@ -223,7 +223,7 @@ class Pool1D(Model):
         dilation: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             kernel_size=kernel_size,
             stride=stride,
@@ -294,17 +294,17 @@ class Pool2D(Model):
         pt_converter = TupleConverter()
         dt_converter = TupleConverter()
 
-        self |= kt_converter(input=IOKey(name="kernel_size", value=kernel_size))
-        self |= s_converter(
+        self |= kt_converter.connect(input=IOKey(name="kernel_size", value=kernel_size))
+        self |= s_converter.connect(
             input=IOKey(name="stride", value=stride), kernel_size=kt_converter.output
         )
-        self |= st_converter(input=s_converter.output)
-        self |= p_converter(
+        self |= st_converter.connect(input=s_converter.output)
+        self |= p_converter.connect(
             input=IOKey(name="padding", value=pad), kernel_size=kt_converter.output
         )
-        self |= pt_converter(input=p_converter.output)
-        self |= dt_converter(input=IOKey(name="dilation", value=dilation))
-        self |= self.pool_model()(
+        self |= pt_converter.connect(input=p_converter.output)
+        self |= dt_converter.connect(input=IOKey(name="dilation", value=dilation))
+        self |= self.pool_model().connect(
             input=IOKey("input", value=input),
             kernel_size=kt_converter.output,
             stride=st_converter.output,
@@ -315,7 +315,7 @@ class Pool2D(Model):
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         kernel_size: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
@@ -324,7 +324,7 @@ class Pool2D(Model):
         dilation: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             kernel_size=kernel_size,
             stride=stride,
@@ -389,10 +389,10 @@ class Convolution1D(Model):
         k_shp = Shape()
         p_converter = PaddingConverter1D()
 
-        self |= k_shp(
+        self |= k_shp.connect(
             input=IOKey(name="weight", shape=[out_channels, "C_in", kernel_size])
         )
-        self |= p_converter(
+        self |= p_converter.connect(
             input=IOKey(name="padding", value=pad), kernel_size=k_shp.output[-1]
         )
 
@@ -407,20 +407,20 @@ class Convolution1D(Model):
         if use_bias:
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
-        self |= PrimitiveConvolution1D(use_bias=use_bias)(**conv_connections)
+        self |= PrimitiveConvolution1D(use_bias=use_bias).connect(**conv_connections)
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
-        weight: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         stride: ConnectionType | int = NOT_GIVEN,
         padding: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
         dilation: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             weight=weight,
             stride=stride,
@@ -482,13 +482,15 @@ class Convolution2D(Model):
         pt_converter = TupleConverter()
         dt_converter = TupleConverter()
 
-        self |= k_shp(input=IOKey(name="weight", shape=[out_channels, "C_in", *k_size]))
-        self |= p_converter(
+        self |= k_shp.connect(
+            input=IOKey(name="weight", shape=[out_channels, "C_in", *k_size])
+        )
+        self |= p_converter.connect(
             input=IOKey(name="padding", value=pad), kernel_size=k_shp.output[-2:]
         )
-        self |= st_converter(input=IOKey(name="stride", value=stride))
-        self |= pt_converter(input=p_converter.output)
-        self |= dt_converter(input=IOKey(name="dilation", value=dilation))
+        self |= st_converter.connect(input=IOKey(name="stride", value=stride))
+        self |= pt_converter.connect(input=p_converter.output)
+        self |= dt_converter.connect(input=IOKey(name="dilation", value=dilation))
 
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
@@ -501,14 +503,14 @@ class Convolution2D(Model):
         if use_bias:
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
-        self |= PrimitiveConvolution2D(use_bias=use_bias)(**conv_connections)
+        self |= PrimitiveConvolution2D(use_bias=use_bias).connect(**conv_connections)
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
-        weight: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         stride: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
         padding: ConnectionType
         | int
@@ -518,7 +520,7 @@ class Convolution2D(Model):
         dilation: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             weight=weight,
             stride=stride,
@@ -566,17 +568,17 @@ class Linear(Model):
                 type=Tensor[float],
                 differentiable=True,
             )
-            self |= mult(left=input_key, right=weight_key)
-            self |= Add()(left=mult.output, right=bias_key, output=output)
+            self |= mult.connect(left=input_key, right=weight_key)
+            self |= Add().connect(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
         else:
-            self |= mult(left=input_key, right=weight_key, output=output)
+            self |= mult.connect(left=input_key, right=weight_key, output=output)
 
         self._set_shapes(**shapes)
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -591,7 +593,7 @@ class Linear(Model):
         elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
-        return super().__call__(**kwargs)
+        return super().connect(**kwargs)
 
 
 class ElementWiseAffine(Model):
@@ -613,24 +615,24 @@ class ElementWiseAffine(Model):
         mult_model = Multiply()
         sum_model = Add()
 
-        self |= mult_model(
+        self |= mult_model.connect(
             left=IOKey("input", value=input), right=IOKey("weight", value=weight)
         )
-        self += sum_model(
+        self += sum_model.connect(
             right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
         )
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         weight: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         bias: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             weight=weight,
             bias=bias,
@@ -657,23 +659,23 @@ class Layer(Model):
         super().__init__(name=name)
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
-        self |= linear_model(
+        self |= linear_model.connect(
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
         )
-        self += activation(output=IOKey(name="output"))
+        self += activation.connect(output=IOKey(name="output"))
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             weight=weight,
             bias=bias,
@@ -708,14 +710,16 @@ class LayerNorm(Model):
         add = Add()
         denominator = Sqrt()
         in_key = IOKey("input", value=input, type=Tensor[float])
-        self |= mean(input=in_key)
-        self |= numerator(left=in_key, right=mean.output)
-        self |= var(input=in_key)
-        self |= add(
+        self |= mean.connect(input=in_key)
+        self |= numerator.connect(left=in_key, right=mean.output)
+        self |= var.connect(input=in_key)
+        self |= add.connect(
             left=var.output, right=IOKey("eps", value=eps, type=Tensor[float] | float)
         )
-        self |= denominator(input=add.output)
-        self |= Divide()(numerator=numerator.output, denominator=denominator.output)
+        self |= denominator.connect(input=add.output)
+        self |= Divide().connect(
+            numerator=numerator.output, denominator=denominator.output
+        )
 
         self._set_shapes(input=["B", "C", "d"])
 
@@ -726,19 +730,21 @@ class LayerNorm(Model):
 
         if use_scale:
             mult = Multiply()
-            self += mult(right=IOKey("weight", value=weight, differentiable=True))
+            self += mult.connect(
+                right=IOKey("weight", value=weight, differentiable=True)
+            )
             mult._set_shapes(**shapes)
 
         if use_bias:
             add = Add()
-            self += add(right=IOKey("bias", value=bias, differentiable=True))
+            self += add.connect(right=IOKey("bias", value=bias, differentiable=True))
             add._set_shapes(**shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
-        self |= Buffer()(input=self.cout, output=IOKey(name="output"))
+        self |= Buffer().connect(input=self.cout, output=IOKey(name="output"))
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -759,7 +765,7 @@ class LayerNorm(Model):
         elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
-        return super().__call__(**kwargs)
+        return super().connect(**kwargs)
 
 
 class GroupNorm(Model):
@@ -793,7 +799,7 @@ class GroupNorm(Model):
         _input_key = (_input_key - mean) / (
             var + IOKey("eps", value=eps, type=Tensor[float] | float)
         ).sqrt()
-        self |= Reshape()(input=_input_key, shape=input_shape)
+        self |= Reshape().connect(input=_input_key, shape=input_shape)
 
         self._set_shapes(input=["B", "C", "H", "W"])
 
@@ -807,7 +813,7 @@ class GroupNorm(Model):
                 name="weight", type=Tensor[float], value=weight, differentiable=True
             )
             mult = Multiply()
-            self |= mult(left=self.cout, right=weight_key)
+            self |= mult.connect(left=self.cout, right=weight_key)
             mult._set_shapes(**shapes)
 
         if use_bias:
@@ -815,14 +821,14 @@ class GroupNorm(Model):
                 name="bias", type=Tensor[float], value=bias, differentiable=True
             )
             add = Add()
-            self |= add(left=self.cout, right=bias_key)
+            self |= add.connect(left=self.cout, right=bias_key)
             add._set_shapes(**shapes)
 
-        self |= Buffer()(input=self.cout, output=IOKey(name="output"))
+        self |= Buffer().connect(input=self.cout, output=IOKey(name="output"))
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -843,7 +849,7 @@ class GroupNorm(Model):
         elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
-        return super().__call__(**kwargs)
+        return super().connect(**kwargs)
 
 
 class BatchNorm2D(Model):
@@ -897,15 +903,15 @@ class BatchNorm2D(Model):
             # NOTE: multiplication (size / (size - 1)) is added to make the
             # running_variance similar to the BatchNorm2d module in PyTorch
 
-            self |= Buffer()(running_mean_out, "running_mean_out")
-            self |= Buffer()(running_var_out, "running_var_out")
+            self |= Buffer().connect(running_mean_out, "running_mean_out")
+            self |= Buffer().connect(running_var_out, "running_var_out")
             self.bind_state_keys(running_mean, "running_mean_out", Constant.ZEROS)
             self.bind_state_keys(running_var, "running_var_out", Constant.ONES)
 
             # Normalize the input
             norm = (input_key - mean) / (var + eps).sqrt()
 
-        self |= Buffer()(input=norm)
+        self |= Buffer().connect(input=norm)
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "H", "W"],
             "right": [1, "C", 1, 1],
@@ -917,7 +923,7 @@ class BatchNorm2D(Model):
             )
             mult = Multiply()
             mult._set_shapes(**shapes)
-            self |= mult(left=self.cout, right=weight_key)
+            self |= mult.connect(left=self.cout, right=weight_key)
 
         if use_bias:
             bias_key = IOKey(
@@ -925,9 +931,9 @@ class BatchNorm2D(Model):
             )
             add = Add()
             add._set_shapes(**shapes)
-            self |= add(left=self.cout, right=bias_key)
+            self |= add.connect(left=self.cout, right=bias_key)
 
-        self |= Buffer()(input=self.cout, output=IOKey(name="output"))
+        self |= Buffer().connect(input=self.cout, output=IOKey(name="output"))
 
         _num_features: str | int | None = num_features
         if _num_features is None:
@@ -955,19 +961,19 @@ class L1(Model):
 
         abs_model = Absolute()
 
-        self |= abs_model(input=IOKey("input", value=input))
-        self += Sum()(output=IOKey(name="output"))
+        self |= abs_model.connect(input=IOKey("input", value=input))
+        self += Sum().connect(output=IOKey(name="output"))
 
         self._set_cin("input", safe=False)
         self._set_cout("output", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             output=output,
         )
@@ -985,19 +991,19 @@ class L2(Model):
     ) -> None:
         super().__init__(name=name)
 
-        self += Square()(input=IOKey("input", value=input))
-        self += Sum()
-        self += Multiply()(right=0.5, output=IOKey(name="output"))
+        self += Square().connect(input=IOKey("input", value=input))
+        self += Sum().connect()
+        self += Multiply().connect(right=0.5, output=IOKey(name="output"))
         self._set_cin("input", safe=False)
         self._set_cout("output", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             output=output,
         )
@@ -1020,12 +1026,12 @@ class QuadraticFormRegularizer(Model):
         dot_model1 = MatrixMultiply()
         dot_model2 = MatrixMultiply()
 
-        self |= transpose_model(input=IOKey("input", value=input))
-        self |= dot_model1(
+        self |= transpose_model.connect(input=IOKey("input", value=input))
+        self |= dot_model1.connect(
             left=transpose_model.input, right=IOKey("kernel", value=kernel)
         )
-        self |= dot_model2(left=dot_model1.output, right=transpose_model.output)
-        self |= Multiply()(
+        self |= dot_model2.connect(left=dot_model1.output, right=transpose_model.output)
+        self |= Multiply().connect(
             left=dot_model2.output, right=0.5, output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
@@ -1033,13 +1039,13 @@ class QuadraticFormRegularizer(Model):
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         kernel: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             kernel=kernel,
             output=output,
@@ -1075,22 +1081,22 @@ class RBFKernel(Model):
         l_square = Multiply()
         l_key = IOKey("l_scale", value=l_scale, type=Tensor[int | float | bool])
 
-        self |= euclidean_model(
+        self |= euclidean_model.connect(
             left=IOKey("input1", value=input1, type=Tensor[int | float]),
             right=IOKey("input2", value=input2, type=Tensor[int | float]),
         )
-        self |= square_model1(input=euclidean_model.output)
-        self |= sum_model(input=square_model1.output)
-        self |= mult_model1(left=sum_model.output, right=-0.5)
-        self |= square_model2(
+        self |= square_model1.connect(input=euclidean_model.output)
+        self |= sum_model.connect(input=square_model1.output)
+        self |= mult_model1.connect(left=sum_model.output, right=-0.5)
+        self |= square_model2.connect(
             input=IOKey("sigma", value=sigma, type=Tensor[int | float | bool])
         )
-        self |= div_model(
+        self |= div_model.connect(
             numerator=mult_model1.output, denominator=square_model2.output
         )
-        self |= exp_model(input=div_model.output)
-        self |= l_square(left=l_key, right=l_key)
-        self |= mult_model2(
+        self |= exp_model.connect(input=div_model.output)
+        self |= l_square.connect(left=l_key, right=l_key)
+        self |= mult_model2.connect(
             left=l_square.output,
             right=exp_model.output,
             output=IOKey(name="output"),
@@ -1109,7 +1115,7 @@ class RBFKernel(Model):
         self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         input2: ConnectionType | Tensor[int | float] = NOT_GIVEN,
@@ -1117,7 +1123,7 @@ class RBFKernel(Model):
         sigma: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input1=input1,
             input2=input2,
             l_scale=l_scale,
@@ -1150,14 +1156,14 @@ class PolynomialKernel(Model):
         sum_model = Add()
         power_model = Power(robust=robust)  # TODO: Should it be usual Power or not???
 
-        self |= transpose_model(input=IOKey("input2", value=input2))
-        self |= mult_model(
+        self |= transpose_model.connect(input=IOKey("input2", value=input2))
+        self |= mult_model.connect(
             left=IOKey("input1", value=input1), right=transpose_model.output
         )
-        self |= sum_model(
+        self |= sum_model.connect(
             left=mult_model.output, right=IOKey("poly_coef", value=poly_coef)
         )
-        self |= power_model(
+        self |= power_model.connect(
             base=sum_model.output,
             exponent=IOKey("degree", value=degree),
             output=IOKey(name="output"),
@@ -1170,7 +1176,7 @@ class PolynomialKernel(Model):
         self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         input2: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
@@ -1178,7 +1184,7 @@ class PolynomialKernel(Model):
         degree: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input1=input1,
             input2=input2,
             poly_coef=poly_coef,
@@ -1222,8 +1228,8 @@ class KernelizedSVM(Model):
         (kernel_output_name,) = kernel.conns.output_keys  # NOTE: Assumes single output!
         kernel_output_args = {kernel_output_name: IOKey(name="kernel")}
 
-        self |= kernel(**kernel_input_args, **kernel_output_args)
-        self |= linear_model(
+        self |= kernel.connect(**kernel_input_args, **kernel_output_args)
+        self |= linear_model.connect(
             input=kernel.cout,
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
@@ -1244,7 +1250,7 @@ class KernelizedSVM(Model):
         self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType | Tensor[float] = NOT_GIVEN,
         input2: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -1252,7 +1258,7 @@ class KernelizedSVM(Model):
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input1=input1,
             input2=input2,
             weight=weight,
@@ -1281,18 +1287,18 @@ class LinearSVM(Model):
         linear_model = Linear(dimension=1)
         decision_model = Sign()
 
-        self |= linear_model(
+        self |= linear_model.connect(
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
-        self += decision_model(output=IOKey(name="decision_output"))
+        self += decision_model.connect(output=IOKey(name="decision_output"))
 
         self._set_cout(linear_model.output)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -1300,7 +1306,7 @@ class LinearSVM(Model):
         output: ConnectionType = NOT_GIVEN,
         decision_output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             weight=weight,
             bias=bias,
@@ -1329,20 +1335,20 @@ class LogisticRegression(Model):
         linear_model = Linear(dimension=1)
         sigmoid_model = Sigmoid()
 
-        self |= linear_model(
+        self |= linear_model.connect(
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
-        self |= sigmoid_model(
+        self |= sigmoid_model.connect(
             input=linear_model.output, output=IOKey(name="probs_output")
         )
 
         self._set_cout(linear_model.output)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -1350,7 +1356,7 @@ class LogisticRegression(Model):
         output: ConnectionType = NOT_GIVEN,
         probs_output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             weight=weight,
             bias=bias,
@@ -1398,7 +1404,7 @@ class MLP(Model):
         }
         if len(activations) == 1:
             extend_kwargs["output"] = IOKey(name="output")
-        self |= prev_layer(**extend_kwargs)
+        self |= prev_layer.connect(**extend_kwargs)
 
         # Add layers sequentially starting from second elements.
         for idx, (activation, dim) in enumerate(
@@ -1419,18 +1425,18 @@ class MLP(Model):
                 kwargs |= {"output": IOKey(name="output")}
 
             # Add current layer to the model.
-            self += current_layer(**kwargs)
+            self += current_layer.connect(**kwargs)
             prev_layer = current_layer
         self._set_cin("input", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         **weights_biases: ConnectionType | Tensor[float],
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             output=output,
             **weights_biases,
@@ -1452,10 +1458,10 @@ class Cell(Model):
     out_key = "output"
 
     @abstractmethod
-    def __call__(
+    def connect(
         self, **kwargs: ConnectionType | Tensor[int | float | bool] | MainValueType
     ) -> ExtendInfo:
-        raise NotImplementedError("__call__ method not implemented!")
+        raise NotImplementedError("connect method not implemented!")
 
 
 class RNNCell(Cell):
@@ -1500,33 +1506,33 @@ class RNNCell(Cell):
         sum_model_1 = Add()
         sum_model_2 = Add()
 
-        self |= shape(input=IOKey("input", value=input))
-        self |= scalar_item(input=shape.output, index=0)
-        self |= slice_1(start=scalar_item.output)
-        self |= tensor_item_1(
+        self |= shape.connect(input=IOKey("input", value=input))
+        self |= scalar_item.connect(input=shape.output, index=0)
+        self |= slice_1.connect(start=scalar_item.output)
+        self |= tensor_item_1.connect(
             input="prev_hidden",
             index=slice_1.output,
             output=IOKey(name="hidden_compl"),
         )
-        self |= slice_2(stop=scalar_item.output)
-        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self |= mult_model_1(
+        self |= slice_2.connect(stop=scalar_item.output)
+        self |= tensor_item_2.connect(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1.connect(
             input=tensor_item_2.output,
             weight=IOKey("w_hh", value=w_hh, differentiable=True),
         )
-        self |= mult_model_2(
+        self |= mult_model_2.connect(
             input="input", weight=IOKey("w_ih", value=w_ih, differentiable=True)
         )
-        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self |= sum_model_2(
+        self |= sum_model_1.connect(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2.connect(
             left=sum_model_1.output,
             right=IOKey("bias_h", value=bias_h, differentiable=True),
         )
-        self |= Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self |= mult_model_3(
+        self |= Tanh().connect(input=sum_model_2.output, output=IOKey(name="hidden"))
+        self |= mult_model_3.connect(
             input="hidden", weight=IOKey("w_ho", value=w_ho, differentiable=True)
         )
-        self |= Add()(
+        self |= Add().connect(
             left=mult_model_3.output,
             right=IOKey("bias_o", value=bias_o, differentiable=True),
             output=IOKey(name="output"),
@@ -1546,7 +1552,7 @@ class RNNCell(Cell):
         self._set_cout("output")
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         prev_hidden: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -1559,7 +1565,7 @@ class RNNCell(Cell):
         hidden_compl: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super(Cell, self).__call__(
+        return super(Cell, self).connect(
             input=input,
             prev_hidden=prev_hidden,
             w_ih=w_ih,
@@ -1654,15 +1660,15 @@ class LSTMCell(Cell):
         tensor_item_4 = Indexer()
         tensor_item_5 = Indexer()
 
-        self |= shape_model(input=IOKey("input", value=input))
-        self |= scalar_item(input=shape_model.output, index=0)
+        self |= shape_model.connect(input=IOKey("input", value=input))
+        self |= scalar_item.connect(input=shape_model.output, index=0)
 
         # Forget gate processes.
-        self |= slice_1(stop=scalar_item.output)
-        self |= tensor_item_1(input="prev_cell", index=slice_1.output)
+        self |= slice_1.connect(stop=scalar_item.output)
+        self |= tensor_item_1.connect(input="prev_cell", index=slice_1.output)
 
-        self |= slice_2(stop=scalar_item.output)
-        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= slice_2.connect(stop=scalar_item.output)
+        self |= tensor_item_2.connect(input="prev_hidden", index=slice_2.output)
 
         body_kwargs: dict[str, ConnectionType] = {
             key: IOKey(key, value=factory_inputs.get(key, TBD))
@@ -1672,27 +1678,27 @@ class LSTMCell(Cell):
         body_kwargs["prev_cell"] = tensor_item_1.output
         body_kwargs["prev_hidden"] = tensor_item_2.output
 
-        self |= cell_body(**body_kwargs)
+        self |= cell_body.connect(**body_kwargs)
 
-        self |= slice_3(start=scalar_item.output)
-        self |= tensor_item_3(
+        self |= slice_3.connect(start=scalar_item.output)
+        self |= tensor_item_3.connect(
             input=cell_body.output, index=slice_3.output, output=IOKey(name="hidden")
         )
 
-        self |= slice_4(stop=scalar_item.output)
-        self |= tensor_item_4(
+        self |= slice_4.connect(stop=scalar_item.output)
+        self |= tensor_item_4.connect(
             input=cell_body.output, index=slice_4.output, output=IOKey(name="cell")
         )
 
         # Slice complement process.
-        self |= slice_5(start=scalar_item.output)
-        self |= tensor_item_5(
+        self |= slice_5.connect(start=scalar_item.output)
+        self |= tensor_item_5.connect(
             input="prev_hidden",
             index=slice_5.output,
             output=IOKey(name="hidden_compl"),
         )
         # Final output.
-        self |= Linear()(
+        self |= Linear().connect(
             input="hidden",
             weight=IOKey("w_out", value=w_out),
             bias=IOKey("bias_out", value=bias_out),
@@ -1721,7 +1727,7 @@ class LSTMCell(Cell):
         self._set_cout("output")
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         prev_hidden: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -1741,7 +1747,7 @@ class LSTMCell(Cell):
         hidden_compl: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super(Cell, self).__call__(
+        return super(Cell, self).connect(
             input=input,
             prev_hidden=prev_hidden,
             prev_cell=prev_cell,
@@ -1809,51 +1815,55 @@ class LSTMCellBody(Model):
         sigmoid_model_3 = Sigmoid()
         mult_model_3 = Multiply()
 
-        self += matrix_concat_model(
+        self += matrix_concat_model.connect(
             input=[
                 IOKey("input", value=input),
                 IOKey("prev_hidden", value=prev_hidden),
             ],
         )
-        self |= forward_lin(
+        self |= forward_lin.connect(
             input=matrix_concat_model.output,
             weight=IOKey("w_f", value=w_f),
             bias=IOKey("bias_f", value=bias_f),
         )
-        self |= sigmoid_model_1(input=forward_lin.output)
-        self |= mult_model_1(
+        self |= sigmoid_model_1.connect(input=forward_lin.output)
+        self |= mult_model_1.connect(
             left=IOKey("prev_cell", value=prev_cell), right=sigmoid_model_1.output
         )
         # Input gate processes.
-        self |= input_lin(
+        self |= input_lin.connect(
             input=matrix_concat_model.output,
             weight=IOKey("w_i", value=w_i),
             bias=IOKey("bias_i", value=bias_i),
         )
-        self |= sigmoid_model_2(input=input_lin.output)
+        self |= sigmoid_model_2.connect(input=input_lin.output)
         # Cell state gate processes.
-        self |= cell_lin(
+        self |= cell_lin.connect(
             input=matrix_concat_model.output,
             weight=IOKey("w_c", value=w_c),
             bias=IOKey("bias_c", value=bias_c),
         )
-        self |= tanh_model_1(input=cell_lin.output)
+        self |= tanh_model_1.connect(input=cell_lin.output)
         # Input-cell gate multiplication.
-        self |= mult_model_2(left=sigmoid_model_2.output, right=tanh_model_1.output)
+        self |= mult_model_2.connect(
+            left=sigmoid_model_2.output, right=tanh_model_1.output
+        )
         # Addition to cell state.
-        self |= sum_model_4(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_4.connect(left=mult_model_1.output, right=mult_model_2.output)
         # Cell state to hidden state info.
-        self |= tanh_model_2(input=sum_model_4.output)
+        self |= tanh_model_2.connect(input=sum_model_4.output)
         # Output gate process.
-        self |= out_gate_lin(
+        self |= out_gate_lin.connect(
             input=matrix_concat_model.output,
             weight=IOKey("w_o", value=w_o),
             bias=IOKey("bias_o", value=bias_o),
         )
-        self |= sigmoid_model_3(input=out_gate_lin.output)
+        self |= sigmoid_model_3.connect(input=out_gate_lin.output)
         # Final hidden state.
-        self |= mult_model_3(left=tanh_model_2.output, right=sigmoid_model_3.output)
-        self |= Concat(axis=0)(
+        self |= mult_model_3.connect(
+            left=tanh_model_2.output, right=sigmoid_model_3.output
+        )
+        self |= Concat(axis=0).connect(
             input=[sum_model_4.output, mult_model_3.output],
             output=IOKey(name="output"),
         )
@@ -1874,7 +1884,7 @@ class LSTMCellBody(Model):
         self._set_shapes(**shapes)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         prev_hidden: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -1889,7 +1899,7 @@ class LSTMCellBody(Model):
         bias_o: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             prev_hidden=prev_hidden,
             prev_cell=prev_cell,
@@ -1917,8 +1927,8 @@ class RNN(Model):
         super().__init__(name=name)
         # self.set_values(**kwargs)
 
-    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:  # type: ignore[override]
-        raise NotImplementedError("__call__ method not implemented!")
+    def connect(self, **kwargs: ConnectionType) -> ExtendInfo:  # type: ignore[override]
+        raise NotImplementedError("connect method not implemented!")
 
 
 class OneToMany(RNN):
@@ -1951,7 +1961,7 @@ class OneToMany(RNN):
             for key in cell_type.state_keys
         }
 
-        self += prev_cell(
+        self += prev_cell.connect(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
         )
 
@@ -1967,13 +1977,13 @@ class OneToMany(RNN):
             slice_model = Slice(start=None, step=None)
             tensor_item = Indexer()
 
-            self |= shape_model(input=f"target{idx}")
-            self |= item_model(input=shape_model.output, index=0)
+            self |= shape_model.connect(input=f"target{idx}")
+            self |= item_model.connect(input=shape_model.output, index=0)
 
-            # # Create slicing model which filters unnecessary data for
-            # # current time step.
+            # Create slicing model which filters unnecessary data for
+            # current time step.
             if teacher_forcing:
-                # Teacher forcing apporach requires targets of  previous
+                # Teacher forcing approach requires targets of previous
                 # time step as inputs to the current time step.
                 slice_input_1 = f"target{idx - 1}"
             else:
@@ -1981,13 +1991,13 @@ class OneToMany(RNN):
                 # of previous time step as inputs to the current time step.
                 slice_input_1 = getattr(prev_cell, prev_cell.out_key)
 
-            self |= slice_model(stop=item_model.output)
-            self |= tensor_item(input=slice_input_1, index=slice_model.output)
+            self |= slice_model.connect(stop=item_model.output)
+            self |= tensor_item.connect(input=slice_input_1, index=slice_model.output)
 
             input_kwargs = {"input": tensor_item.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
-            self |= current_cell(
+            self |= current_cell.connect(
                 **(
                     input_kwargs
                     | shared_keys_kwargs
@@ -2001,12 +2011,12 @@ class OneToMany(RNN):
         self._set_cout(current_cell.output)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         **model_keys: ConnectionType | MainValueType | Tensor[int | float | bool],
     ) -> ExtendInfo:
-        return super(RNN, self).__call__(input=input, **model_keys)
+        return super(RNN, self).connect(input=input, **model_keys)
 
 
 class OneToManyInference(RNN):
@@ -2035,7 +2045,7 @@ class OneToManyInference(RNN):
             )
             for key in cell_type.state_keys
         }
-        self += prev_cell(
+        self += prev_cell.connect(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
         )
 
@@ -2047,19 +2057,19 @@ class OneToManyInference(RNN):
             }
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
-            self += current_cell(
+            self += current_cell.connect(
                 **(shared_keys_kwargs | state_keys_kwargs | output_kwargs)
             )
 
             prev_cell = current_cell
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         **model_keys: ConnectionType | Tensor[int | float | bool] | MainValueType,
     ) -> ExtendInfo:
-        return super(RNN, self).__call__(input=input, **model_keys)
+        return super(RNN, self).connect(input=input, **model_keys)
 
 
 class ManyToOne(RNN):
@@ -2090,7 +2100,7 @@ class ManyToOne(RNN):
             for key in cell_type.state_keys
         }
 
-        self |= prev_cell(
+        self |= prev_cell.connect(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
         )
 
@@ -2105,7 +2115,7 @@ class ManyToOne(RNN):
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             # For the last cell, include hidden
-            self |= cur_cell(
+            self |= cur_cell.connect(
                 **(
                     input_kwargs
                     | shared_keys_kwargs
@@ -2114,7 +2124,7 @@ class ManyToOne(RNN):
                 )
             )
 
-            # # For the last cell, include hidden
+            # For the last cell, include hidden
             if idx < max_sequence_length - 1:
                 concat_input_args.append(cur_cell.hidden_compl)
             else:
@@ -2123,7 +2133,7 @@ class ManyToOne(RNN):
             prev_cell = cur_cell
 
         # Add concat model with accumulated hidden states.
-        self |= concat_model(
+        self |= concat_model.connect(
             input=concat_input_args,
             output=IOKey(name="hidden_concat", value=hidden_concat),
         )
@@ -2131,12 +2141,12 @@ class ManyToOne(RNN):
         self._set_cout("hidden_concat")
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         hidden_concat: ConnectionType | Tensor[float] = NOT_GIVEN,
         **model_keys: ConnectionType,
     ) -> ExtendInfo:
-        return super(RNN, self).__call__(hidden_concat=hidden_concat, **model_keys)
+        return super(RNN, self).connect(hidden_concat=hidden_concat, **model_keys)
 
 
 class EncoderDecoder(Model):
@@ -2178,11 +2188,11 @@ class EncoderDecoder(Model):
 
         dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
 
-        self |= encoder(**enc_input_mapping)
-        self |= permutation_model(
+        self |= encoder.connect(**enc_input_mapping)
+        self |= permutation_model.connect(
             input=encoder.hidden_concat, indices=IOKey("indices", value=indices)
         )
-        self |= decoder(
+        self |= decoder.connect(
             initial_hidden=permutation_model.output,
             **(dec_input_mapping | dec_output_mapping),
         )
@@ -2190,12 +2200,12 @@ class EncoderDecoder(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         indices: ConnectionType | Tensor[int] = NOT_GIVEN,
         **model_keys: ConnectionType,
     ) -> ExtendInfo:
-        return super().__call__(indices=indices, **model_keys)
+        return super().connect(indices=indices, **model_keys)
 
 
 class EncoderDecoderInference(Model):
@@ -2231,16 +2241,16 @@ class EncoderDecoderInference(Model):
 
         dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
 
-        self |= encoder(**enc_input_mapping)
-        self |= decoder(
+        self |= encoder.connect(**enc_input_mapping)
+        self |= decoder.connect(
             initial_hidden=encoder.hidden_concat,
             **(dec_input_mapping | dec_output_mapping),
         )
         self._set_cout(decoder.cout)
         self._freeze()
 
-    def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:  # type: ignore[override]
-        return super().__call__(**model_keys)
+    def connect(self, **model_keys: ConnectionType) -> ExtendInfo:  # type: ignore[override]
+        return super().connect(**model_keys)
 
 
 class EncoderDistanceMatrix(Model):
@@ -2269,20 +2279,22 @@ class EncoderDistanceMatrix(Model):
             reciprocal_model = Divide()
             power_model = Power(robust=robust)
 
-            self |= modifier_model(input="norm")
-            self |= dist_model(
+            self |= modifier_model.connect(input="norm")
+            self |= dist_model.connect(
                 left=input1_key, right=input2_key, norm=modifier_model.output
             )
-            self |= reciprocal_model(numerator=1.0, denominator=modifier_model.output)
-            self |= power_model(
+            self |= reciprocal_model.connect(
+                numerator=1.0, denominator=modifier_model.output
+            )
+            self |= power_model.connect(
                 base=dist_model.output,
                 exponent=reciprocal_model.output,
                 output=IOKey(name="output"),
             )
 
         else:
-            self |= modifier_model(input="norm")
-            self |= dist_model(
+            self |= modifier_model.connect(input="norm")
+            self |= dist_model.connect(
                 left="input1",
                 right="input2",
                 norm=modifier_model.output,
@@ -2291,14 +2303,14 @@ class EncoderDistanceMatrix(Model):
         self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         input2: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         norm: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input1=input1, input2=input2, norm=norm, output=output)
+        return super().connect(input1=input1, input2=input2, norm=norm, output=output)
 
 
 class PolynomialRegression(Model):
@@ -2323,8 +2335,8 @@ class PolynomialRegression(Model):
         linear_model = Linear(dimension=dimension)
         feature_model = PolynomialFeatures(degree=degree)
 
-        self |= feature_model(input=IOKey("input", value=input))
-        self |= linear_model(
+        self |= feature_model.connect(input=IOKey("input", value=input))
+        self |= linear_model.connect(
             input=feature_model.output,
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
@@ -2333,14 +2345,14 @@ class PolynomialRegression(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input=input, weight=weight, bias=bias, output=output)
+        return super().connect(input=input, weight=weight, bias=bias, output=output)
 
 
 class MDSCore(Model):
@@ -2379,45 +2391,57 @@ class MDSCore(Model):
         mult_model = Multiply()
 
         if exact_distances:
-            self |= norm_model(input=IOKey("norm", value=norm))
-            self |= reciprocal_model_1(input=norm_model.output)
-            self |= power_model_4(
+            self |= norm_model.connect(input=IOKey("norm", value=norm))
+            self |= reciprocal_model_1.connect(input=norm_model.output)
+            self |= power_model_4.connect(
                 base=IOKey("pred_distances", value=pred_distances),
                 exponent=reciprocal_model_1.output,
             )
-            self |= subtract_model(
+            self |= subtract_model.connect(
                 left=IOKey("distances", value=distances), right=power_model_4.output
             )
-            self |= abs_model(input=subtract_model.output)
-            self |= power_model_1(base=abs_model.output, exponent=norm_model.output)
-            self |= sum_model_1(input=power_model_1.output)
-            self |= power_model_2(base=self.distances, exponent=norm_model.output)
-            self |= sum_model_2(input=power_model_2.output)
-            self |= reciprocal_model_2(input=sum_model_2.output)
-            self |= mult_model(left=sum_model_1.output, right=reciprocal_model_2.output)
-            self |= power_model_3(
+            self |= abs_model.connect(input=subtract_model.output)
+            self |= power_model_1.connect(
+                base=abs_model.output, exponent=norm_model.output
+            )
+            self |= sum_model_1.connect(input=power_model_1.output)
+            self |= power_model_2.connect(
+                base=self.distances, exponent=norm_model.output
+            )
+            self |= sum_model_2.connect(input=power_model_2.output)
+            self |= reciprocal_model_2.connect(input=sum_model_2.output)
+            self |= mult_model.connect(
+                left=sum_model_1.output, right=reciprocal_model_2.output
+            )
+            self |= power_model_3.connect(
                 base=mult_model.output,
                 exponent=reciprocal_model_1.output,
                 output=IOKey(name="output"),
             )
 
         else:
-            self |= norm_model(input="norm")
-            self |= reciprocal_model_1(input=norm_model.output)
-            self |= power_model_1(base="distances", exponent=reciprocal_model_1.output)
-            self |= power_model_4(
+            self |= norm_model.connect(input="norm")
+            self |= reciprocal_model_1.connect(input=norm_model.output)
+            self |= power_model_1.connect(
+                base="distances", exponent=reciprocal_model_1.output
+            )
+            self |= power_model_4.connect(
                 base="pred_distances", exponent=reciprocal_model_1.output
             )
-            self |= subtract_model(
+            self |= subtract_model.connect(
                 left=power_model_1.output, right=power_model_4.output
             )
-            self |= abs_model(input=subtract_model.output)
-            self |= power_model_2(base=abs_model.output, exponent=norm_model.output)
-            self |= sum_model_1(input=power_model_2.output)
-            self |= sum_model_2(input=self.distances)
-            self |= reciprocal_model_2(input=sum_model_2.output)
-            self |= mult_model(left=sum_model_1.output, right=reciprocal_model_2.output)
-            self |= power_model_3(
+            self |= abs_model.connect(input=subtract_model.output)
+            self |= power_model_2.connect(
+                base=abs_model.output, exponent=norm_model.output
+            )
+            self |= sum_model_1.connect(input=power_model_2.output)
+            self |= sum_model_2.connect(input=self.distances)
+            self |= reciprocal_model_2.connect(input=sum_model_2.output)
+            self |= mult_model.connect(
+                left=sum_model_1.output, right=reciprocal_model_2.output
+            )
+            self |= power_model_3.connect(
                 base=mult_model.output,
                 exponent=reciprocal_model_1.output,
                 output=IOKey(name="output"),
@@ -2426,14 +2450,14 @@ class MDSCore(Model):
         self._set_shapes(distances=["N", "N"], pred_distances=["N", "N"])
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         distances: ConnectionType | Tensor[float] = NOT_GIVEN,
         pred_distances: ConnectionType | Tensor[float] = NOT_GIVEN,
         norm: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             distances=distances,
             pred_distances=pred_distances,
             norm=norm,
@@ -2482,32 +2506,34 @@ class TSNECore(Model):
         # Always process with squared distances in TSNE calculations.
         if exact_distances:
             square_model = Square()
-            self |= square_model(input=dist_key)
+            self |= square_model.connect(input=dist_key)
             if calculate_p_joint:
-                self |= p_joint_model(
+                self |= p_joint_model.connect(
                     squared_distances=square_model.output, target_perplexity=perplexity
                 )
         else:
             if calculate_p_joint:
-                self |= p_joint_model(
+                self |= p_joint_model.connect(
                     squared_distances=dist_key, target_perplexity=perplexity
                 )
-        self |= sum_model_1(left=1.0, right=pred_dist_key)
-        self |= divide_model_1(numerator=1.0, denominator=sum_model_1.output)
-        self |= size_model(input=dist_key)
-        self |= zero_diagonal_model(N=size_model.output)
-        self |= mult_model(left=divide_model_1.output, right=zero_diagonal_model.output)
-        self |= sum_model_2(input=mult_model.output)
-        self |= divide_model_2(
+        self |= sum_model_1.connect(left=1.0, right=pred_dist_key)
+        self |= divide_model_1.connect(numerator=1.0, denominator=sum_model_1.output)
+        self |= size_model.connect(input=dist_key)
+        self |= zero_diagonal_model.connect(N=size_model.output)
+        self |= mult_model.connect(
+            left=divide_model_1.output, right=zero_diagonal_model.output
+        )
+        self |= sum_model_2.connect(input=mult_model.output)
+        self |= divide_model_2.connect(
             numerator=mult_model.output, denominator=sum_model_2.output
         )
-        self |= kl_divergence_model(
+        self |= kl_divergence_model.connect(
             input=divide_model_2.output,
             target=p_joint_model.output
             if calculate_p_joint
             else IOKey("p_joint", value=p_joint),
         )
-        self |= sum_model_3(
+        self |= sum_model_3.connect(
             input=kl_divergence_model.output, output=IOKey(name="output")
         )
 
@@ -2516,7 +2542,7 @@ class TSNECore(Model):
         self._set_cout("output")
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         distances: ConnectionType | Tensor[float] = NOT_GIVEN,
         pred_distances: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -2534,7 +2560,7 @@ class TSNECore(Model):
         elif p_joint != NOT_GIVEN:
             raise ValueError("p_joint is only required when calculate_p_joint is True!")
 
-        return super().__call__(**kwargs)
+        return super().connect(**kwargs)
 
 
 class DistanceEncoder(Model):
@@ -2569,12 +2595,12 @@ class DistanceEncoder(Model):
         #  the base model (i.e. "distances", "pred_distances")
         if input_type == "points":
             input_distance_matrix = EncoderDistanceMatrix(get_final_distance=False)
-            self |= input_distance_matrix(
+            self |= input_distance_matrix.connect(
                 input1=IOKey("input", value=input),
                 input2="input",
                 norm=IOKey("norm", value=norm),
             )
-            self |= coords_distance_matrix(
+            self |= coords_distance_matrix.connect(
                 input1=IOKey("coords", value=coords), input2="coords", norm="norm"
             )
 
@@ -2593,14 +2619,14 @@ class DistanceEncoder(Model):
                 if key not in base_kwargs and not con.is_autogenerated:
                     base_kwargs[key] = key
 
-            self |= base_model(**base_kwargs)
-            self |= buffer_model(
+            self |= base_model.connect(**base_kwargs)
+            self |= buffer_model.connect(
                 input=self.coords,
                 output=IOKey(name="predicted_coords", value=predicted_coords),
             )
 
         else:
-            self |= coords_distance_matrix(
+            self |= coords_distance_matrix.connect(
                 input1="coords", input2="coords", norm="norm"
             )
 
@@ -2613,8 +2639,8 @@ class DistanceEncoder(Model):
             if base_model.requires_norm:
                 base_kwargs["norm"] = "norm"
 
-            self |= base_model(**base_kwargs)
-            self |= buffer_model(
+            self |= base_model.connect(**base_kwargs)
+            self |= buffer_model.connect(
                 input=self.coords, output=IOKey(name="predicted_coords")
             )
 
@@ -2625,7 +2651,7 @@ class DistanceEncoder(Model):
         #     coords = ["N", "d"]
         # )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[float] = NOT_GIVEN,
         coords: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -2644,7 +2670,7 @@ class DistanceEncoder(Model):
         elif coords != NOT_GIVEN:
             raise ValueError("coords is only required when input_type is 'points'!")
 
-        return super().__call__(**kwargs)
+        return super().connect(**kwargs)
 
 
 class MDS(DistanceEncoder):
@@ -2680,7 +2706,7 @@ class MDS(DistanceEncoder):
         self._set_shapes(coords=[None, prediction_dim])
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[float] = NOT_GIVEN,
         coords: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -2700,7 +2726,7 @@ class MDS(DistanceEncoder):
         elif coords != NOT_GIVEN:
             raise ValueError("coords is only required when input_type is 'points'!")
 
-        return super().__call__(**kwargs)  # type: ignore
+        return super().connect(**kwargs)  # type: ignore
 
 
 class TSNE(DistanceEncoder):
@@ -2745,14 +2771,14 @@ class TSNE(DistanceEncoder):
         self._set_shapes(coords=[None, prediction_dim])
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[float] = NOT_GIVEN,
         norm: ConnectionType | Tensor[float] = NOT_GIVEN,
         predicted_coords: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             input=input,
             norm=norm,
             predicted_coords=predicted_coords,
@@ -2803,23 +2829,23 @@ class GaussProcessRegressionCore(Model):
         conf_diag_model = TransposedDiagonal()
         conf_model = Add()
 
-        self |= size_model(input=IOKey("k", value=k))
-        self += K_term_eye_model(N=size_model.output)
-        self += K_term_mult_model(
+        self |= size_model.connect(input=IOKey("k", value=k))
+        self += K_term_eye_model.connect(N=size_model.output)
+        self += K_term_mult_model.connect(
             left=IOKey("s", value=s), right=K_term_eye_model.output
         )
-        self += K_term_model(left=self.k, right=K_term_mult_model.output)
-        self += L_term_model(input=K_term_model.output)
-        self += label_mu_diff_model(
+        self += K_term_model.connect(left=self.k, right=K_term_mult_model.output)
+        self += L_term_model.connect(input=K_term_model.output)
+        self += label_mu_diff_model.connect(
             left=IOKey("label", value=label), right=IOKey("mu", value=mu)
         )
-        self += alpha_model(
+        self += alpha_model.connect(
             label_mu_diff=label_mu_diff_model.output,
             L=L_term_model.output,
             K_term=K_term_model.output,
         )
         # Loss Model.
-        self += gprloss_model(
+        self += gprloss_model.connect(
             labels=self.label,
             mu=self.mu,
             L=L_term_model.output,
@@ -2828,23 +2854,25 @@ class GaussProcessRegressionCore(Model):
             output=IOKey(name="loss", value=loss),
         )
         # Prediction Pipeline.
-        self += pred_t_model(input=self.k)
-        self += pred_dot_model(left=pred_t_model.output, right=alpha_model.output)
-        self += pred_model(
+        self += pred_t_model.connect(input=self.k)
+        self += pred_dot_model.connect(
+            left=pred_t_model.output, right=alpha_model.output
+        )
+        self += pred_model.connect(
             left=self.mu,
             right=pred_dot_model.output,
             output=IOKey(name="prediction", value=prediction),
         )
         # Confidence Pipeline.
-        self += conf_v_outer_model(
+        self += conf_v_outer_model.connect(
             K=self.k, L=L_term_model.output, K_term=K_term_model.output
         )
-        self += conf_sub_model(
+        self += conf_sub_model.connect(
             left=IOKey("k_star", value=k_star), right=conf_v_outer_model.output
         )
-        self += conf_diag_model(input=conf_sub_model.output)
-        self += conf_abs_model(input=conf_diag_model.output)
-        self += conf_model(
+        self += conf_diag_model.connect(input=conf_sub_model.output)
+        self += conf_abs_model.connect(input=conf_diag_model.output)
+        self += conf_model.connect(
             left=self.s,
             right=conf_abs_model.output,
             output=IOKey(name="confidence", value=confidence),
@@ -2865,7 +2893,7 @@ class GaussProcessRegressionCore(Model):
         self._set_shapes(**shapes)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         label: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         s: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
@@ -2876,7 +2904,7 @@ class GaussProcessRegressionCore(Model):
         prediction: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         confidence: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             label=label,
             s=s,
             k=k,
@@ -2922,22 +2950,28 @@ class GPRLoss(Model):
         length_model = Length()
         sum_model_1 = Add()
 
-        self += diff_model(
+        self += diff_model.connect(
             left=IOKey("labels", value=labels), right=IOKey("mu", value=mu)
         )
-        self += transpose_model(input=diff_model.output)
-        self += dot_model(
+        self += transpose_model.connect(input=diff_model.output)
+        self += dot_model.connect(
             left=transpose_model.output, right=IOKey("alpha", value=alpha)
         )
-        self += squeeze_model(input=dot_model.output)
-        self += mult_model(left=squeeze_model.output, right=0.5)
-        self += eig_model(K_term=IOKey("K_term", value=K_term), L=IOKey("L", value=L))
-        self += log_model(input=eig_model.output)
-        self += sum_reduce_model(input=log_model.output)
-        self += length_model(input=self.labels)
-        self += mult_model_2(left=length_model.output, right=math.log(2 * math.pi) / 2)
-        self += sum_model_1(left=mult_model.output, right=sum_reduce_model.output)
-        self += Add()(
+        self += squeeze_model.connect(input=dot_model.output)
+        self += mult_model.connect(left=squeeze_model.output, right=0.5)
+        self += eig_model.connect(
+            K_term=IOKey("K_term", value=K_term), L=IOKey("L", value=L)
+        )
+        self += log_model.connect(input=eig_model.output)
+        self += sum_reduce_model.connect(input=log_model.output)
+        self += length_model.connect(input=self.labels)
+        self += mult_model_2.connect(
+            left=length_model.output, right=math.log(2 * math.pi) / 2
+        )
+        self += sum_model_1.connect(
+            left=mult_model.output, right=sum_reduce_model.output
+        )
+        self += Add().connect(
             left=sum_model_1.output,
             right=mult_model_2.output,
             output=IOKey(name="output"),
@@ -2955,7 +2989,7 @@ class GPRLoss(Model):
         self._set_shapes(**shapes)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         labels: ConnectionType | Tensor[float] = NOT_GIVEN,
         mu: ConnectionType | Tensor[float] = NOT_GIVEN,
@@ -2964,7 +2998,7 @@ class GPRLoss(Model):
         alpha: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             labels=labels,
             mu=mu,
             L=L,
@@ -2992,31 +3026,32 @@ class Metric(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(name=name)
-        self.factory_args = {"threshold": threshold}
 
         assert (
             not is_binary or threshold is not None
         ), "Probs must be False if threshold is not None"
 
-        pred_key: IOKey | Connection = IOKey(name="pred", value=pred)
-        label_key: IOKey | Connection = IOKey(name="label", value=label)
+        pred_key: IOKey | Connection = IOKey(name="pred", type=Tensor, value=pred)
+        label_key: IOKey | Connection = IOKey(name="label", type=Tensor, value=label)
 
         if is_label_one_hot:
-            self += ArgMax(axis=-1)(label_key, output="label_argmax")
+            self += ArgMax(axis=-1).connect(label_key, output="label_argmax")
             label_key = self.label_argmax
 
         if is_binary and is_pred_one_hot:
-            self |= ArgMax(axis=-1)(pred_key, output="pred_argmax")
+            self |= ArgMax(axis=-1).connect(pred_key, output="pred_argmax")
             pred_key = self.pred_argmax
         elif is_binary and not is_pred_one_hot:
             assert threshold is not None
-            self |= Greater()(left=pred_key, right=threshold, output="greater_out")
-            self |= Where()(
+            self |= Greater().connect(
+                left=pred_key, right=threshold, output="greater_out"
+            )
+            self |= Where().connect(
                 cond="greater_out",
                 input1=Tensor(1),
                 input2=Tensor(0),
@@ -3024,18 +3059,18 @@ class Metric(Model):
             )
             pred_key = self.pred_comp
         elif is_pred_one_hot:
-            self |= ArgMax(axis=-1)(pred_key, output="pred_argmax")
+            self |= ArgMax(axis=-1).connect(pred_key, output="pred_argmax")
             pred_key = self.pred_argmax
 
         result = pred_key - label_key
-        self |= Buffer()(input=pred_key, output=IOKey("pred_formatted"))
-        self |= Buffer()(input=label_key, output=IOKey("label_formatted"))
-        self |= Buffer()(input=result, output=IOKey("output"))
+        self |= Buffer().connect(input=pred_key, output=IOKey("pred_formatted"))
+        self |= Buffer().connect(input=label_key, output=IOKey("label_formatted"))
+        self |= Buffer().connect(input=result, output=IOKey("output"))
 
         self._set_cin(self.pred)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         pred: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         label: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
@@ -3043,7 +3078,7 @@ class Metric(Model):
         pred_formatted: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         label_formatted: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             pred=pred,
             label=label,
             output=output,
@@ -3077,7 +3112,7 @@ class Accuracy(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )(
+        ).connect(
             IOKey("pred", value=pred),
             IOKey("label", value=label),
             "metric_out",
@@ -3088,21 +3123,21 @@ class Accuracy(Model):
         true_predictions = self.metric_out.eq(0)
         n_prediction = self.label_formatted.shape[0]
 
-        self |= Sum()(input=true_predictions, output="n_true_predictions")
-        self |= Divide()(
+        self |= Sum().connect(input=true_predictions, output="n_true_predictions")
+        self |= Divide().connect(
             numerator="n_true_predictions",
             denominator=n_prediction.tensor(),
             output=IOKey(name="output"),
         )
         self._set_cin(self.pred)
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         pred: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         label: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             pred=pred,
             label=label,
             output=output,
@@ -3150,7 +3185,7 @@ class Precision(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )(
+        ).connect(
             IOKey("pred", value=pred),
             IOKey("label", value=label),
             "metric_out",
@@ -3161,10 +3196,10 @@ class Precision(Model):
         if average == "micro":
             true_positive = self.metric_out.eq(Tensor(0))
             false_positive = self.metric_out.ne(Tensor(0))
-            self |= Sum()(input=true_positive, output="n_true_positive")
-            self |= Sum()(input=false_positive, output="n_false_positive")
+            self |= Sum().connect(input=true_positive, output="n_true_positive")
+            self |= Sum().connect(input=false_positive, output="n_false_positive")
 
-            self |= Buffer()(
+            self |= Buffer().connect(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
                 output=IOKey(name="output"),
@@ -3180,19 +3215,22 @@ class Precision(Model):
                 true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
                 false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
 
-                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
+                self |= Sum().connect(
+                    input=true_positive, output=f"true_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_positive, output=f"false_positive_{idx}"
+                )
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_positive_{idx}"
                 )
-                self |= Where()(
+                self |= Where().connect(
                     denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self |= Divide()(
-                    # numerator=getattr(self, f"true_positive_{idx}"),
+                self |= Divide().connect(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
@@ -3203,9 +3241,9 @@ class Precision(Model):
                 else:
                     sum_precision += getattr(self, f"precision_{idx}")
 
-            self |= Unique()(input=self.label_formatted, output="n_classes")
+            self |= Unique().connect(input=self.label_formatted, output="n_classes")
 
-            self |= Divide()(
+            self |= Divide().connect(
                 numerator=sum_precision,  # type: ignore
                 denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
@@ -3221,25 +3259,29 @@ class Precision(Model):
                 class_idxs = self.label_formatted.eq(Tensor(idx))
                 true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
                 false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
-                self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
+                self |= Sum().connect(input=class_idxs, output=f"n_class_{idx}")
 
-                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
+                self |= Sum().connect(
+                    input=true_positive, output=f"true_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_positive, output=f"false_positive_{idx}"
+                )
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_positive_{idx}"
                 )
-                self |= Where()(
+                self |= Where().connect(
                     denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=f"true_positive_{idx}",
                     denominator=(getattr(self, f"denominator_{idx}")),
                     output=f"precision_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=getattr(self, f"precision_{idx}")
                     * getattr(self, f"n_class_{idx}"),
                     denominator=n_element.tensor(),
@@ -3251,18 +3293,18 @@ class Precision(Model):
                 else:
                     precision += getattr(self, f"weighted_precision_{idx}")
 
-            self |= Buffer()(input=precision, output=IOKey(name="output"))
+            self |= Buffer().connect(input=precision, output=IOKey(name="output"))
 
         self._set_cin(self.pred)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         pred: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         label: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             pred=pred,
             label=label,
             output=output,
@@ -3310,7 +3352,7 @@ class Recall(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )(
+        ).connect(
             IOKey("pred", value=pred),
             IOKey("label", value=label),
             "metric_out",
@@ -3321,10 +3363,10 @@ class Recall(Model):
         if average == "micro":
             true_positive = self.metric_out.eq(Tensor(0))
             false_negative = self.metric_out.ne(Tensor(0))
-            self |= Sum()(input=true_positive, output="n_true_positive")
-            self |= Sum()(input=false_negative, output="n_false_negative")
+            self |= Sum().connect(input=true_positive, output="n_true_positive")
+            self |= Sum().connect(input=false_negative, output="n_false_negative")
 
-            self |= Buffer()(
+            self |= Buffer().connect(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_negative),
                 output=IOKey(name="output"),
@@ -3340,18 +3382,22 @@ class Recall(Model):
                 true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
                 false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
 
-                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum().connect(
+                    input=true_positive, output=f"true_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_negative, output=f"false_negative_{idx}"
+                )
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_negative_{idx}"
                 )
-                self |= Where()(
+                self |= Where().connect(
                     denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"recall_{idx}",
@@ -3362,9 +3408,9 @@ class Recall(Model):
                 else:
                     sum_recall += getattr(self, f"recall_{idx}")
 
-            self |= Unique()(input=self.label_formatted, output="n_classes")
+            self |= Unique().connect(input=self.label_formatted, output="n_classes")
 
-            self |= Divide()(
+            self |= Divide().connect(
                 numerator=sum_recall,  # type: ignore
                 denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
@@ -3380,25 +3426,29 @@ class Recall(Model):
                 class_idxs = self.label_formatted.eq(Tensor(idx))
                 true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
                 false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
-                self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
+                self |= Sum().connect(input=class_idxs, output=f"n_class_{idx}")
 
-                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum().connect(
+                    input=true_positive, output=f"true_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_negative, output=f"false_negative_{idx}"
+                )
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_negative_{idx}"
                 )
-                self |= Where()(
+                self |= Where().connect(
                     denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"recall_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=getattr(self, f"recall_{idx}")
                     * getattr(self, f"n_class_{idx}"),
                     denominator=n_element.tensor(),
@@ -3410,18 +3460,18 @@ class Recall(Model):
                 else:
                     recall += getattr(self, f"weighted_recall_{idx}")
 
-            self |= Buffer()(input=recall, output=IOKey(name="output"))
+            self |= Buffer().connect(input=recall, output=IOKey(name="output"))
 
         self._set_cin(self.pred)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         pred: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         label: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             pred=pred,
             label=label,
             output=output,
@@ -3469,7 +3519,7 @@ class F1(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )(
+        ).connect(
             IOKey("pred", value=pred),
             IOKey("label", value=label),
             "metric_out",
@@ -3480,10 +3530,10 @@ class F1(Model):
         if average == "micro":
             true_positive = self.metric_out.eq(Tensor(0))
             false_positive = self.metric_out.ne(Tensor(0))
-            self |= Sum()(input=true_positive, output="n_true_positive")
-            self |= Sum()(input=false_positive, output="n_false_positive")
+            self |= Sum().connect(input=true_positive, output="n_true_positive")
+            self |= Sum().connect(input=false_positive, output="n_false_positive")
 
-            self |= Buffer()(
+            self |= Buffer().connect(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
                 output=IOKey(name="output"),
@@ -3500,20 +3550,26 @@ class F1(Model):
                 false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
                 false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
 
-                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
-                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum().connect(
+                    input=true_positive, output=f"true_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_positive, output=f"false_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_negative, output=f"false_negative_{idx}"
+                )
                 denominator = getattr(self, f"true_positive_{idx}") + Tensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
-                self |= Where()(
+                self |= Where().connect(
                     denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
@@ -3524,8 +3580,8 @@ class F1(Model):
                 else:
                     sum_precision += getattr(self, f"precision_{idx}")
 
-            self |= Unique()(input=self.label_formatted, output="n_classes")
-            self |= Divide()(
+            self |= Unique().connect(input=self.label_formatted, output="n_classes")
+            self |= Divide().connect(
                 numerator=sum_precision,  # type: ignore
                 denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
@@ -3542,27 +3598,33 @@ class F1(Model):
                 true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
                 false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
                 false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
-                self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
+                self |= Sum().connect(input=class_idxs, output=f"n_class_{idx}")
 
-                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
-                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum().connect(
+                    input=true_positive, output=f"true_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_positive, output=f"false_positive_{idx}"
+                )
+                self |= Sum().connect(
+                    input=false_negative, output=f"false_negative_{idx}"
+                )
                 denominator = getattr(self, f"true_positive_{idx}") + Tensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
-                self |= Where()(
+                self |= Where().connect(
                     denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
                 )
-                self |= Divide()(
+                self |= Divide().connect(
                     numerator=getattr(self, f"precision_{idx}")
                     * getattr(self, f"n_class_{idx}"),
                     denominator=n_element,
@@ -3574,18 +3636,18 @@ class F1(Model):
                 else:
                     precision += getattr(self, f"weighted_precision_{idx}")
 
-            self |= Buffer()(input=precision, output=IOKey(name="output"))
+            self |= Buffer().connect(input=precision, output=IOKey(name="output"))
 
         self._set_cin(self.pred)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         pred: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         label: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             pred=pred,
             label=label,
             output=output,
@@ -3616,7 +3678,7 @@ class AUC(Model):
         pred_key: IOKey | Connection = IOKey(name="pred", type=Tensor, value=pred)
 
         if is_label_one_hot:
-            self |= ArgMax(axis=-1)(label_key, output="label_argmax")
+            self |= ArgMax(axis=-1).connect(label_key, output="label_argmax")
             label_key = self.label_argmax
 
         auc_score = None
@@ -3624,8 +3686,8 @@ class AUC(Model):
             class_label = label_key.eq(Tensor(class_idx))
             pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
-            self |= AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
-            self |= Trapezoid()(
+            self |= AUCCore().connect(pred_class, class_label, f"auc_core_{class_idx}")
+            self |= Trapezoid().connect(
                 y=getattr(self, f"auc_core_{class_idx}")[0],
                 x=getattr(self, f"auc_core_{class_idx}")[1],
                 output=IOKey(f"auc_class_{class_idx}"),
@@ -3635,18 +3697,18 @@ class AUC(Model):
             else:
                 auc_score += getattr(self, f"auc_class_{class_idx}") / Tensor(n_classes)
 
-        self |= Buffer()(auc_score, IOKey("output"))
+        self |= Buffer().connect(auc_score, IOKey("output"))
 
         self._set_cin(self.pred)
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         pred: ConnectionType | Tensor[float] = NOT_GIVEN,
         label: ConnectionType | Tensor[bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             pred=pred,
             label=label,
             output=output,
@@ -3665,22 +3727,22 @@ class SiLU(Model):
     ) -> None:
         super().__init__(name=name)
 
-        self |= Negate()(input=IOKey("input", value=input), output="negate")
-        self |= Exponential()(input="negate", output="exp")
-        self |= Add()(left=Tensor(1), right="exp", output="add")
-        self |= Divide()(
+        self |= Negate().connect(input=IOKey("input", value=input), output="negate")
+        self |= Exponential().connect(input="negate", output="exp")
+        self |= Add().connect(left=Tensor(1), right="exp", output="add")
+        self |= Divide().connect(
             numerator="input", denominator="add", output=IOKey(name="output")
         )
         self._set_shapes(input=[("Var", ...)], output=[("Var", ...)])
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
+        return super().connect(input=input, output=output)
 
 
 class Randn(Model):
@@ -3704,21 +3766,21 @@ class Randn(Model):
 
         if key is TBD:
             _key = IOKey("key")
-            self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
+            self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14).connect(
                 key=_key, output="new_key"
             )
             self.bind_state_keys(_key, "new_key", Tensor(42))
-        self |= PrimitiveRandn()(_shape, _key, _dtype, output=IOKey("output"))
+        self |= PrimitiveRandn().connect(_shape, _key, _dtype, output=IOKey("output"))
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         shape: ConnectionType | tuple[int | ConnectionType, ...] = NOT_GIVEN,
         dtype: ConnectionType | types.Dtype | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(shape=shape, dtype=dtype, output=output)
+        return super().connect(shape=shape, dtype=dtype, output=output)
 
 
 class RandInt(Model):
@@ -3747,15 +3809,17 @@ class RandInt(Model):
 
         if key is TBD:
             _key = IOKey("key")
-            self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
+            self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14).connect(
                 key=_key, output="new_key"
             )
             self.bind_state_keys(_key, "new_key", Tensor(42))
-        self |= PrimitiveRandInt()(_shape, _key, _low, _high, _dtype, output=output)
+        self |= PrimitiveRandInt().connect(
+            _shape, _key, _low, _high, _dtype, output=output
+        )
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         shape: ConnectionType = NOT_GIVEN,
         low: ConnectionType = NOT_GIVEN,
@@ -3763,7 +3827,7 @@ class RandInt(Model):
         dtype: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
+        return super().connect(
             shape=shape, low=low, high=high, dtype=dtype, output=output
         )
 
@@ -3814,23 +3878,23 @@ class Split(Model):
                 )
             # Add corresponding Indexer model for each split using
             # corresponding Slice model output.
-            self |= slc_model(start_idx, end_idx, None)
-            self |= indexer(
+            self |= slc_model.connect(start_idx, end_idx, None)
+            self |= indexer.connect(
                 input=input_key,
                 index=index,
             )
             to_list_kwargs[f"input{idx+1}"] = indexer.output
         # Finally collect all the split tensors into a list.
-        self |= ToList(n=split_size)(**to_list_kwargs, output=IOKey("output"))
+        self |= ToList(n=split_size).connect(**to_list_kwargs, output=IOKey("output"))
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
+        return super().connect(input=input, output=output)
 
     def infer_differentiability(
         self, values: dict[str, Tensor[int | float | bool]]

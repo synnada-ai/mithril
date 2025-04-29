@@ -127,7 +127,7 @@ def test_range_input_to_tensor_model():
         [range(4, 6), [True, False]],
     ]
     model = Model()
-    model += (tt := ToTensor())(input=sequence)
+    model += (tt := ToTensor()).connect(input=sequence)
     assert tt.input.metadata.value == [[[0, 1.0], [2, 3]], [range(4, 6), [True, False]]]
     assert (
         tt.input.metadata.value_type
