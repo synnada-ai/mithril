@@ -28,6 +28,7 @@ JITABLE: dict[str, Callable[..., bool]] = {
     "default": lambda *args, **kwargs: True,
     "tensor_to_list": lambda *args, **kwargs: False,
     "item": lambda *args, **kwargs: False,
+    "unique": lambda *args, **kwargs: False,
 }
 
 

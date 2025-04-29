@@ -50,6 +50,7 @@ from mithril.models import (
     Slice,
     TensorToList,
     ToTensor,
+    Unique,
 )
 
 from .test_utils import assert_results_equal
@@ -529,4 +530,21 @@ def test_jit_compile_item():
             "Operator 'item' is not JIT compatible. Please set "
             "jit=False in compile() function."
         )
+    )
+
+
+def test_jit_compile_unique():
+    model = Model()
+    model |= Unique().connect(input="input", output=IOKey(name="output"))
+
+    # Jax should raise error
+    with pytest.raises(RuntimeError) as err_jax:
+        compile(model=model, backend=JaxBackend(), jit=True, inference=True)
+
+    # Torch should not raise error
+    compile(model=model, backend=TorchBackend(), jit=True, inference=True)
+
+    assert str(err_jax.value) == (
+        "Operator 'unique' is not JIT compatible. Please set "
+        "jit=False in compile() function."
     )
