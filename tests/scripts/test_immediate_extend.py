@@ -873,6 +873,14 @@ def lin(left, right):
     return mult_out * scale  # type: ignore
 
 
+def manual_functional_lin(left, right):
+    _l, _r = IOKey(), IOKey()
+    m = Model.create(lin(_l, _r), name="my_lin")
+    m.rename_key(_l, "left")
+    m.rename_key(_r, "right")
+    return m(left, right)
+
+
 def test_functional_model_with_decorator():
     # Functional API with decorator
     input1 = IOKey("input1")
@@ -891,6 +899,16 @@ def test_functional_model_with_decorator():
     parent_model |= model.connect(left="input1", right="input2")
 
     assert_models_equal(x.model.parent, parent_model)
+
+    functional_model = Model.create(x)
+    parent_model._freeze()
+    assert_models_equal(functional_model, parent_model)
+
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = manual_functional_lin(input1, input2)
+    manual_functional_model = Model.create(x)
+    assert_models_equal(manual_functional_model, functional_model)
 
 
 @functional("my_square")

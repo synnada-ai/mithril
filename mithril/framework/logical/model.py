@@ -974,6 +974,41 @@ def _extend_with_op_model(
 
 # Define the model decorator
 def functional(name: str | None = None) -> Callable[..., Any]:
+    """
+    A decorator that transforms a function defining a computational model into one that
+    automatically wires its input and output connections.
+
+    For example, when decorating a function like:
+
+        @functional("my_lin")
+        def lin(left, right):
+            scale = IOKey("scale")
+            add_output = Add()(left=left, right=right)
+            mult_out = Multiply()(left=left, right=add_output)
+            return mult_out * scale
+
+    the decorator converts it into behavior equivalent to writing:
+
+        def manual_functional_lin(left, right):
+            l, r = IOKey(), IOKey()
+            m = Model.create(lin(l, r), name="my_lin")
+            m.rename_key(l, "left")
+            m.rename_key(r, "right")
+            return m(left, right)
+
+    Details:
+    - The function's original arguments are replaced with temporary Connection objects.
+    - The function is called with these temporary connections, and its result is used
+        to create a new Model.
+    - Argument names are preserved by mapping the keys from the temporary connections
+        to the actual argument names.
+    - Finally, the model created inside is called and output connections of the model
+        are returned.
+
+    This decorator offers a concise, functional interface for connecting inputs and
+    outputs, abstracting the manual wiring of connection objects.
+    """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         # TODO: We may need to check if all inputs are proper connections.
 
@@ -982,16 +1017,16 @@ def functional(name: str | None = None) -> Callable[..., Any]:
         input_strings = list(code.co_varnames[: code.co_argcount])
 
         def wrapper(*args, **kwargs) -> Any:  # type: ignore
-            # Create a list of empty Connection objects for each argument
+            # Create a list of temporary Connection objects for each argument.
             inputs = [Connection() for _ in range(len(args))]
-            # Call the function with the created input list and create a new model
+            # Call the function with the temporary connections and create a new model.
             result = func(*inputs, **kwargs)
             model = Model.create(result, name=name)
-            # Iterate over the named arguments and assign them to the model
+            # Map the temporary connection names to the model.
             for key, value in zip(input_strings, inputs, strict=False):
                 model.rename_key(value, key)
 
-            # Prepare the call keys for the model and return call of the model
+            # Prepare the call keys for the model and return the model's output.
             call_keys = {key: con for key, con in zip(input_strings, args, strict=True)}
             return model(**call_keys)
 
