@@ -93,7 +93,7 @@ def determine_dtype(
 
 
 def is_tensor_slice_jitable(
-    input_types: list[tuple[bool, type | tuple[type, ...]]],
+    *input_types: tuple[bool, type | tuple[type, ...]],
 ) -> bool:
     # Tensor slice operation with boolean types is not supported in JAX.
     for is_tensor, dtypes in input_types:
