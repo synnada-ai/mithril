@@ -54,36 +54,40 @@ def resnet_block(
     input = IOKey("input", shape=[None, in_channels, None, None])
 
     block = Model(name=name)
-    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm1")(input)
+    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm1").connect(input)
     block += SiLU()
     block += Convolution2D(3, out_channels, padding=1, name="conv1")
 
     block += GroupNorm(num_groups=32, eps=1e-6, name="norm2")
     block += SiLU()
-    block += Convolution2D(3, out_channels, padding=1, name="conv2")(output="h")
+    block += Convolution2D(3, out_channels, padding=1, name="conv2").connect(output="h")
 
     # TODO:  We need to solve the implementation below.
     # It is a conditional skip connection.
     if in_channels != out_channels:
-        block |= Convolution2D(1, out_channels, name="nin_shortcut")(
+        block |= Convolution2D(1, out_channels, name="nin_shortcut").connect(
             input=input, output="con_out"
         )
-        block |= Add()(left="con_out", right="h", output=IOKey("output"))
+        block |= Add().connect(left="con_out", right="h", output=IOKey("output"))
 
     else:
-        block |= Add()(input, "h", output=IOKey("output"))
+        block |= Add().connect(input, "h", output=IOKey("output"))
 
     return block
 
 
 def attn_block(n_channels: int, *, name: str | None = None):
     block = Model(name=name)
-    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm")(
+    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm").connect(
         IOKey("input", shape=[None, 512, None, None]), "normalized"
     )
-    block |= Convolution2D(1, n_channels, name="q")("normalized", output="query")
-    block |= Convolution2D(1, n_channels, name="k")("normalized", output="key")
-    block |= Convolution2D(1, n_channels, name="v")("normalized", output="value")
+    block |= Convolution2D(1, n_channels, name="q").connect(
+        "normalized", output="query"
+    )
+    block |= Convolution2D(1, n_channels, name="k").connect("normalized", output="key")
+    block |= Convolution2D(1, n_channels, name="v").connect(
+        "normalized", output="value"
+    )
 
     query = block.query  # type: ignore[attr-defined]
     key = block.key  # type: ignore[attr-defined]
@@ -94,21 +98,25 @@ def attn_block(n_channels: int, *, name: str | None = None):
     query = query.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
     key = key.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
     value = value.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
-    block |= ScaledDotProduct(is_causal=False)(query, key, value, output="sdp_out")
+    block |= ScaledDotProduct(is_causal=False).connect(
+        query, key, value, output="sdp_out"
+    )
     block.set_cout("sdp_out")
 
-    block += Reshape()(shape=(shape[0], shape[2], shape[3], shape[1]))
+    block += Reshape().connect(shape=(shape[0], shape[2], shape[3], shape[1]))
     block += Transpose(axes=(0, 3, 1, 2))
     block += Convolution2D(1, n_channels, name="proj_out")
-    block += Add()(right="input", output=IOKey("output"))
+    block += Add().connect(right="input", output=IOKey("output"))
 
     return block
 
 
 def downsample(n_channels: int, *, name: str = "downsample"):
     block = Model(name=name)
-    block |= Pad(pad_width=((0, 0), (0, 0), (0, 1), (0, 1)))("input")
-    block += Convolution2D(3, n_channels, stride=2, name="conv")(output=IOKey("output"))
+    block |= Pad(pad_width=((0, 0), (0, 0), (0, 1), (0, 1))).connect("input")
+    block += Convolution2D(3, n_channels, stride=2, name="conv").connect(
+        output=IOKey("output")
+    )
 
     return block
 
@@ -121,9 +129,9 @@ def upsample(n_channels: int, *, name: str | None = None):
     B, C, H, W = input_shape[0], input_shape[1], input_shape[2], input_shape[3]
     input = input[:, :, :, None, :, None]  # type: ignore
 
-    block |= BroadcastTo()(input, shape=(B, C, H, 2, W, 2))
-    block += Reshape()(shape=(B, C, H * 2, W * 2))
-    block += Convolution2D(3, n_channels, padding=1, name="conv")(
+    block |= BroadcastTo().connect(input, shape=(B, C, H, 2, W, 2))
+    block += Reshape().connect(shape=(B, C, H * 2, W * 2))
+    block += Convolution2D(3, n_channels, padding=1, name="conv").connect(
         output=IOKey("output")
     )
     return block
@@ -139,7 +147,9 @@ def encoder(
     **kwargs,
 ):
     encoder = Model(name=name)
-    encoder |= Convolution2D(3, ch, stride=1, padding=1, name="conv_in")("input")
+    encoder |= Convolution2D(3, ch, stride=1, padding=1, name="conv_in").connect(
+        "input"
+    )
 
     in_ch_mult = (1,) + tuple(ch_mult)
 
@@ -172,7 +182,7 @@ def encoder(
     # end
     encoder += GroupNorm(32, eps=1e-6, name="norm_out")
     encoder += SiLU()
-    encoder += Convolution2D(3, 2 * z_channels, padding=1, name="conv_out")(
+    encoder += Convolution2D(3, 2 * z_channels, padding=1, name="conv_out").connect(
         output=IOKey("output")
     )
 
@@ -190,7 +200,7 @@ def decoder(
 ):
     decoder = Model(enforce_jit=False, name=name)
     block_in = ch * ch_mult[-1]
-    decoder |= Convolution2D(3, block_in, padding=1, name="conv_in")("input")
+    decoder |= Convolution2D(3, block_in, padding=1, name="conv_in").connect("input")
 
     # Middle
     decoder += resnet_block(block_in, block_in, name="mid_block_1")
@@ -220,7 +230,7 @@ def decoder(
 
     decoder += GroupNorm(num_groups=32, eps=1e-6, name="norm_out")
     decoder += SiLU()
-    decoder += Convolution2D(3, out_ch, padding=1, name="conv_out")(
+    decoder += Convolution2D(3, out_ch, padding=1, name="conv_out").connect(
         output=IOKey("output")
     )
 
@@ -236,12 +246,12 @@ def diagonal_gaussian(sample: bool = True, chunk_dim: int = 1):
     if sample:
         std = (input[1] * 0.5).exp()
         mean = input[0]
-        block |= Randn()(shape=mean.shape, output="randn")
+        block |= Randn().connect(shape=mean.shape, output="randn")
         output = mean + std * block.randn  # type: ignore[attr-defined]
     else:
         output = input[0]
 
-    block |= Buffer()(input=output, output=IOKey("output"))
+    block |= Buffer().connect(input=output, output=IOKey("output"))
     return block
 
 
@@ -255,11 +265,11 @@ def auto_encoder(
         ae_params.num_res_blocks,
         ae_params.z_channels,
         name="encoder",
-    )(input="input")
+    ).connect(input="input")
     model += diagonal_gaussian()
 
-    model += Subtract()(right=ae_params.shift_factor)
-    model += Multiply()(right=ae_params.scale_factor)
+    model += Subtract().connect(right=ae_params.shift_factor)
+    model += Multiply().connect(right=ae_params.scale_factor)
 
     model += decoder(
         ae_params.ch,
@@ -267,7 +277,7 @@ def auto_encoder(
         ae_params.ch_mult,
         ae_params.num_res_blocks,
         name="decoder",
-    )(output="output")
+    ).connect(output="output")
 
     return model
 
@@ -282,6 +292,6 @@ def decode(ae_params: AutoEncoderParams):
         ae_params.ch_mult,
         ae_params.num_res_blocks,
         name="decoder",
-    )(input=input, output="output")
+    ).connect(input=input, output="output")
 
     return model

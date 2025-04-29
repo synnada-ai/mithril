@@ -38,25 +38,27 @@ def test_1():
     """
 
     model = Model()
-    model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
+    model += Linear(2).connect(
+        input="input", weight="weight", bias="bias", output="output"
+    )
     model.set_values(bias=Tensor([1, 2.0]))
     model_1 = model
 
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="weight", bias="bias", output="output")
+    model += lin.connect(input="input", weight="weight", bias="bias", output="output")
     model.set_values({lin.bias: Tensor([1, 2.0])})
     model_2 = model
 
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="weight", bias="bias", output="output")
+    model += lin.connect(input="input", weight="weight", bias="bias", output="output")
     lin.set_values(bias=Tensor([1, 2.0]))
     model_3 = model
 
     model = Model()
     lin = Linear()
-    model += lin(
+    model += lin.connect(
         input="input",
         weight="weight",
         bias=IOKey(name="bias", value=Tensor([1, 2.0])),
@@ -87,7 +89,7 @@ def test_set_values_scalar_1():
     backend = JaxBackend()
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(
+    model += mean_model.connect(
         input=IOKey("input", differentiable=True), output=IOKey("output", shape=[2, 2])
     )
     model.set_values({mean_model.axis: 1})
@@ -111,7 +113,7 @@ def test_set_values_scalar_1_kwargs_arg():
     backend = JaxBackend()
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(
+    model += mean_model.connect(
         input=IOKey("input", differentiable=True), output=IOKey("output", shape=[2, 2])
     )
     mean_model.set_values(axis=1)
@@ -135,7 +137,7 @@ def test_set_values_scalar_2():
     backend = JaxBackend()
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(
+    model += mean_model.connect(
         input=IOKey("input", differentiable=True),
         output=IOKey("output", shape=[2, 2]),
         axis="axis1",
@@ -161,7 +163,7 @@ def test_set_values_scalar_3():
     backend = JaxBackend()
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(
+    model += mean_model.connect(
         input=IOKey("input", differentiable=True),
         output=IOKey("output", shape=[2, 2]),
         axis="axis1",
@@ -186,7 +188,7 @@ def test_set_values_scalar_3():
 def test_set_values_scalar_4():
     model = Model()
     shp_model = Shape()
-    model += shp_model(input="input", output=IOKey("output"))
+    model += shp_model.connect(input="input", output=IOKey("output"))
     with pytest.raises(ValueError) as err_info:
         model.set_values(output=(2, 3, 4))
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
@@ -195,7 +197,7 @@ def test_set_values_scalar_4():
 def test_set_values_scalar_5():
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", axis="axis", output="output")
+    model += mean_model.connect(input="input", axis="axis", output="output")
     model.set_values(axis=(0, 1))
     with pytest.raises(ValueError) as err_info:
         model.set_values(axis=(0, 2))
@@ -209,7 +211,7 @@ def test_set_values_scalar_5():
 def test_set_values_scalar_6_kwargs_arg():
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", axis="axis", output="output")
+    model += mean_model.connect(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
         # Setting once then trying to override.
         model.set_values(axis=(0, 2))
@@ -225,7 +227,7 @@ def test_set_values_scalar_6_kwargs_arg():
 def test_set_values_scalar_6_same_conn_in_config():
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", axis="axis", output="output")
+    model += mean_model.connect(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
         model.set_values({mean_model.axis: (0, 2)}, axis=(0, 1))
     assert str(err_info.value) == (
@@ -241,12 +243,14 @@ def test_set_values_tensor_1():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1.connect(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1.connect(
+        input1="input1", input2="sub_input", output=IOKey("output")
+    )
+    model2 |= add_model_2.connect(left="input1", right="input2", output="sub_input")
     add_model_2.set_values(right=Tensor([2.0]))
     model2.set_values(input1=Tensor([3.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -264,12 +268,14 @@ def test_set_values_tensor_1_kwargs_arg():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1.connect(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1.connect(
+        input1="input1", input2="sub_input", output=IOKey("output")
+    )
+    model2 |= add_model_2.connect(left="input1", right="input2", output="sub_input")
     # add_model_2.set_values({"right": [2.0]})
     model2.set_values(input1=Tensor([3.0]), input2=Tensor([2.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -287,12 +293,14 @@ def test_set_values_tensor_2():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1.connect(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1.connect(
+        input1="input1", input2="sub_input", output=IOKey("output")
+    )
+    model2 |= add_model_2.connect(left="input1", right="input2", output="sub_input")
     add_model_2.set_values(right=Tensor([2.0]))
     model2.set_values(input1=Tensor([3.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -310,12 +318,14 @@ def test_set_values_tensor_3():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1.connect(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1.connect(
+        input1="input1", input2="sub_input", output=IOKey("output")
+    )
+    model2 |= add_model_2.connect(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({model2.input2: Tensor([2.0])})  # type: ignore
     model2.set_values({add_model_2.left: Tensor([3.0])})
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -332,9 +342,9 @@ def test_set_values_tensor_4():
     relu1 = Relu()
     relu2 = Relu()
     relu3 = Relu()
-    model |= relu1(input="input", output="sub_out_1")
-    model |= relu2(input="sub_out_1", output="sub_out_2")
-    model |= relu3(input="sub_out_2", output=IOKey("output"))
+    model |= relu1.connect(input="input", output="sub_out_1")
+    model |= relu2.connect(input="sub_out_1", output="sub_out_2")
+    model |= relu3.connect(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
         model.set_values(sub_out_2=Tensor([2, 3, 4]))
@@ -346,9 +356,9 @@ def test_set_values_tensor_5():
     relu1 = Relu()
     relu2 = Relu()
     relu3 = Relu()
-    model |= relu1(input="input", output="sub_out_1")
-    model |= relu2(input="sub_out_1", output="sub_out_2")
-    model |= relu3(input="sub_out_2", output=IOKey("output"))
+    model |= relu1.connect(input="input", output="sub_out_1")
+    model |= relu2.connect(input="sub_out_1", output="sub_out_2")
+    model |= relu3.connect(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
         model.set_values(output=Tensor([2, 3, 4]))
@@ -360,9 +370,9 @@ def test_set_values_tensor_6():
     relu1 = Relu()
     relu2 = Relu()
     relu3 = Relu()
-    model |= relu1(input=IOKey("input"), output="sub_out_1")
-    model |= relu2(input="sub_out_1", output="sub_out_2")
-    model |= relu3(input="sub_out_2", output=IOKey("output"))
+    model |= relu1.connect(input=IOKey("input"), output="sub_out_1")
+    model |= relu2.connect(input="sub_out_1", output="sub_out_2")
+    model |= relu3.connect(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
         model.set_values(output=Tensor([2, 3, 4]))
@@ -371,13 +381,15 @@ def test_set_values_tensor_6():
 
 def test_comparison_connection_set_value_vs_model_set_value():
     model = Model()
-    model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
+    model += Linear(2).connect(
+        input="input", weight="weight", bias="bias", output="output"
+    )
     model.set_values(bias=Tensor([1, 2.0]))
     model_1 = model
 
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="weight", bias="bias", output="output")
+    model += lin.connect(input="input", weight="weight", bias="bias", output="output")
     lin.bias.set_value(Tensor([1, 2.0]))
     model_2 = model
 
@@ -397,14 +409,18 @@ def test_comparison_connection_set_value_vs_model_set_value():
 
 def test_comparison_connection_without_model_set_value_vs_model_set_value():
     model = Model()
-    model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
+    model += Linear(2).connect(
+        input="input", weight="weight", bias="bias", output="output"
+    )
     model.set_values(bias=Tensor([1, 2.0]))
     model_1 = model
 
     bias = IOKey("bias")
     bias.set_value(Tensor([1, 2.0]))
     model = Model()
-    model += Linear(2)(input="input", weight="weight", bias=bias, output="output")
+    model += Linear(2).connect(
+        input="input", weight="weight", bias=bias, output="output"
+    )
     model_2 = model
 
     # Provide backend and data.

@@ -45,7 +45,7 @@ def test_extend_canonicals_for_main_model():
     block = Model()
     buffer = Buffer()
     input = IOKey()
-    block |= buffer(input=input)
+    block |= buffer.connect(input=input)
     assert block.cout.metadata == buffer.output.metadata
     input.sqrt()
     assert block.cout.metadata == buffer.output.metadata
@@ -66,7 +66,7 @@ def test_extend_two_connections():
     output = input1 * input2
 
     model = Model()
-    model += Multiply()(left="input1", right="input2")
+    model += Multiply().connect(left="input1", right="input2")
     assert output.model is not None
     assert_models_equal(output.model, model)
 
@@ -92,7 +92,7 @@ def test_extend_and_extraction():
 
     model = Model()
     model |= (mult := Multiply())
-    model |= Add()(left=mult.output)
+    model |= Add().connect(left=mult.output)
     assert output.model is not None
     assert_models_equal(output.model, model)
 
@@ -105,8 +105,8 @@ def test_extend_and_extraction_named():
     output = mult_output + input3
 
     model = Model()
-    model |= (mult := Multiply())(left="input1", right="input2")
-    model |= Add()(left=mult.output, right="input3")
+    model |= (mult := Multiply()).connect(left="input1", right="input2")
+    model |= Add().connect(left=mult.output, right="input3")
     assert output.model is not None
     assert_models_equal(output.model, model)
 
@@ -117,11 +117,11 @@ def test_extend_and_extraction_via_extend_api():
     input3 = IOKey("input3")
     mult_output = input1 * input2
     model1 = Model()
-    model1 |= Add()(left=mult_output, right=input3)
+    model1 |= Add().connect(left=mult_output, right=input3)
 
     model2 = Model()
-    model2 |= (mult := Multiply())(left="input1", right="input2")
-    model2 |= Add()(left=mult.output, right="input3")
+    model2 |= (mult := Multiply()).connect(left="input1", right="input2")
+    model2 |= Add().connect(left=mult.output, right="input3")
     assert_models_equal(model1, model2)
 
 
@@ -132,7 +132,7 @@ def test_extend_connection_with_model():
 
     model = Model()
     model |= (add2 := Add())
-    model |= Multiply()(add2.output)
+    model |= Multiply().connect(add2.output)
     assert output.model is not None
     assert_models_equal(output.model, model)
 
@@ -147,8 +147,8 @@ def test_extend_multiple_models():
 
     model = Model()
     model |= (add2 := Add())
-    model |= Multiply()(add2.output)
-    model |= Multiply()(add2.output)
+    model |= Multiply().connect(add2.output)
+    model |= Multiply().connect(add2.output)
     assert output2.model is not None
     assert_models_equal(output2.model, model)
 
@@ -166,7 +166,7 @@ def test_extend_to_model_connection_nested():
     output = add.output * input1
     model = Model()
     model |= m3
-    model |= Buffer()(output)
+    model |= Buffer().connect(output)
 
     _add = Add()
     _m1 = Model()
@@ -178,8 +178,8 @@ def test_extend_to_model_connection_nested():
 
     _model = Model()
     _model |= _m3
-    _model |= (mult := Multiply())(_add.output)
-    _model |= Buffer()(mult.output)
+    _model |= (mult := Multiply()).connect(_add.output)
+    _model |= Buffer().connect(mult.output)
     assert_models_equal(model, _model)
 
 
@@ -194,8 +194,8 @@ def test_extend_and_extraction_same_inputs():
     _input2 = IOKey()
 
     model = Model()
-    model |= Add()(left=_input1, right=_input2)
-    model |= Multiply()(left=_input1, right=_input2)
+    model |= Add().connect(left=_input1, right=_input2)
+    model |= Multiply().connect(left=_input1, right=_input2)
     assert_models_equal(model, mult_output.model)  # type: ignore
 
 
@@ -207,11 +207,11 @@ def test_extend_extraction_frozen_models():
     model = Model()
     model |= (add1 := Add())
     model |= (add2 := Add())
-    model |= (mult1 := Multiply())(left=add1.output, right=add2.output)
+    model |= (mult1 := Multiply()).connect(left=add1.output, right=add2.output)
     model |= (add3 := Add())
     model |= (add4 := Add())
-    model |= (mult2 := Multiply())(left=add3.output, right=add4.output)
-    model |= Add()(left=mult1.output, right=mult2.output)
+    model |= (mult2 := Multiply()).connect(left=add3.output, right=add4.output)
+    model |= Add().connect(left=mult1.output, right=mult2.output)
     assert output.model is not None
     assert_models_equal(model, output.model)
 
@@ -220,12 +220,12 @@ def test_extend_extraction_immediate_values():
     model = Model()
     model |= (add := Add())
     output = add.output + 2
-    model |= Buffer()(output)
+    model |= Buffer().connect(output)
 
     model1 = Model()
     model1 |= (add1 := Add())
-    model1 |= (add2 := Add())(left=add1.output, right=2)
-    model1 |= Buffer()(add2.output)
+    model1 |= (add2 := Add()).connect(left=add1.output, right=2)
+    model1 |= Buffer().connect(add2.output)
 
     assert output.model is not None
     assert_models_equal(model1, model)
@@ -238,7 +238,7 @@ def test_extend_single_frozen_single_non_frozen_model():
 
     model2 = Model()
     model2 |= (add2 := Add())
-    model2 |= Buffer()(add1.output * add2.output)
+    model2 |= Buffer().connect(add1.output * add2.output)
 
     _model1 = Model()
     _model1 |= (_add1 := Add())
@@ -247,8 +247,8 @@ def test_extend_single_frozen_single_non_frozen_model():
     _model2 = Model()
     _model2 |= _model1
     _model2 |= (_add2 := Add())
-    _model2 |= (mult := Multiply())(left=_add1.output, right=_add2.output)
-    _model2 |= Buffer()(mult.output)
+    _model2 |= (mult := Multiply()).connect(left=_add1.output, right=_add2.output)
+    _model2 |= Buffer().connect(mult.output)
 
     assert_models_equal(_model2, model2)
 
@@ -270,9 +270,9 @@ def test_extend_test_extend_multiple_non_frozen_models_with_connection_error():
     out2 = IOKey("out2")
 
     model1 = Model()
-    model1 |= Add()(output=out1)
+    model1 |= Add().connect(output=out1)
     model2 = Model()
-    model2 |= Add()(output=out2)
+    model2 |= Add().connect(output=out2)
 
     with pytest.raises(ValueError) as err:
         out1 + out2
@@ -284,24 +284,24 @@ def test_extend_non_frozen_model_and_frozen_model():
     out2 = IOKey("out2")
 
     model1 = Model()
-    model1 |= Add()(output=out1)
+    model1 |= Add().connect(output=out1)
     model2 = Model()
-    model2 |= Add()(output=out2)
+    model2 |= Add().connect(output=out2)
     model2._freeze()
 
     output = out1 + out2
-    model1 |= Buffer()(output)
+    model1 |= Buffer().connect(output)
 
     _out1 = IOKey("out1")
     _out2 = IOKey("out2")
     _model1 = Model()
-    _model1 |= (add := Add())(output=_out1)
+    _model1 |= (add := Add()).connect(output=_out1)
     _model2 = Model()
-    _model2 |= Add()(output=_out2)
+    _model2 |= Add().connect(output=_out2)
 
     _model1 |= _model2
-    _model1 |= (add := Add())(_out1, _out2)
-    _model1 |= Buffer()(add.output)
+    _model1 |= (add := Add()).connect(_out1, _out2)
+    _model1 |= Buffer().connect(add.output)
     assert_models_equal(model1, _model1)  # type: ignore
 
 
@@ -309,21 +309,21 @@ def test_extend_check_metadata():
     weight_key = IOKey("weight")
     t_w = weight_key.transpose()
     m = Model()
-    m |= Buffer()(t_w)
+    m |= Buffer().connect(t_w)
     assert list(m.dag.keys())[0].input.metadata == m.weight.metadata  # type: ignore
 
     model = Model()
-    model |= m(weight=IOKey("weight"))
+    model |= m.connect(weight=IOKey("weight"))
     assert list(m.dag.keys())[0].input.metadata == m.weight.metadata  # type: ignore
 
     _weight_key = IOKey("weight")
     _m = Model()
-    _m |= Transpose()(_weight_key)
+    _m |= Transpose().connect(_weight_key)
     _m += Buffer()
     assert list(_m.dag.keys())[0].input.metadata == _m.weight.metadata  # type: ignore
 
     _model = Model()
-    _model |= _m(weight=IOKey("weight"))
+    _model |= _m.connect(weight=IOKey("weight"))
     assert list(_m.dag.keys())[0].input.metadata == _m.weight.metadata  # type: ignore
 
     assert_models_equal(model, _model)
@@ -334,25 +334,25 @@ def test_extend_metadata_linear():
     assert list(lin1.dag.keys())[0].input.metadata is lin1.weight.metadata  # type: ignore
 
     model = Model()
-    model += lin1(weight=IOKey("w"))
+    model += lin1.connect(weight=IOKey("w"))
     assert list(lin1.dag.keys())[0].input.metadata is lin1.weight.metadata  # type: ignore
     assert lin1.weight.metadata is model.w.metadata  # type: ignore
 
 
 def test_extend_provisional_model():
     model = Model()
-    model |= Add()(left="left", right="right", output="output")
+    model |= Add().connect(left="left", right="right", output="output")
     _model = deepcopy(model)
     pow = model.output**2  # type: ignore
     assert_models_equal(model, _model)
 
     assert pow.model.provisional_source == model
     buf_model = Buffer()
-    model |= buf_model(pow)
+    model |= buf_model.connect(pow)
 
     model2 = Model()
-    model2 |= Add()(left="left", right="right", output="output")
-    model2 |= Power()(model2.output, 2)  # type: ignore
+    model2 |= Add().connect(left="left", right="right", output="output")
+    model2 |= Power().connect(model2.output, 2)  # type: ignore
     model2 += Buffer()
     assert_models_equal(model, model2)
 
@@ -363,15 +363,17 @@ def test_extend_concat():
     model |= (buff2 := Buffer())
     buff1_1d = buff1.output.atleast_1d()
     buff2_1d = buff2.output.atleast_1d()
-    model |= Concat()(input=[buff1_1d, buff2_1d])
+    model |= Concat().connect(input=[buff1_1d, buff2_1d])
 
     _model = Model()
     _model |= (_buff1 := Buffer())
     _model |= (_buff2 := Buffer())
-    _model |= (_buff1_1d := AtLeast1D())(_buff1.output)
-    _model |= (_buff2_1d := AtLeast1D())(_buff2.output)
-    _model |= (list_m := ToList(2))(input1=_buff1_1d.output, input2=_buff2_1d.output)
-    _model |= Concat()(input=list_m.output)
+    _model |= (_buff1_1d := AtLeast1D()).connect(_buff1.output)
+    _model |= (_buff2_1d := AtLeast1D()).connect(_buff2.output)
+    _model |= (list_m := ToList(2)).connect(
+        input1=_buff1_1d.output, input2=_buff2_1d.output
+    )
+    _model |= Concat().connect(input=list_m.output)
     assert_models_equal(model, _model)
 
 
@@ -387,15 +389,15 @@ def test_extend_only_dependent_submodels():
     dag = provisional_model.dag
     assert {m.__class__.__name__ for m in dag} == {"PowerOp", "AddOp", "DivideOp"}
 
-    model |= Buffer()(c)
+    model |= Buffer().connect(c)
 
     assert b.model is provisional_model
 
     _model = Model()
     _model |= (buff := Buffer())
-    _model |= (pow := Power())(buff.output, 2)
-    _model |= (add := Add())(pow.output, 4)
-    _model |= Buffer()(add.output)
+    _model |= (pow := Power()).connect(buff.output, 2)
+    _model |= (add := Add()).connect(pow.output, 4)
+    _model |= Buffer().connect(add.output)
     assert_models_equal(model, _model)
 
 
@@ -406,22 +408,22 @@ def test_extend_merge_while_provisional_model_created():
     _ = add.output / 3
     c = a + 4
     model.merge_connections(add.left, add.right)
-    model |= Buffer()(c)
+    model |= Buffer().connect(c)
 
     con = IOKey()
     _model = Model()
-    _model |= (add := Add())(con, con)
-    _model |= (pow := Power())(add.output, 2)
-    _model |= (add := Add())(pow.output, 4)
-    _model |= Buffer()(add.output)
+    _model |= (add := Add()).connect(con, con)
+    _model |= (pow := Power()).connect(add.output, 2)
+    _model |= (add := Add()).connect(pow.output, 4)
+    _model |= Buffer().connect(add.output)
     assert_models_equal(model, _model)
 
 
 def test_extend_error_by_constraint_solver():
     model = Model()
     buff = Buffer()
-    model |= buff(input="input1")
-    model |= Add()(buff.output, IOKey(shape=[4, 4]))
+    model |= buff.connect(input="input1")
+    model |= Add().connect(buff.output, IOKey(shape=[4, 4]))
     with pytest.raises(ValueError) as err:
         t = buff.input.T
         t.set_shapes([3, 4, 5])
@@ -431,8 +433,8 @@ def test_extend_error_by_constraint_solver():
 def test_extend_error_by_constraint_solver_nested_model():
     model = Model()
     buff = Buffer()
-    model |= buff(input="input1")
-    model |= Add()(buff.output, IOKey(shape=[4, 4]))
+    model |= buff.connect(input="input1")
+    model |= Add().connect(buff.output, IOKey(shape=[4, 4]))
     parent_m = Model()
     parent_m |= model
     grand_parent_m = Model()
@@ -451,10 +453,10 @@ def test_immediate_extend_integration():
     bsz = query.transpose()
 
     q = query + 2
-    model |= Buffer()(input=q)
+    model |= Buffer().connect(input=q)
     _key = key + 1
     k_r = _key + bsz
-    model |= Buffer()(input=k_r)
+    model |= Buffer().connect(input=k_r)
 
     for con in model.conns.input_connections:
         assert con.model is model
@@ -464,7 +466,7 @@ def test_immediate_extend_integration_reshape():
     model = Model()
     queries = IOKey("queries")
     B = queries.shape[1]
-    model |= Linear()(queries, output="in_proj")
+    model |= Linear().connect(queries, output="in_proj")
 
     _ = model.in_proj.reshape((B, B, 3, -1))  # type: ignore
 
@@ -475,12 +477,12 @@ def test_immediate_extend_integration_reshape():
 def test_immediate_extend_integration_str_matching():
     block = Model()
     input = IOKey("input")
-    block += Buffer()(input="input", output="b_out")
+    block += Buffer().connect(input="input", output="b_out")
 
-    block |= Buffer()(input=input + block.b_out)  # type: ignore
+    block |= Buffer().connect(input=input + block.b_out)  # type: ignore
 
     result = block.b_out + input  # type: ignore
-    block |= Buffer()(result, output=IOKey("output"))
+    block |= Buffer().connect(result, output=IOKey("output"))
 
     for con in block.conns.input_connections:
         assert con.model is block
@@ -489,9 +491,8 @@ def test_immediate_extend_integration_str_matching():
 def test_immediate_extend_integration_str_matching2():
     block = Model()
     input = IOKey("input")
-    block |= Buffer()(input="input", output="b_out")
-    block |= Buffer()(input=input, output="b_odsfut")
-    ...
+    block |= Buffer().connect(input="input", output="b_out")
+    block |= Buffer().connect(input=input, output="b_odsfut")
 
 
 def test_apply_rope():
@@ -506,7 +507,7 @@ def test_apply_rope():
     f = c * d
     _ = e + f
 
-    block |= Reshape()(shape=xq_shape, output="xq_out_raw")
+    block |= Reshape().connect(shape=xq_shape, output="xq_out_raw")
 
     for con in block.conns.input_connections:
         assert con.model is block
@@ -524,7 +525,7 @@ def apply_rope(*, name: str | None = None) -> Model:
     b = freqs_cis[..., 1] * xq[..., 1]
     xq_out = a + b
 
-    block |= Reshape()(xq_out, shape=xq_shape, output="xq_out_raw")
+    block |= Reshape().connect(xq_out, shape=xq_shape, output="xq_out_raw")
     return block
 
 
@@ -536,10 +537,10 @@ def test_apply_rope_2():
 
 def build_attention_mask() -> Model:
     block = Model()
-    block |= Arange(stop=77)(output="arange_out_1")
-    block |= Arange(stop=77)(output="arange_out_2")
+    block |= Arange(stop=77).connect(output="arange_out_1")
+    block |= Arange(stop=77).connect(output="arange_out_2")
     upper_bool_triu = block.arange_out_1[..., None] >= block.arange_out_2[None, ...]  # type: ignore
-    block |= Where()(
+    block |= Where().connect(
         cond=upper_bool_triu,
         input1=Tensor(0.0),
         input2=Tensor(float("-inf")),
@@ -555,7 +556,7 @@ def test_multihead():
     queries = IOKey("queries")
     head_dim = d_model // n_head
     B, L = queries.shape[0], queries.shape[1]
-    block |= Linear(3 * d_model, name="in_proj")(queries, output="in_proj")
+    block |= Linear(3 * d_model, name="in_proj").connect(queries, output="in_proj")
 
     in_proj = (
         block.in_proj.reshape((B, L, 3, -1))  # type: ignore
@@ -573,7 +574,7 @@ def test_multihead():
     )
 
     block |= (mask_model := build_attention_mask())
-    block |= ScaledDotProduct(is_causal=False, use_attn_mask=True)(
+    block |= ScaledDotProduct(is_causal=False, use_attn_mask=True).connect(
         query=queries,
         key=keys,
         value=values,
@@ -627,7 +628,7 @@ def test_extend_child_provisional_extraction():
     buff.output - 2
     model |= submodel
     pow = add_output**2
-    model |= Buffer()(pow)
+    model |= Buffer().connect(pow)
     for con in model.conns.input_connections:
         assert con.model is model
 
@@ -638,15 +639,15 @@ def test_flat_model_key_naming_matching():
     # because of the metadata mismatch.
     submodel = Model()
     input = IOKey("input", type=Tensor)
-    submodel |= Buffer()(output="arange")
+    submodel |= Buffer().connect(output="arange")
     omega = submodel.arange + 2  # type: ignore
     out = input[..., None] * omega
-    submodel |= Buffer()(input=out, output="dummy_out")
+    submodel |= Buffer().connect(input=out, output="dummy_out")
 
     model = Model()
     input = IOKey("input")
 
-    model |= submodel(input=input)
+    model |= submodel.connect(input=input)
 
     metadata = list(list(model.dag.keys())[0].dag.keys())[2].input.metadata  # type: ignore
     assert model.conns.get_con_by_metadata(metadata) is not None  # type: ignore

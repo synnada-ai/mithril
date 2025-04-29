@@ -23,7 +23,7 @@ from mithril.types import Constant
 
 def test_frozen_model_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model._freeze()
     with pytest.raises(AttributeError) as err_info:
         model.bind_state_keys("input1", "output", 1)
@@ -33,7 +33,7 @@ def test_frozen_model_error():
 
 def test_input_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     with pytest.raises(KeyError) as err_info:
         model.bind_state_keys("output", "output", 1)
     assert str(err_info.value) == "'Input connection should be an input key!'"
@@ -41,7 +41,7 @@ def test_input_error():
 
 def test_output_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     with pytest.raises(KeyError) as err_info:
         model.bind_state_keys("input1", "input1", 1)
     assert str(err_info.value) == "'Output connection should be an output key!'"
@@ -49,7 +49,7 @@ def test_output_error():
 
 def test_state_keys_shp_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.bind_state_keys("input1", "output", Constant.ZEROS)
     model.expose_keys("output")
     backend = ml.TorchBackend()
@@ -61,7 +61,7 @@ def test_state_keys_shp_error():
 
 def test_state_keys_shp_tensor_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.set_types(input1=ml.Tensor[float], input2=ml.Tensor[float])
     model.bind_state_keys("input1", "output", Constant.ZEROS)
     model.expose_keys("output")
@@ -75,7 +75,7 @@ def test_state_keys_shp_tensor_error():
 
 def test_state_keys_init_value_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.bind_state_keys("input1", "output")
     model.expose_keys("output")
     backend = ml.TorchBackend()
@@ -87,12 +87,12 @@ def test_state_keys_init_value_error():
 
 def test_same_connection_binded_twice_error():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.bind_state_keys("input1", "output", 1)
     model.expose_keys("input1", "input2", "output")
 
     parent_model = Model()
-    parent_model |= model(input1="input1", input2="input2", output="output")
+    parent_model |= model.connect(input1="input1", input2="input2", output="output")
     with pytest.raises(KeyError) as err_info:
         parent_model.bind_state_keys("input1", "output", 1)
 
@@ -101,7 +101,7 @@ def test_same_connection_binded_twice_error():
 
 def test_state_output_converted_to_latent():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.expose_keys("input1", "input2", "output")
     assert model.conns.input_keys == {"input1", "input2"}
     assert model.conns.output_keys == {"output"}
@@ -116,7 +116,7 @@ def test_state_output_converted_to_latent():
 
 def test_merge_tensor_types():
     model = Model()
-    model |= Add()(
+    model |= Add().connect(
         ml.IOKey("input1", value=ml.Tensor(type=float | int)),
         ml.IOKey("input2", value=ml.Tensor(type=float)),
         output="output",
@@ -131,7 +131,7 @@ def test_merge_tensor_types():
 
 def test_merge_tensor_types_with_values():
     model = Model()
-    model |= Add()(
+    model |= Add().connect(
         ml.IOKey("input1", value=ml.Tensor(type=float | int | bool)),
         ml.IOKey("input2", value=ml.Tensor(type=float | bool)),
         output="output",
@@ -146,7 +146,7 @@ def test_merge_tensor_types_with_values():
 
 def test_merge_tensor_shapes():
     model = Model()
-    model |= Add()(
+    model |= Add().connect(
         ml.IOKey("input1", value=ml.Tensor(type=float | int)),
         ml.IOKey("input2", value=ml.Tensor(type=float)),
         output="output",
@@ -167,7 +167,7 @@ def test_merge_tensor_shapes():
 
 def test_merge_tensor_shapes_with_value():
     model = Model()
-    model |= Add()(
+    model |= Add().connect(
         ml.IOKey("input1", value=ml.Tensor(type=float | int)),
         ml.IOKey("input2", value=ml.Tensor(type=float)),
         output="output",
@@ -190,14 +190,14 @@ def test_running_mean():
     # Manually expose state inputs & outputs and manually
     # update running_output in the evaluation loop.
     model = Model()
-    model |= Add()("input", "running_input", output="add_output")
-    model |= Buffer()("add_output", output="output")
+    model |= Add().connect("input", "running_input", output="add_output")
+    model |= Buffer().connect("add_output", output="output")
 
     main_model = Model()
-    main_model |= model(
+    main_model |= model.connect(
         input="input", running_input="running_input", output="running_output"
     )
-    main_model |= Buffer()("running_output", output="output")
+    main_model |= Buffer().connect("running_output", output="output")
     main_model.expose_keys("running_output", "output")
     # TODO: use_short_namings -> short_names
     backend = ml.TorchBackend()
@@ -213,13 +213,13 @@ def test_running_mean():
 
     # Automatically bind state inputs & outputs.
     model = Model()
-    model |= Add()("local_input", "running_input", output="add_output")
-    model |= Buffer()("add_output", output="local_output")
+    model |= Add().connect("local_input", "running_input", output="add_output")
+    model |= Buffer().connect("add_output", output="local_output")
     model.bind_state_keys("running_input", "add_output", ml.Tensor(1.0))
     model.expose_keys("add_output")
 
     main_model = Model()
-    main_model |= model(local_input="input", local_output="output")
+    main_model |= model.connect(local_input="input", local_output="output")
     main_model.expose_keys("output")
 
     pm = ml.compile(
@@ -244,14 +244,14 @@ def test_running_mean_without_initial_value():
     # Manually expose state inputs & outputs and manually
     # update running_output in the evaluation loop.
     model = Model()
-    model |= Add()("input", "running_input", output="add_output")
-    model |= Buffer()("add_output", output="output")
+    model |= Add().connect("input", "running_input", output="add_output")
+    model |= Buffer().connect("add_output", output="output")
 
     main_model = Model()
-    main_model |= model(
+    main_model |= model.connect(
         input="input", running_input="running_input", output="running_output"
     )
-    main_model |= Buffer()("running_output", output="output")
+    main_model |= Buffer().connect("running_output", output="output")
     main_model.expose_keys("running_output", "output")
     # TODO: use_short_namings -> short_names
     backend = ml.TorchBackend()
@@ -267,13 +267,13 @@ def test_running_mean_without_initial_value():
 
     # Automatically bind state inputs & outputs.
     model = Model()
-    model |= Add()("local_input", "running_input", output="add_output")
-    model |= Buffer()("add_output", output="local_output")
+    model |= Add().connect("local_input", "running_input", output="add_output")
+    model |= Buffer().connect("add_output", output="local_output")
     model.bind_state_keys("running_input", "add_output")
     model.expose_keys("add_output")
 
     main_model = Model()
-    main_model |= model(local_input="input", local_output="output")
+    main_model |= model.connect(local_input="input", local_output="output")
     main_model.expose_keys("output")
 
     pm = ml.compile(
@@ -474,8 +474,8 @@ def test_randn_and_randint_as_submodel():
     for model in [Randn(), RandInt(low=0, high=1000)]:
         input = ml.IOKey("input")
         model = Model()
-        model |= Buffer()("input", "output")
-        model |= Randn()(shape=input.shape, output="randn_output")
+        model |= Buffer().connect("input", "output")
+        model |= Randn().connect(shape=input.shape, output="randn_output")
         backend = ml.JaxBackend()
         pm = ml.compile(model, backend, inference=True)
         state = pm.initial_state_dict
@@ -506,7 +506,7 @@ def test_set_initial_value():
 
 def test_set_initial_value_as_state_key():
     model = Model()
-    model |= Add()("left", "right", output="output")
+    model |= Add().connect("left", "right", output="output")
     model.set_shapes(left=[1], right=[1], output=[1])
     model.bind_state_keys("left", "output", ml.Tensor(Constant.ZEROS))
     model.expose_keys("output")
@@ -555,21 +555,21 @@ def test_constant_with_zeros_and_ones():
 
 def test_constant_initial_true_with_slicer():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.set_shapes(input1=[1], input2=[1], output=[1])
     model.set_values(input1=Constant.ONES, initial=True)
-    model |= ToTuple(2)(input1="input1", input2="input1", output="t_output")
-    model |= Buffer()(model.t_output[0], output="b_out")  # type: ignore
+    model |= ToTuple(2).connect(input1="input1", input2="input1", output="t_output")
+    model |= Buffer().connect(model.t_output[0], output="b_out")  # type: ignore
     assert model.b_out.metadata._value is model.input1.metadata._value  # type: ignore
     assert model.b_out.metadata.initial_valued is model.input1.metadata.initial_valued  # type: ignore
 
 
 def test_constant_with_single_element_slicer():
     model = Model()
-    model |= Add()("input1", "input2", output="output")
+    model |= Add().connect("input1", "input2", output="output")
     model.set_shapes(input1=[1], input2=[1], output=[1])
-    model |= ToTuple(2)(input1="output", input2="output", output="t_output")
-    model |= Buffer()(model.t_output[0], output="b_out")  # type: ignore
+    model |= ToTuple(2).connect(input1="output", input2="output", output="t_output")
+    model |= Buffer().connect(model.t_output[0], output="b_out")  # type: ignore
 
     assert model.b_out.metadata._value is model.output.metadata._value  # type: ignore
 

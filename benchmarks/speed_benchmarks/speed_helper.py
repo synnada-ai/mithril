@@ -71,12 +71,12 @@ def create_compl_conv(
             conv1.set_shapes(
                 input=[batch_size, in_channel, tensor_shape[0], tensor_shape[1]]
             )
-            model += conv1(input="input")
+            model += conv1.connect(input="input")
         else:
             model += conv1
         model += MaxPool2D(kernel_size=(2, 2))
-        model += activation()
-    model += Flatten()(input=model.cout, output="output")
+        model += activation.connect()
+    model += Flatten().connect(input=model.cout, output="output")
     return model
 
 

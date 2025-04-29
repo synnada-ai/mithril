@@ -26,7 +26,7 @@ def test_tuple_argument_1():
 
     model = Model()
     add = Add()
-    model += add(
+    model += add.connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=Tensor([3.0, 4, 5]),
         output="output",
@@ -56,8 +56,8 @@ def test_tuple_argument_2():
     model = Model(enforce_jit=False)
     add_model = Add()
     add_model_2 = Add()
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=(add_model.left, add_model.right),  # type: ignore
         right=(add_model.left, add_model.right),  # type: ignore
         output="output",
@@ -83,8 +83,8 @@ def test_tuple_argument_3():
     model = Model(enforce_jit=True)
     add_model = Add()
     add_model_2 = Add()
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=(add_model.left.shape, add_model.right.shape),  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
@@ -113,8 +113,8 @@ def test_tuple_argument_4():
     model = Model(enforce_jit=False)
     add_model = Add()
     add_model_2 = Add()
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=(add_model.left.shape * 2, add_model.right.shape * 2),  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
@@ -140,8 +140,8 @@ def test_tuple_argument_5():
     model = Model(enforce_jit=False)
     add_model = Add()
     add_model_2 = Add()
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=(
             (add_model.left.shape[0], add_model.left.shape[0]),  # type: ignore
             (add_model.left.shape[0], add_model.left.shape[0]),  # type: ignore
@@ -170,8 +170,8 @@ def test_list_tuple_mixed_argument_1():
     model = Model(enforce_jit=False)
     add_model = Add()
     add_model_2 = Add()
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=(
             [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
             [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
@@ -200,7 +200,7 @@ def test_list_tuple_mixed_argument_2():
     model = Model(enforce_jit=False)
     add_model = Add()
 
-    model += add_model(left="left", right="right")
+    model += add_model.connect(left="left", right="right")
 
     left_first_shape = add_model.left.shape[0]
     right_first_shape = add_model.right.shape[0]
@@ -208,7 +208,11 @@ def test_list_tuple_mixed_argument_2():
     matmul_left = ([left_first_shape, 0], [2, right_first_shape])
 
     matmul_right = ([1, 1], [1, 1])
-    model += MatrixMultiply()(left=matmul_left, right=matmul_right, output="output")  # type: ignore
+    model += MatrixMultiply().connect(
+        left=matmul_left,  # type: ignore
+        right=matmul_right,  # type: ignore
+        output="output",
+    )
 
     pm = compile(model=model, backend=backend, jit=False)
     params = {"left": backend.array([3.0]), "right": backend.array([2.0])}
@@ -226,7 +230,7 @@ def test_list_tuple_mixed_argument_3():
     tensor = [(1, 2), [3.0, 4], (5, 5)]
 
     to_tensor = ToTensor()
-    model += to_tensor(input=tensor, output="output")
+    model += to_tensor.connect(input=tensor, output="output")
 
     pm = compile(model=model, backend=backend, jit=True, inference=True)
 
@@ -241,7 +245,7 @@ def test_list_argument_1():
 
     model = Model()
     add = Add()
-    model += add(
+    model += add.connect(
         left=IOKey("left", differentiable=True),
         right=Tensor([3.0, 4, 5]),
         output="output",
@@ -275,8 +279,8 @@ def test_list_argument_2():
     add_model = Add()
     add_model_2 = Add()
 
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=[add_model.left, add_model.right],  # type: ignore
         right=[add_model.left, add_model.right],  # type: ignore
         output="output",
@@ -303,8 +307,8 @@ def test_list_argument_3():
     add_model = Add()
     add_model_2 = Add()
 
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=[add_model.left.shape, add_model.right.shape],  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
@@ -334,8 +338,8 @@ def test_list_argument_4():
     add_model = Add()
     add_model_2 = Add()
 
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=[add_model.left.shape * 2, add_model.right.shape * 2],  # type: ignore
         right=add_model.left + add_model.right,
         output="output",
@@ -362,8 +366,8 @@ def test_list_argument_5():
     add_model = Add()
     add_model_2 = Add()
 
-    model += add_model(left="left", right="right")
-    model += add_model_2(
+    model += add_model.connect(left="left", right="right")
+    model += add_model_2.connect(
         left=[
             [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore
             [add_model.left.shape[0], add_model.left.shape[0]],  # type: ignore

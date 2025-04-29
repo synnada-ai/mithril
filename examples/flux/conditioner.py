@@ -41,7 +41,7 @@ class HFEmbedder(nn.Module):
                 version, **hf_kwargs
             )
 
-        self.hf_module = self.hf_module.eval().requires_grad_(False)
+        self.hf_module = self.hf_module.eval().requires_grad_(False)  # type: ignore
 
     def __call__(self, text: list[str]):
         batch_encoding = self.tokenizer(
@@ -54,8 +54,8 @@ class HFEmbedder(nn.Module):
             return_tensors="pt",
         )
 
-        outputs = self.hf_module(
-            input_ids=batch_encoding["input_ids"].to(self.hf_module.device),
+        outputs = self.hf_module(  # type: ignore
+            input_ids=batch_encoding["input_ids"].to(self.hf_module.device),  # type: ignore
             attention_mask=None,
             output_hidden_states=False,
         )

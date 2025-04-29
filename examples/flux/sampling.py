@@ -43,23 +43,23 @@ def prepare_logical(
     h = 2 * math.ceil(height / 16)
     w = 2 * math.ceil(width / 16)
 
-    block |= Randn(shape=(num_samples, (h // 2) * (w // 2), c * 2 * 2))(
+    block |= Randn(shape=(num_samples, (h // 2) * (w // 2), c * 2 * 2)).connect(
         output=IOKey("img")
     )
 
-    block |= Ones(shape=(num_samples, h // 2, w // 2, 1))(output="ones")
-    block |= Multiply()(left="ones", right=0, output="img_ids_preb")
-    block |= Arange(stop=(w // 2))(output="arange_1")
-    block |= BroadcastTo(shape=(num_samples, h // 2, w // 2))(
+    block |= Ones(shape=(num_samples, h // 2, w // 2, 1)).connect(output="ones")
+    block |= Multiply().connect(left="ones", right=0, output="img_ids_preb")
+    block |= Arange(stop=(w // 2)).connect(output="arange_1")
+    block |= BroadcastTo(shape=(num_samples, h // 2, w // 2)).connect(
         block.arange_1[None, :, None],  # type: ignore
         output="arange_1_bcast",
     )
-    block |= Arange(stop=(h // 2))(output="arange_2")
-    block |= BroadcastTo(shape=(num_samples, h // 2, w // 2))(
+    block |= Arange(stop=(h // 2)).connect(output="arange_2")
+    block |= BroadcastTo(shape=(num_samples, h // 2, w // 2)).connect(
         block.arange_2[None, None, :],  # type: ignore
         output="arange_2_bcast",
     )
-    block |= Concat(axis=-1)(
+    block |= Concat(axis=-1).connect(
         input=[
             block.img_ids_preb,  # type: ignore
             block.arange_1_bcast[..., None],  # type: ignore
@@ -68,16 +68,19 @@ def prepare_logical(
         output="img_ids_cat",
     )
 
-    block |= Reshape(shape=(num_samples, -1, 3))(
+    block |= Reshape(shape=(num_samples, -1, 3)).connect(
         block.img_ids_cat,  # type: ignore
         output=IOKey("img_ids"),
     )
 
-    block |= t5(input=IOKey("t5_tokens"), output=IOKey("txt"))
-    block |= Ones()(shape=(num_samples, block.txt.shape[1], 3), output="txt_ids_preb")  # type: ignore
-    block |= Multiply()(left="txt_ids_preb", right=0, output=IOKey("txt_ids"))
+    block |= t5.connect(input=IOKey("t5_tokens"), output=IOKey("txt"))
+    block |= Ones().connect(
+        shape=(num_samples, block.txt.shape[1], 3),  # type: ignore
+        output="txt_ids_preb",
+    )
+    block |= Multiply().connect(left="txt_ids_preb", right=0, output=IOKey("txt_ids"))
 
-    block |= clip(input=IOKey("clip_tokens"), output=IOKey("y"))
+    block |= clip.connect(input=IOKey("clip_tokens"), output=IOKey("y"))
 
 
 def get_schedule(
@@ -122,13 +125,15 @@ def unpack_logical(
     ph = 2
     pw = 2
 
-    model |= Reshape(shape=(b, h, w, -1, ph, pw))(input=input, output=IOKey("reshaped"))
+    model |= Reshape(shape=(b, h, w, -1, ph, pw)).connect(
+        input=input, output=IOKey("reshaped")
+    )
 
-    model |= Transpose(axes=(0, 3, 1, 4, 2, 5))(
+    model |= Transpose(axes=(0, 3, 1, 4, 2, 5)).connect(
         input="reshaped", output=IOKey("transposed")
     )
 
-    model |= Reshape(shape=(b, -1, h * ph, w * pw))(
+    model |= Reshape(shape=(b, -1, h * ph, w * pw)).connect(
         input="transposed", output=IOKey("result")
     )
 

@@ -52,10 +52,10 @@ def test_cyclic_extension_1_error():
     m2 = Relu()
     m3 = Relu()
 
-    model |= m1(input="input1", output="output")
-    model |= m2(input="output", output="output1")
+    model |= m1.connect(input="input1", output="output")
+    model |= m2.connect(input="output", output="output1")
     with pytest.raises(KeyError) as err_info:
-        model |= m3(input="output1", output="input1")
+        model |= m3.connect(input="output1", output="input1")
     m = "There exists a cyclic subgraph between input1 key and ['output1'] key(s)!"
     assert str(err_info.value.args[0]) == m
 
@@ -65,9 +65,9 @@ def test_cyclic_extension_2_error():
     m1 = Sigmoid()
     m2 = Sigmoid()
 
-    model |= m1(input="my_input", output="output")
+    model |= m1.connect(input="my_input", output="output")
     with pytest.raises(Exception) as err_info:
-        model |= m2(input="output", output="my_input")
+        model |= m2.connect(input="output", output="my_input")
     m = "There exists a cyclic subgraph between my_input key and ['output'] key(s)!"
     assert str(err_info.value.args[0]) == m
 
@@ -79,10 +79,10 @@ def test_cyclic_extension_3_error():
     sum2 = Add()
     sum3 = Add()
 
-    model |= sum1(left="input", right="rhs", output="output")
-    model |= sum2(left="input", right=sum1.output)
+    model |= sum1.connect(left="input", right="rhs", output="output")
+    model |= sum2.connect(left="input", right=sum1.output)
     with pytest.raises(Exception) as err_info:
-        model |= sum3(left="input", right=sum2.output, output=sum1.right)
+        model |= sum3.connect(left="input", right=sum2.output, output=sum1.right)
     m = "There exists a cyclic subgraph between rhs key and ['input', '$1'] key(s)!"
     assert str(err_info.value.args[0]) == m
 
@@ -93,9 +93,9 @@ def test_cyclic_extension_4_error():
     sum1 = Add()
     sum2 = Add()
 
-    model |= sum1(left="my_input", right="rhs", output="output")
+    model |= sum1.connect(left="my_input", right="rhs", output="output")
     with pytest.raises(Exception) as err_info:
-        model |= sum2(left=sum1.output, right=sum1.output, output=sum1.left)
+        model |= sum2.connect(left=sum1.output, right=sum1.output, output=sum1.left)
     m = "There exists a cyclic subgraph between my_input key and ['output'] key(s)!"
     assert str(err_info.value.args[0]) == m
 
@@ -103,7 +103,9 @@ def test_cyclic_extension_4_error():
 def test_loss_key_error_3():
     model = Model()
     sum1 = Add()
-    model += sum1(left="input", right="target3", output=IOKey(name="loss", expose=True))
+    model += sum1.connect(
+        left="input", right="target3", output=IOKey(name="loss", expose=True)
+    )
     with pytest.raises(KeyError) as err_info:
         TrainModel(model)
     assert (
@@ -115,7 +117,7 @@ def test_loss_key_error_3():
 def test_final_cost_key_error_4():
     model = Model()
     sum1 = Add()
-    model += sum1(left="input", right="final_cost", output="output")
+    model += sum1.connect(left="input", right="final_cost", output="output")
     with pytest.raises(KeyError) as err_info:
         TrainModel(model)
     assert (
@@ -126,9 +128,9 @@ def test_final_cost_key_error_4():
 
 def test_multi_write_error_1():
     model = Model()
-    model += Buffer()(output="output1")
+    model += Buffer().connect(output="output1")
     with pytest.raises(Exception) as err_info:
-        model += Buffer()(output="output1")
+        model += Buffer().connect(output="output1")
     assert (
         str(err_info.value)
         == "Given connections are both output connections. Multi-write error!"

@@ -294,8 +294,10 @@ def assert_match_shapes(
 def test_shapes_1():
     # TODO: What is the purpose of this test?
     model = Model()
-    model |= (add1 := Add())(left="left", right="right")
-    model |= Add()(left=add1.output, right=add1.output, output=IOKey(name="output"))
+    model |= (add1 := Add()).connect(left="left", right="right")
+    model |= Add().connect(
+        left=add1.output, right=add1.output, output=IOKey(name="output")
+    )
     model.set_shapes(left=[3, 4, 5, 1], right=[1, 7])
     logical_ref = {
         "$_Add_0_output": [3, 4, 5, 7],
@@ -314,11 +316,13 @@ def test_shapes_1():
 
 def test_shapes_2():
     model = Model()
-    model += Convolution2D(kernel_size=3, out_channels=64, padding=1)(input="input")
+    model += Convolution2D(kernel_size=3, out_channels=64, padding=1).connect(
+        input="input"
+    )
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
-    model |= Convolution2D(kernel_size=3, out_channels=64, padding=1)(
+    model |= Convolution2D(kernel_size=3, out_channels=64, padding=1).connect(
         input=model.cout, output=IOKey(name="output")
     )
 
@@ -399,7 +403,7 @@ def test_shapes_conv__():
     from mithril import JaxBackend
 
     model = Model()
-    model += Convolution2D(kernel_size=3, out_channels=64)(input="input")
+    model += Convolution2D(kernel_size=3, out_channels=64).connect(input="input")
     comp_model = mithril.compile(model, JaxBackend(), jit=False)
     assert comp_model.shapes
 
@@ -411,13 +415,13 @@ def test_shapes_3():
     submodel += Convolution2D(kernel_size=3, out_channels=64, padding=3, stride=2)
 
     model = Model()
-    model += Convolution2D(kernel_size=3, out_channels=64, padding=1)(
+    model += Convolution2D(kernel_size=3, out_channels=64, padding=1).connect(
         input="input"
     )  # 62x62, #33x33
     model += submodel  # 31x31, 18x18
     model += deepcopy(model)  # 16x16, 10x10
     model += deepcopy(model)  # 8x8, 6x6
-    model |= Convolution2D(kernel_size=3, out_channels=64, padding=1)(
+    model |= Convolution2D(kernel_size=3, out_channels=64, padding=1).connect(
         input=model.cout, output=IOKey(name="output")
     )
 
@@ -583,12 +587,16 @@ def test_shapes_3():
 def test_shapes_4():
     # Extend to input
     model = Model()
-    model |= (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
-    model |= (l2 := Linear(dimension=10))(
+    model |= (l1 := Linear(dimension=10)).connect(
+        weight="weight", output=IOKey(name="output")
+    )
+    model |= (l2 := Linear(dimension=10)).connect(
         weight="weight1", output=IOKey(name="output2")
     )
     model.merge_connections(l1.input, l2.input)
-    model |= Linear(dimension=71)(input="input", weight="weight2", output=l1.input)
+    model |= Linear(dimension=71).connect(
+        input="input", weight="weight2", output=l1.input
+    )
     shapes = {"input": [4, 256]}
     logical_ref: Mapping[str, list | None] = {
         "$_Linear_0_output": [["(V1, ...)", "u1", 71], ["u2", "(V2, ...)", 71]],
@@ -761,7 +769,7 @@ def test_simple_composite_1_set_shapes():
     model = Model()
     mult = Multiply()
     mult.set_shapes(right=[2, 2])
-    model += mult(
+    model += mult.connect(
         left=IOKey(value=Tensor([[2.0]]), name="left"),
         right="input2",
         output=IOKey(name="output"),
@@ -785,7 +793,7 @@ def test_simple_composite_1_extend_inputs():
     model = Model()
     mult = Multiply()
     right_input: Tensor[float] = Tensor(np.random.randn(2, 2).tolist())
-    model += mult(
+    model += mult.connect(
         left=IOKey(value=Tensor([[2.0]]), name="left"),
         right=IOKey(value=right_input, name="right"),
         output=IOKey(name="output"),
@@ -806,7 +814,7 @@ def test_simple_composite_1_extend_inputs():
 def test_simple_composite_1_set_shapes_2():
     model = Model()
     mult = Multiply()
-    model += mult(
+    model += mult.connect(
         left=IOKey(value=Tensor([[2.0]]), name="left"),
         right="input2",
         output=IOKey(name="output"),
@@ -829,7 +837,7 @@ def test_simple_composite_1_set_shapes_2():
 
 def test_simple_composite_1_static_shapes():
     model = Model()
-    model += Multiply()(
+    model += Multiply().connect(
         left=IOKey(value=Tensor(0.5), name="left"),
         right=IOKey("input2", type=Tensor),
         output=IOKey(name="output"),
@@ -848,7 +856,7 @@ def test_simple_composite_1_static_shapes():
 
 def test_simple_composite_1_static_inputs():
     model = Model()
-    model += Add()(
+    model += Add().connect(
         left=IOKey(value=Tensor(0.5), name="left"),
         right=IOKey("input2", type=Tensor),
         output=IOKey(name="output"),
@@ -868,8 +876,8 @@ def test_simple_composite_2_set_shapes():
     model = Model()
     mult = Multiply()
     mult.set_shapes(right=[2, 2])
-    model |= mult(left=IOKey(value=Tensor(2.0), name="left"), right="in1")
-    model |= Divide()(
+    model |= mult.connect(left=IOKey(value=Tensor(2.0), name="left"), right="in1")
+    model |= Divide().connect(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
@@ -896,8 +904,8 @@ def test_simple_composite_2_set_shapes():
 def test_simple_composite_2_set_shapes_2():
     model = Model()
     mult = Multiply()
-    model |= mult(left=IOKey(value=Tensor(2.0), name="left"), right="in1")
-    model |= Divide()(
+    model |= mult.connect(left=IOKey(value=Tensor(2.0), name="left"), right="in1")
+    model |= Divide().connect(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
@@ -926,11 +934,11 @@ def test_simple_composite_2_extend_inputs():
     model = Model()
     mult = Multiply()
     Multiply_0_right: Tensor[float] = Tensor(np.random.randn(2, 2).tolist())
-    model |= mult(
+    model |= mult.connect(
         left=IOKey(value=Tensor(2.0), name="left"),
         right=IOKey(value=Multiply_0_right, name="in1"),
     )
-    model |= Divide()(
+    model |= Divide().connect(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
@@ -954,11 +962,11 @@ def test_simple_composite_2_extend_inputs():
 def test_simple_composite_2_static_shapes():
     model = Model()
     mult = Multiply()
-    model |= mult(
+    model |= mult.connect(
         left=IOKey(value=Tensor(2.0), name="left"),
         right=IOKey("in1", type=Tensor),
     )
-    model |= Divide()(
+    model |= Divide().connect(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
@@ -986,11 +994,11 @@ def test_simple_composite_2_static_shapes():
 def test_simple_composite_2_static_inputs():
     model = Model()
     mult = Multiply()
-    model |= mult(
+    model |= mult.connect(
         left=IOKey(value=Tensor(2.0), name="left"),
         right=IOKey("in1", type=Tensor),
     )
-    model |= Divide()(
+    model |= Divide().connect(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
@@ -1013,9 +1021,11 @@ def test_composite_1_set_shapes_1():
     composite = Model()
     m1 = Multiply()
     m1.set_shapes(left=[1, 1, 1, 1, 1, 1, 1, 37, 43], right=[134, 47, 1, 1, 1])
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     logical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
@@ -1037,9 +1047,11 @@ def test_composite_1_set_shapes_1():
 def test_composite_1_set_shapes_1_2():
     composite = Model()
     m1 = Multiply()
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     m1.set_shapes(left=[1, 1, 1, 1, 1, 1, 1, 37, 43], right=[134, 47, 1, 1, 1])
     logical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
@@ -1063,11 +1075,13 @@ def test_composite_1_set_shapes_2():
     composite = Model()
     m1 = Multiply()
     m1.set_shapes(left=[1, 1, 1, 1, 1, 1, 1, 37, 43])
-    composite |= m1(left="input1", right="input2")
+    composite |= m1.connect(left="input1", right="input2")
     m2 = Multiply()
     m2.set_shapes(left=[134, 47, 1, 1, 1])
-    composite |= m2(left="input2", right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= m2.connect(left="input2", right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     logical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
@@ -1089,10 +1103,12 @@ def test_composite_1_set_shapes_2():
 def test_composite_1_set_shapes_2_2():
     composite = Model()
     m1 = Multiply()
-    composite |= m1(left="input1", right="input2")
+    composite |= m1.connect(left="input1", right="input2")
     m2 = Multiply()
-    composite |= m2(left="input2", right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= m2.connect(left="input2", right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     m1.set_shapes(left=[1, 1, 1, 1, 1, 1, 1, 37, 43])
     m2.set_shapes(left=[134, 47, 1, 1, 1])
     logical_ref = {
@@ -1122,11 +1138,13 @@ def test_composite_1_set_shapes_3():
     composite = Model()
     m1 = Multiply()
     m1.set_shapes(left=[1, 1, 1, 1, 1, 1, 1, 37, 43])
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
     add = Add()
     add.set_shapes(output=[1, 1, 1, 1, 134, 47, 1, 37, 43])
-    composite |= add(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= add.connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     logical_ref: dict[str, list] = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         # "input2": [134, 47, 1, 1, 1],
@@ -1168,10 +1186,12 @@ def test_composite_1_set_shapes_3_2():
     """
     composite = Model()
     m1 = Multiply()
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
     add = Add()
-    composite |= add(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= add.connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     add.set_shapes(output=[1, 1, 1, 1, 134, 47, 1, 37, 43])
     m1.set_shapes(left=[1, 1, 1, 1, 1, 1, 1, 37, 43])
     logical_ref = {
@@ -1203,9 +1223,11 @@ def test_composite_1_set_shapes_4():
         left=[1, 1, 1, 1, 1, 1, 1, 37, 43],
         output=[1, 1, 1, 1, 134, 47, 1, 37, 43],
     )
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     logical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
@@ -1231,9 +1253,11 @@ def test_composite_1_set_shapes_4_2():
     """
     composite = Model()
     m1 = Multiply()
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     m1.set_shapes(
         left=[1, 1, 1, 1, 1, 1, 1, 37, 43],
         output=[1, 1, 1, 1, 134, 47, 1, 37, 43],
@@ -1260,11 +1284,11 @@ def test_composite_1_set_shapes_5():
     m1 = Multiply()
     m1.set_types(left=Tensor, right=Tensor)
     m1.set_shapes(right=[134, 47, 1, 1, 1])
-    model |= m1(left="input1", right="input2")
-    model |= (m2 := Multiply())(left="input2", right=m1.output)
+    model |= m1.connect(left="input1", right="input2")
+    model |= (m2 := Multiply()).connect(left="input2", right=m1.output)
     add = Add()
     add.set_shapes(output=[1, 1, 1, 1, 134, 47, 1, 37, 43])
-    model |= add(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    model |= add.connect(left=m2.output, right=m2.output, output=IOKey(name="output"))
     logical_ref: Mapping[str, list | None] = {
         "input1": [1, 1, 1, 1, "u1", "u2", 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
@@ -1286,14 +1310,14 @@ def test_composite_1_set_shapes_5_dfs():
     composite = Model()
     add = Add()
     add.set_shapes(output=[1, 1, 1, 1, 134, 47, 1, 37, 43])
-    composite |= add(left="input1", right="input1", output=IOKey(name="output"))
+    composite |= add.connect(left="input1", right="input1", output=IOKey(name="output"))
     assert_all_nodes_unique(composite)
 
 
 def test_composite_1_set_shapes_6_dfs():
     composite = Model()
     add = Add()
-    composite += add(left="input1", right="input1", output=IOKey(name="output"))
+    composite += add.connect(left="input1", right="input1", output=IOKey(name="output"))
     composite.set_shapes(output=[1, 1, 1, 1, 134, 47, 1, 37, 43])
     assert_all_nodes_unique(composite)
 
@@ -1301,17 +1325,19 @@ def test_composite_1_set_shapes_6_dfs():
 def test_composite_1_set_shapes_7_dfs():
     composite = Model()
     add = Add()
-    composite += add(left="input1", right="input2", output=IOKey(name="output"))
+    composite += add.connect(left="input1", right="input2", output=IOKey(name="output"))
 
 
 def test_composite_1_set_shapes_5_2():
     composite = Model()
     m1 = Multiply()
     m1.set_types(left=Tensor, right=Tensor)
-    composite |= m1(left="input1", right="input2")
-    composite |= (m2 := Multiply())(left="input2", right=m1.output)
+    composite |= m1.connect(left="input1", right="input2")
+    composite |= (m2 := Multiply()).connect(left="input2", right=m1.output)
     add = Add()
-    composite |= add(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= add.connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     m1.set_shapes(right=[134, 47, 1, 1, 1])
     add.set_shapes(output=[1, 1, 1, 1, 134, 47, 1, 37, 43])
     logical_ref: Mapping[str, list | None] = {
@@ -1334,12 +1360,14 @@ def test_composite_1_set_shapes_5_2():
 def get_composite_1():
     # Create common composite_1 model for corresponding tests.
     composite_1 = Model()
-    composite_1 |= (m1 := Multiply())(
+    composite_1 |= (m1 := Multiply()).connect(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
     )
-    composite_1 |= (m2 := Multiply())(left="input2", right=m1.output)
-    composite_1 |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite_1 |= (m2 := Multiply()).connect(left="input2", right=m1.output)
+    composite_1 |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     return composite_1
 
 
@@ -1371,12 +1399,14 @@ def test_composite_1_extend_inputs_1():
         np.random.randn(1, 1, 1, 1, 1, 1, 1, 37, 43).tolist()
     )
     Multiply_0_right: Tensor[float] = Tensor(np.random.randn(134, 47, 1, 1, 1).tolist())
-    composite |= m1(
+    composite |= m1.connect(
         left=IOKey(value=Multiply_0_left, name="left"),
         right=IOKey(value=Multiply_0_right, name="right"),
     )
-    composite |= (m2 := Multiply())(left=m1.right, right=m1.output)
-    composite |= Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
+    composite |= (m2 := Multiply()).connect(left=m1.right, right=m1.output)
+    composite |= Add().connect(
+        left=m2.output, right=m2.output, output=IOKey(name="output")
+    )
     key_mappings = composite.generate_keys()
 
     m1_out_metadata = composite.conns.get_con_by_metadata(m1.output.metadata)
@@ -1532,21 +1562,31 @@ def test_composite_2_set_shapes_1():
 
     mult1 = Multiply()
     mult1.set_shapes(left=[4, 5, 7, 1, 1], right=[1, 1, 7, 3, 4])
-    m1 |= mult1(left="input1", right="input2")
-    m1 |= (mult2 := Multiply())(left="input2", right=mult1.output)
-    m1 |= Add()(left=mult2.output, right=mult2.output, output=IOKey(name="output"))
+    m1 |= mult1.connect(left="input1", right="input2")
+    m1 |= (mult2 := Multiply()).connect(left="input2", right=mult1.output)
+    m1 |= Add().connect(
+        left=mult2.output, right=mult2.output, output=IOKey(name="output")
+    )
 
-    m2 |= (mult3 := Multiply())(left="input1", right="input2")
-    m2 |= (mult4 := Multiply())(left="input2", right=mult3.output)
-    m2 |= Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
+    m2 |= (mult3 := Multiply()).connect(left="input1", right="input2")
+    m2 |= (mult4 := Multiply()).connect(left="input2", right=mult3.output)
+    m2 |= Add().connect(
+        left=mult4.output, right=mult4.output, output=IOKey(name="output")
+    )
 
-    m3 |= (add1 := Add())(left="input1", right="input2")
-    m3 |= (mult5 := Multiply())(left="input2", right=add1.output)
-    m3 |= Add()(left=mult5.output, right=mult5.output, output=IOKey(name="output"))
+    m3 |= (add1 := Add()).connect(left="input1", right="input2")
+    m3 |= (mult5 := Multiply()).connect(left="input2", right=add1.output)
+    m3 |= Add().connect(
+        left=mult5.output, right=mult5.output, output=IOKey(name="output")
+    )
 
-    composite |= m1(input1="input1", input2="input2")
-    composite |= m2(input1=m1.output, input2="input2")  # type: ignore
-    composite |= m3(input1=m2.output, input2=m2.output, output=IOKey(name="output"))  # type: ignore
+    composite |= m1.connect(input1="input1", input2="input2")
+    composite |= m2.connect(input1=m1.output, input2="input2")  # type: ignore
+    composite |= m3.connect(
+        input1=m2.output,  # type: ignore
+        input2=m2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
 
     logical_ref = {
         "input1": [4, 5, 7, 1, 1],
@@ -1579,23 +1619,33 @@ def test_composite_2_set_shapes_2():
 
     mult1 = Multiply()
     mult1.set_shapes(left=[4, 5, 7, 1, 1])
-    m1 |= mult1(left="input1", right="input2")
-    m1 |= (mult2 := Multiply())(left="input2", right=mult1.output)
-    m1 |= Add()(left=mult2.output, right=mult2.output, output=IOKey(name="output"))
+    m1 |= mult1.connect(left="input1", right="input2")
+    m1 |= (mult2 := Multiply()).connect(left="input2", right=mult1.output)
+    m1 |= Add().connect(
+        left=mult2.output, right=mult2.output, output=IOKey(name="output")
+    )
 
     mult3 = Multiply()
     mult3.set_shapes(right=[1, 1, 7, 3, 4])
-    m2 |= mult3(left="input1", right="input2")
-    m2 |= (mult4 := Multiply())(left="input2", right=mult3.output)
-    m2 |= Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
+    m2 |= mult3.connect(left="input1", right="input2")
+    m2 |= (mult4 := Multiply()).connect(left="input2", right=mult3.output)
+    m2 |= Add().connect(
+        left=mult4.output, right=mult4.output, output=IOKey(name="output")
+    )
 
-    m3 |= (add1 := Add())(left="input1", right="input2")
-    m3 |= (mult5 := Multiply())(left="input2", right=add1.output)
-    m3 |= Add()(left=mult5.output, right=mult5.output, output=IOKey(name="output"))
+    m3 |= (add1 := Add()).connect(left="input1", right="input2")
+    m3 |= (mult5 := Multiply()).connect(left="input2", right=add1.output)
+    m3 |= Add().connect(
+        left=mult5.output, right=mult5.output, output=IOKey(name="output")
+    )
 
-    composite |= m1(input1="input1", input2="input2")
-    composite |= m2(input1=m1.output, input2="input2")  # type: ignore
-    composite |= m3(input1=m2.output, input2=m2.output, output=IOKey(name="output"))  # type: ignore
+    composite |= m1.connect(input1="input1", input2="input2")
+    composite |= m2.connect(input1=m1.output, input2="input2")  # type: ignore
+    composite |= m3.connect(
+        input1=m2.output,  # type: ignore
+        input2=m2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
 
     logical_ref = {
         "input1": [4, 5, 7, 1, 1],
@@ -1633,27 +1683,37 @@ def test_composite_2_set_shapes_3():
     mult1 = Multiply()
     mult1.set_types(left=Tensor, right=Tensor)
     mult1.set_shapes(left=[4, 5, 7, 1, 1])
-    m1 |= mult1(left="input1", right="input2")
-    m1 |= (mult2 := Multiply())(left="input2", right=mult1.output)
-    m1 |= Add()(left=mult2.output, right=mult2.output, output=IOKey(name="output"))
+    m1 |= mult1.connect(left="input1", right="input2")
+    m1 |= (mult2 := Multiply()).connect(left="input2", right=mult1.output)
+    m1 |= Add().connect(
+        left=mult2.output, right=mult2.output, output=IOKey(name="output")
+    )
 
     mult3 = Multiply()
     mult3.set_types(left=Tensor, right=Tensor)
     mult3.set_shapes(left=[4, 5, 7, 3, 4])
-    m2 |= mult3(left="input1", right="input2")
-    m2 |= (mult4 := Multiply())(left="input2", right=mult3.output)
-    m2 |= Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
+    m2 |= mult3.connect(left="input1", right="input2")
+    m2 |= (mult4 := Multiply()).connect(left="input2", right=mult3.output)
+    m2 |= Add().connect(
+        left=mult4.output, right=mult4.output, output=IOKey(name="output")
+    )
 
-    m3 |= (add1 := Add())(
+    m3 |= (add1 := Add()).connect(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
     )
-    m3 |= (mult5 := Multiply())(left="input2", right=add1.output)
-    m3 |= Add()(left=mult5.output, right=mult5.output, output=IOKey(name="output"))
+    m3 |= (mult5 := Multiply()).connect(left="input2", right=add1.output)
+    m3 |= Add().connect(
+        left=mult5.output, right=mult5.output, output=IOKey(name="output")
+    )
 
-    composite |= m1(input1="input1", input2="input2")
-    composite |= m2(input1=m1.output, input2="input2")  # type: ignore
-    composite |= m3(input1=m2.output, input2=m2.output, output=IOKey(name="output"))  # type: ignore
+    composite |= m1.connect(input1="input1", input2="input2")
+    composite |= m2.connect(input1=m1.output, input2="input2")  # type: ignore
+    composite |= m3.connect(
+        input1=m2.output,  # type: ignore
+        input2=m2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
 
     logical_ref: Mapping[str, list | None] = {
         "input1": [4, 5, 7, 1, 1],
@@ -1690,17 +1750,25 @@ def test_composite_2_set_shapes_3_1():
     mult1 = Multiply()
     mult1.set_types(left=Tensor, right=Tensor)
     mult1.set_shapes(left=[4, 5, 7, 1, 1])
-    m1 |= mult1(left="input1", right="input2")
-    m1 |= Multiply()(left="input2", right=mult1.output, output=IOKey(name="output"))
+    m1 |= mult1.connect(left="input1", right="input2")
+    m1 |= Multiply().connect(
+        left="input2", right=mult1.output, output=IOKey(name="output")
+    )
 
     mult3 = Multiply()
     mult3.set_types(left=Tensor, right=Tensor)
     mult3.set_shapes(left=[4, 5, 7, 3, 4])
-    m2 |= mult3(left="input1", right="input2")
-    m2 |= Multiply()(left="input2", right=mult3.output, output=IOKey(name="output"))
+    m2 |= mult3.connect(left="input1", right="input2")
+    m2 |= Multiply().connect(
+        left="input2", right=mult3.output, output=IOKey(name="output")
+    )
 
-    composite |= m1(input1="input1", input2="input2")
-    composite |= m2(input1=m1.output, input2="input2", output=IOKey(name="output"))  # type: ignore
+    composite |= m1.connect(input1="input1", input2="input2")
+    composite |= m2.connect(
+        input1=m1.output,  # type: ignore
+        input2="input2",
+        output=IOKey(name="output"),
+    )
 
     logical_ref: Mapping[str, list | None] = {
         "input1": [4, 5, 7, 1, 1],
@@ -1732,15 +1800,21 @@ def test_composite_2_set_shapes_3_2():
         mult1 = Multiply()
         mult1.set_types(left=Tensor, right=Tensor)
         mult1.set_shapes(left=[4, 5, 7, 1, 1])
-        m1 |= mult1(left="input1", right="input2")
-        m1 |= Multiply()(left="input2", right=mult1.output, output=IOKey(name="output"))
+        m1 |= mult1.connect(left="input1", right="input2")
+        m1 |= Multiply().connect(
+            left="input2", right=mult1.output, output=IOKey(name="output")
+        )
 
         mult3 = Multiply()
         mult3.set_types(left=Tensor)
         mult3.set_shapes(left=[4, 5, 7, 3, 4])
 
-        composite |= m1(input1="input1", input2="input2")
-        composite |= mult3(left=m1.output, right="input2", output=IOKey(name="output"))  # type: ignore
+        composite |= m1.connect(input1="input1", input2="input2")
+        composite |= mult3.connect(
+            left=m1.output,  # type: ignore
+            right="input2",
+            output=IOKey(name="output"),
+        )
 
     logical_ref: Mapping[str, list | None] = {
         "input1": [4, 5, 7, 1, 1],
@@ -1767,20 +1841,30 @@ def get_composite_2():
     m3 = Model()
     mult1 = Multiply()
     mult1.set_types(left=Tensor, right=Tensor)
-    m1 |= mult1(left="input1", right="input2")
-    m1 |= (mult2 := Multiply())(left="input2", right=mult1.output)
-    m1 |= Add()(left=mult2.output, right=mult2.output, output=IOKey(name="output"))
+    m1 |= mult1.connect(left="input1", right="input2")
+    m1 |= (mult2 := Multiply()).connect(left="input2", right=mult1.output)
+    m1 |= Add().connect(
+        left=mult2.output, right=mult2.output, output=IOKey(name="output")
+    )
     mult3 = Multiply()
     mult3.set_types(left=Tensor, right=Tensor)
-    m2 |= mult3(left="input1", right="input2")
-    m2 |= (mult4 := Multiply())(left="input2", right=mult3.output)
-    m2 |= Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
-    m3 |= (add1 := Add())(left="input1", right="input2")
-    m3 |= (mult5 := Multiply())(left="input2", right=add1.output)
-    m3 |= Add()(left=mult5.output, right=mult5.output, output=IOKey(name="output"))
-    composite_2 |= m1(input1="input1", input2="input2")
-    composite_2 |= m2(input1=m1.output, input2="input2")  # type: ignore
-    composite_2 |= m3(input1=m2.output, input2=m2.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= mult3.connect(left="input1", right="input2")
+    m2 |= (mult4 := Multiply()).connect(left="input2", right=mult3.output)
+    m2 |= Add().connect(
+        left=mult4.output, right=mult4.output, output=IOKey(name="output")
+    )
+    m3 |= (add1 := Add()).connect(left="input1", right="input2")
+    m3 |= (mult5 := Multiply()).connect(left="input2", right=add1.output)
+    m3 |= Add().connect(
+        left=mult5.output, right=mult5.output, output=IOKey(name="output")
+    )
+    composite_2 |= m1.connect(input1="input1", input2="input2")
+    composite_2 |= m2.connect(input1=m1.output, input2="input2")  # type: ignore
+    composite_2 |= m3.connect(
+        input1=m2.output,  # type: ignore
+        input2=m2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     return composite_2
 
 
@@ -1841,7 +1925,7 @@ def test_cross_entropy_shapes_1():
     model = Model()
     ce = CrossEntropy()
     ce.set_shapes(input=[8, 10], target=[8])
-    model |= ce(
+    model |= ce.connect(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref = {
@@ -1870,7 +1954,7 @@ def test_cross_entropy_shapes_2():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 10])
-    model |= ce(
+    model |= ce.connect(
         input="input", target="target", categorical=False, output=IOKey(name="output")
     )
 
@@ -1900,7 +1984,7 @@ def test_cross_entropy_shapes_3():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, 32, 64], target=[8, 32, 64])
-    model += ce(
+    model += ce.connect(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref = {
@@ -1929,7 +2013,7 @@ def test_cross_entropy_shapes_5():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], target=[8, 32, 64])
-    model += ce(
+    model += ce.connect(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref = {
@@ -1958,7 +2042,7 @@ def test_cross_entropy_shapes_6():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], output=[8, 32, 64])
-    model += ce(
+    model += ce.connect(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref = {
@@ -1987,7 +2071,7 @@ def test_cross_entropy_shapes_7():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
-    model += ce(
+    model += ce.connect(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
 
@@ -2017,7 +2101,7 @@ def test_cross_entropy_shapes_8():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
-    model += ce(
+    model += ce.connect(
         input="input", target="target", categorical=False, output=IOKey(name="output")
     )
 
@@ -2047,7 +2131,7 @@ def test_cross_entropy_shapes_9():
     model = Model()
     ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64])
-    model += ce(
+    model += ce.connect(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref: Mapping = {
@@ -2076,7 +2160,7 @@ def test_cross_entropy_shapes_10():
     model = Model()
     ce = CrossEntropy()
     ce.set_shapes(input=[8, 16, ("V1", ...), 64, 128])
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce.connect(input="input", target="target", output=IOKey(name="output"))
 
     logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64, 128],
@@ -2104,7 +2188,7 @@ def test_cross_entropy_shapes_11():
     model = Model()
     ce = CrossEntropy()
     ce.set_shapes(input=[8, 4, ("V2", ...), 64, 128], output=[8, ("V1", ...)])
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce.connect(input="input", target="target", output=IOKey(name="output"))
 
     logical_ref: Mapping = {
         "input": [8, 4, "(V1, ...)", 64, 128],
@@ -2175,22 +2259,26 @@ def test_composite_2_static_inputs_2():
 def get_composite_3():
     composite_3 = Model()
     m1 = Model()
-    m1 |= Add()(
+    m1 |= Add().connect(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
         output=IOKey(name="output"),
     )
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
-    m3 |= Add()(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= m2.connect(input1="input1", input2="input2")
+    m3 |= Add().connect(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     return composite_3
 
 
@@ -2199,18 +2287,22 @@ def test_composite_3_set_shapes_1():
     m1 = Model()
     add1 = Add()
     add1.set_shapes(left=[3, 4, 5, 6, 1], right=[1, 1, 1, 1, 7])
-    m1 |= add1(left="input1", right="input2", output=IOKey(name="output"))
+    m1 |= add1.connect(left="input1", right="input2", output=IOKey(name="output"))
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
-    m3 |= Add()(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= m2.connect(input1="input1", input2="input2")
+    m3 |= Add().connect(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     logical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
@@ -2236,27 +2328,31 @@ def test_composite_3_extend_shapes_1():
     add1 = Add()
     add_1_left: Tensor[float] = Tensor(np.random.randn(3, 4, 5, 6, 1).tolist())
     add_1_right: Tensor[float] = Tensor(np.random.randn(1, 1, 1, 1, 7).tolist())
-    m1 += add1(
+    m1 += add1.connect(
         left=IOKey(value=add_1_left, name="left"),
         right=IOKey(value=add_1_right, name="right"),
         output=IOKey(name="output"),
     )
     m2 = Model()
-    m2 |= m1(left=IOKey(name="left"), right=IOKey(name="right"))
-    m2 |= Add()(left=m1.left, right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(left=IOKey(name="left"), right=IOKey(name="right"))
+    m2 |= Add().connect(left=m1.left, right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(right=IOKey(name="right"))
-    m3 |= Add()(
+    m3 |= m2.connect(right=IOKey(name="right"))
+    m3 |= Add().connect(
         left=IOKey(name="left", expose=True),  # type: ignore
         right=m2.output,  # type: ignore
         output=IOKey(name="output"),
     )  # type: ignore
     m3.merge_connections(m3.left, m1.left)  # type: ignore
     m4 = Model()
-    m4 |= m3(left=IOKey(name="left"), right=IOKey(name="right"))
-    m4 |= (add4 := Add())(left=m1.left, right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4()
-    composite_3 |= (add5 := Add())(
+    m4 |= m3.connect(left=IOKey(name="left"), right=IOKey(name="right"))
+    m4 |= (add4 := Add()).connect(
+        left=m1.left,  # type: ignore
+        right=m3.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
+    composite_3 |= m4.connect()
+    composite_3 |= (add5 := Add()).connect(
         left=m1.left,  # type: ignore
         right=m4.output,  # type: ignore
         output=IOKey(name="output"),
@@ -2300,18 +2396,22 @@ def test_composite_3_set_shapes_1_2():
     composite_3 = Model()
     m1 = Model()
     add1 = Add()
-    m1 |= add1(left="input1", right="input2", output=IOKey(name="output"))
+    m1 |= add1.connect(left="input1", right="input2", output=IOKey(name="output"))
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
-    m3 |= Add()(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= m2.connect(input1="input1", input2="input2")
+    m3 |= Add().connect(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     add1.set_shapes(left=[3, 4, 5, 6, 1], right=[1, 1, 1, 1, 7])
     logical_ref = {
         "input1": [3, 4, 5, 6, 1],
@@ -2336,20 +2436,24 @@ def test_composite_3_set_shapes_2_2():
     composite_3 = Model()
     m1 = Model()
     add1 = Add()
-    m1 |= add1(left="input1", right="input2", output=IOKey(name="output"))
+    m1 |= add1.connect(left="input1", right="input2", output=IOKey(name="output"))
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
+    m3 |= m2.connect(input1="input1", input2="input2")
     add3 = Add()
-    m3 |= add3(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= add3.connect(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
     add1.set_shapes(right=[1, 1, 1, 1, 7])
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     add3.set_shapes(left=[3, 4, 5, 6, 1])
 
     logical_ref = {
@@ -2375,20 +2479,24 @@ def test_composite_3_set_shapes_2_3():
     composite_3 = Model()
     m1 = Model()
     add1 = Add()
-    m1 |= add1(left="input1", right="input2", output=IOKey(name="output"))
+    m1 |= add1.connect(left="input1", right="input2", output=IOKey(name="output"))
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
+    m3 |= m2.connect(input1="input1", input2="input2")
     add3 = Add()
-    m3 |= add3(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= add3.connect(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
     add3.set_shapes(left=[3, 4, 5, 6, 1])
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     add1.set_shapes(right=[1, 1, 1, 1, 7])
 
     logical_ref = {
@@ -2415,20 +2523,24 @@ def test_composite_3_set_shapes_2():
     m1 = Model()
     add1 = Add()
     add1.set_shapes(right=[1, 1, 1, 1, 7])
-    m1 |= add1(left="input1", right="input2", output=IOKey(name="output"))
+    m1 |= add1.connect(left="input1", right="input2", output=IOKey(name="output"))
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
+    m3 |= m2.connect(input1="input1", input2="input2")
     add3 = Add()
     add3.set_shapes(left=[3, 4, 5, 6, 1])
-    m3 |= add3(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= add3.connect(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
 
     logical_ref = {
         "input1": [3, 4, 5, 6, 1],
@@ -2886,8 +2998,8 @@ def test_shape_1():
     shapes_2: dict[str, list] = {"input": ["c", "d", ("V1", ...)]}
     buff1.set_shapes(**shapes_1)
     buff2.set_shapes(**shapes_2)
-    model |= buff1(input="input")
-    model |= buff2(input=buff1.output, output=IOKey(name="output"))
+    model |= buff1.connect(input="input")
+    model |= buff2.connect(input=buff1.output, output=IOKey(name="output"))
     model.set_shapes(input=[5, 6, 7])
     logical_ref = {
         "input": [5, 6, 7],
@@ -2909,7 +3021,7 @@ class Model1(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), "u1", "u2"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -2926,7 +3038,7 @@ class Model2(PrimitiveModel):
             output=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -2961,7 +3073,7 @@ class Model3(PrimitiveModel):
         #     axis=BaseKey(type=int),
         # )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
@@ -2980,7 +3092,7 @@ class Model4(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), 1], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -2999,7 +3111,7 @@ class Model5(PrimitiveModel):
             axis=BaseKey(type=NoneType | list[int], value=axis),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
@@ -3019,7 +3131,7 @@ class Model6(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -3036,7 +3148,7 @@ class Model7(PrimitiveModel):
             output=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -3053,7 +3165,7 @@ class Model8(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -3070,7 +3182,7 @@ class Model9(PrimitiveModel):
             output=BaseKey(shape=["u2", "u1", ("Var1", ...)], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -3088,9 +3200,9 @@ def test_shape_2():
     model1.set_shapes(input=[("Var1", ...)], output=[("Var1", ...), "u1", "u2"])
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
-    model |= model1(input="input")
-    model |= model2(input=model1.output)
-    model |= model3(input=model2.output, output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)
+    model |= model3.connect(input=model2.output, output=IOKey(name="output"))
     logical_ref = {
         "input": ["(V1, ...)"],
         "$_Model1_0_output": ["(V1, ...)", "u1", "u2"],
@@ -3118,11 +3230,11 @@ def test_shape_3():
     """
     model = Model()
     two_buff_model = Model()
-    two_buff_model |= Buffer()(input="input1", output=IOKey(name="output1"))
-    two_buff_model |= Buffer()(input="input2", output=IOKey(name="output2"))
-    model |= two_buff_model(input1="input1", output2=IOKey(name="output2"))
+    two_buff_model |= Buffer().connect(input="input1", output=IOKey(name="output1"))
+    two_buff_model |= Buffer().connect(input="input2", output=IOKey(name="output2"))
+    model |= two_buff_model.connect(input1="input1", output2=IOKey(name="output2"))
     buff1 = Buffer()
-    model |= buff1(input=two_buff_model.output1, output=two_buff_model.input2)  # type: ignore
+    model |= buff1.connect(input=two_buff_model.output1, output=two_buff_model.input2)  # type: ignore
     model.generate_keys()
     buff1.set_shapes(input=[3, 4, 5, 6])
     logical_ref = {
@@ -3148,9 +3260,9 @@ def test_shape_4():
     model1 = Model2()
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
-    model |= model1(input="input")
-    model |= model2(input=model1.output)
-    model |= model3(input=model2.output, output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)
+    model |= model3.connect(input=model2.output, output=IOKey(name="output"))
 
     logical_ref: dict[str, list | None] = {
         "input": ["(V1, ...)", "u1"],
@@ -3179,11 +3291,11 @@ def test_shape_5():
     model1 = Model2()
     model1.set_shapes(input=[5, 10])
     model2 = deepcopy(model1)
-    model += model1(input="input")
+    model += model1.connect(input="input")
 
     # TODO: Assert test and change Exception
     with pytest.raises(Exception):  # noqa
-        model += model2(input=model1.output)
+        model += model2.connect(input=model1.output)
 
 
 def test_shape_6():
@@ -3196,9 +3308,9 @@ def test_shape_6():
     model1 = Model2()
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
-    model |= model1(input="input")
-    model |= model2(input=model1.output)
-    model |= model3(input=model2.output, output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)
+    model |= model3.connect(input=model2.output, output=IOKey(name="output"))
     model.set_shapes(input=[3, 4, 5, 6, 7, 8])
     logical_ref = {
         "input": [3, 4, 5, 6, 7, 8],
@@ -3227,9 +3339,9 @@ def test_shape_7():
     model1 = Model2()
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
-    model |= model1(input="input")
-    model |= model2(input=model1.output)
-    model |= model3(input=model2.output, output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)
+    model |= model3.connect(input=model2.output, output=IOKey(name="output"))
     model.set_shapes(input=[3, 4])
     logical_ref = {
         "input": [3, 4],
@@ -3256,9 +3368,9 @@ def test_shape_8():
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
     model1.set_shapes(input=[3, 4])
-    model |= model1(input="input")
-    model |= model2(input=model1.output)
-    model |= model3(input=model2.output, output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)
+    model |= model3.connect(input=model2.output, output=IOKey(name="output"))
     logical_ref = {
         "input": [3, 4],
         "$_Model2_0_output": [4, 3],
@@ -3285,9 +3397,12 @@ def test_shape_9():
     model_1 = Model3()
     model_2 = Model3()
     model_3 = Model3()
-    model |= model_1(input=[IOKey("input"), IOKey()])  # type: ignore
-    model |= model_2(input=[model_1.output, IOKey()])  # type: ignore
-    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))  # type: ignore
+    model |= model_1.connect(input=[IOKey("input"), IOKey()])  # type: ignore
+    model |= model_2.connect(input=[model_1.output, IOKey()])  # type: ignore
+    model |= model_3.connect(
+        input=[model_2.output, IOKey()],  # type: ignore
+        output=IOKey(name="output"),
+    )
     logical_ref = {
         "input": ["u1", "u2", "u3"],
         "$input2_0": ["u3", "u2", "u1"],
@@ -3331,9 +3446,9 @@ def test_shape_10():
     model1 = Model2()
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
-    model |= model1(input="input")
-    model |= model2(input=model1.output)
-    model |= model3(input=model2.output, output=IOKey(name="output"))
+    model |= model1.connect(input="input")
+    model |= model2.connect(input=model1.output)
+    model |= model3.connect(input=model2.output, output=IOKey(name="output"))
     model.set_shapes(input=[4])
     logical_ref = {
         "input": [4],
@@ -3373,10 +3488,12 @@ def test_shape_11():
     shapes_2: dict[str, list] = {"input": [("Var1", ...), "u1", "u2"]}
     buff1.set_shapes(**shapes_1)
     buff2.set_shapes(**shapes_2)
-    model |= buff1(input="input")
-    model |= buff2(input=buff1.output)
-    model |= reduce_model(input=buff2.output)
-    model |= newaxis_model(input=reduce_model.output, output=IOKey(name="output"))
+    model |= buff1.connect(input="input")
+    model |= buff2.connect(input=buff1.output)
+    model |= reduce_model.connect(input=buff2.output)
+    model |= newaxis_model.connect(
+        input=reduce_model.output, output=IOKey(name="output")
+    )
     model.set_shapes(input=[3, 4])
     logical_ref = {
         "input": [3, 4],
@@ -3407,7 +3524,7 @@ def test_shape_12():
     shapes: dict[str, list] = {"left": ["a", "b", "c"], "right": [1, 1, 1]}
     add2.set_shapes(**shapes)
     add1.set_shapes(left=[1, 2, 9], right=[1, 2, 1])
-    model |= add2(left=add1.left)
+    model |= add2.connect(left=add1.left)
 
     logical_ref = {
         "$input": [1, 2, 9],
@@ -3422,7 +3539,7 @@ def test_shape_12():
 def test_broadcast_to():
     model = Model()
     bcast_to = BroadcastTo(shape=(3, 4, 5))
-    model += bcast_to(input="input", output=IOKey(name="output"))
+    model += bcast_to.connect(input="input", output=IOKey(name="output"))
     with pytest.raises(ValueError) as err_info:
         model.set_shapes(input=[7, 8, 9])
     assert str(err_info.value) == "Shape mismatch in broadcast_to model"
@@ -3431,7 +3548,9 @@ def test_broadcast_to():
 def test_broadcast_to_2():
     model = Model()
     bcast_to = BroadcastTo(shape=TBD)
-    model += bcast_to(input="input", output=IOKey(name="output"), shape=(3, 4, 5))
+    model += bcast_to.connect(
+        input="input", output=IOKey(name="output"), shape=(3, 4, 5)
+    )
     model.set_shapes(input=[3, 4, 5])
     logical_ref = {"input": [3, 4, 5], "$shape": None, "output": [3, 4, 5]}
     physical_ref = {"input": [3, 4, 5], "shape": None, "output": [3, 4, 5]}
@@ -3443,7 +3562,9 @@ def test_broadcast_to_2():
 def test_broadcast_to_4():
     model = Model()
     bcast_to = BroadcastTo(shape=TBD)
-    model += bcast_to(input="input", output=IOKey(name="output"), shape=(3, 4, 5))
+    model += bcast_to.connect(
+        input="input", output=IOKey(name="output"), shape=(3, 4, 5)
+    )
     with pytest.raises(ValueError) as err_info:
         model.set_shapes(input=[1, 1, 3, 4, 5])
     assert str(err_info.value) == "Cannot broadcast to lower dimension"
@@ -3452,7 +3573,9 @@ def test_broadcast_to_4():
 def test_broadcast_to_5():
     model = Model()
     bcast_to = BroadcastTo(shape=TBD)
-    model += bcast_to(input="input", output=IOKey(name="output"), shape=(1, 1, 3, 4, 5))
+    model += bcast_to.connect(
+        input="input", output=IOKey(name="output"), shape=(1, 1, 3, 4, 5)
+    )
     with pytest.raises(ValueError) as err_info:
         model.set_shapes(input=[5, 4, 5])
     assert str(err_info.value) == "Shape mismatch in broadcast_to model"
@@ -3463,8 +3586,8 @@ def test_transpose_1():
     buff1 = Buffer()
     transpose_model = Transpose()
     transpose_model.set_shapes(input=["u1", "u2", "u3"])
-    model |= buff1(input="input1", output=IOKey(name="my_input"))
-    model |= transpose_model(input="my_input", output=IOKey(name="output"))
+    model |= buff1.connect(input="input1", output=IOKey(name="my_input"))
+    model |= transpose_model.connect(input="my_input", output=IOKey(name="output"))
     model.set_shapes(input1=[3, 4, 5])
     logical_ref = {
         "input1": [3, 4, 5],
@@ -3484,11 +3607,11 @@ def test_logical_constraint_1():
     t_model_3 = Model5()
     t_model_4 = Model5()
     t_model_5 = Model5()
-    model |= t_model_1(input="input", axis="axis")
+    model |= t_model_1.connect(input="input", axis="axis")
     model |= t_model_2
     model |= t_model_3
     model |= t_model_4
-    model |= t_model_5(input=t_model_4.output, output=IOKey(name="output"))
+    model |= t_model_5.connect(input=t_model_4.output, output=IOKey(name="output"))
     model.add_constraint(fn=reverse_constraints, keys=["input", "output", "axis"])
     model.set_shapes(input=[1, 2, 3, 4, 5, 6])
     assert model.get_shapes(verbose=True)["input"] == [1, 2, 3, 4, 5, 6]
@@ -3502,14 +3625,14 @@ def test_logical_constraint_2():
     add_2 = Add()
     add_3 = Add()
     t_model = Transpose()
-    model |= add_1(left="in1", right="in2")
-    model |= add_2(left=add_1.output, right=IOKey("in3", type=Tensor))
-    model |= add_3(
+    model |= add_1.connect(left="in1", right="in2")
+    model |= add_2.connect(left=add_1.output, right=IOKey("in3", type=Tensor))
+    model |= add_3.connect(
         left=add_2.output,
         right=IOKey("in4", type=Tensor),
         output=IOKey(name="output"),
     )
-    model |= t_model(input="in1", output=IOKey(name="output1"), axes="axes")
+    model |= t_model.connect(input="in1", output=IOKey(name="output1"), axes="axes")
     model.add_constraint(fn=reverse_constraints, keys=["in1", "in2", "axes"])
     model.add_constraint(fn=reverse_constraints, keys=["in2", "in3", "axes"])
     model.add_constraint(fn=reverse_constraints, keys=["in3", "in4", "axes"])
@@ -4007,7 +4130,7 @@ class MyVariadic1(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4024,7 +4147,7 @@ class MyVariadic2(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), "a", "b"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4041,7 +4164,7 @@ class MyVariadic3(PrimitiveModel):
             output=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4058,7 +4181,7 @@ class MyVariadic4(PrimitiveModel):
             output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4075,7 +4198,7 @@ class MyVariadic5(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4092,7 +4215,7 @@ class MyVariadic6(PrimitiveModel):
             output=BaseKey(shape=["a", "a"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4109,7 +4232,7 @@ class MyVariadic7(PrimitiveModel):
             output=BaseKey(shape=["u3", ("Var2", ...), "u4"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4148,7 +4271,7 @@ class MyVariadic8(PrimitiveModel):
             ),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
@@ -4187,7 +4310,7 @@ class MyVariadic9(PrimitiveModel):
             output=BaseKey(shape=["u5", "u5"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
@@ -4225,7 +4348,7 @@ class MyVariadic10(PrimitiveModel):
             output=BaseKey(shape=["u5", "u5"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
@@ -4258,7 +4381,7 @@ class MyVariadic11(PrimitiveModel):
             output=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4275,7 +4398,7 @@ class MyVariadic12(PrimitiveModel):
             output=BaseKey(shape=["a", "b", "c", ("Var1", ...)], type=Tensor),
         )
 
-    def __call__(  # type: ignore[override]
+    def connect(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ):
         return ExtendInfo(self, {"input": input, "output": output})
@@ -4285,18 +4408,18 @@ def test_multiple_shape_reprs_1():
     for _ in range(100):
         model = Model()
         m1, m2, m3 = tuple(MyVariadic9() for _ in range(3))
-        model |= m1(input1="input1")
+        model |= m1.connect(input1="input1")
         check_single_shape_semantically(
             model.get_shapes(verbose=True)["input1"], ["u2", "(V1, ...)"]
         )
 
-        model += m2(input2="input1")
+        model += m2.connect(input2="input1")
         check_single_shape_semantically(
             model.get_shapes(verbose=True)["input1"],
             [["u3", "(V1, ...)"], ["(V2, ...)", "u4"]],
         )
 
-        model += m3(input3="input1")
+        model += m3.connect(input3="input1")
         check_single_shape_semantically(
             model.get_shapes(verbose=True)["input1"], ["u4", "(V1, ...)", "u5"]
         )
@@ -4305,9 +4428,9 @@ def test_multiple_shape_reprs_1():
 def test_multiple_shape_reprs_2():
     model = Model()
     m1, m2, m3, m4 = tuple(MyVariadic10() for _ in range(4))
-    model += m1(input1="input1")
+    model += m1.connect(input1="input1")
     assert model.get_shapes(verbose=True)["input1"] == ["u1", "u2", "(V1, ...)"]
-    model += m2(input2="input1")
+    model += m2.connect(input2="input1")
     input_1_con = model.conns.get_connection("input1")
     assert input_1_con is not None
     assert input_1_con.metadata.shape is not None
@@ -4315,7 +4438,7 @@ def test_multiple_shape_reprs_2():
         ["u1", "u2", "(V1, ...)"],
         ["u1", "(V2, ...)", "u3"],
     ]
-    model += m3(input3="input1")
+    model += m3.connect(input3="input1")
 
     input_1_con = model.conns.get_connection("input1")
     assert input_1_con is not None
@@ -4325,7 +4448,7 @@ def test_multiple_shape_reprs_2():
         ["u1", "(V2, ...)", "u3"],
         ["(V3, ...)", "u4", "u3"],
     ]
-    model += m4(input4="input1")
+    model += m4.connect(input4="input1")
 
     input_1_con = model.conns.get_connection("input1")
     assert input_1_con is not None
@@ -4343,9 +4466,9 @@ def test_multiple_shape_reprs_3():
     for _ in range(100):
         model = Model()
         m1, m2, m3, m4, m5 = tuple(MyVariadic10() for _ in range(5))
-        model += m1(input1="input1")
+        model += m1.connect(input1="input1")
         assert model.get_shapes(verbose=True)["input1"] == ["u1", "u2", "(V1, ...)"]
-        model += m2(input2="input1")
+        model += m2.connect(input2="input1")
 
         input_1_con = model.conns.get_connection("input1")
         assert input_1_con is not None
@@ -4354,7 +4477,7 @@ def test_multiple_shape_reprs_3():
             ["u1", "u2", "(V1, ...)"],
             ["u1", "(V2, ...)", "u3"],
         ]
-        model += m3(input3="input1")
+        model += m3.connect(input3="input1")
 
         input_1_con = model.conns.get_connection("input1")
         assert input_1_con is not None
@@ -4364,7 +4487,7 @@ def test_multiple_shape_reprs_3():
             ["u1", "(V2, ...)", "u3"],
             ["(V3, ...)", "u4", "u3"],
         ]
-        model += m4(input5="input1")
+        model += m4.connect(input5="input1")
 
         input_1_con = model.conns.get_connection("input1")
         assert input_1_con is not None
@@ -4373,7 +4496,7 @@ def test_multiple_shape_reprs_3():
             ["u1", "u2", "(V1, ...)", "u3"],
             ["u1", "(V2, ...)", "u4", "u3"],
         ]
-        model += m5(input4="input1")
+        model += m5.connect(input4="input1")
 
         input_1_con = model.conns.get_connection("input1")
         assert input_1_con is not None
@@ -4411,7 +4534,7 @@ def test_multiple_shape_reprs_4():
     t_1 = Model2()
     t_2 = Model2()
     t_3 = Model2()
-    model += t_1(input="input", output=IOKey(name="output"))
+    model += t_1.connect(input="input", output=IOKey(name="output"))
     model += t_2
     model += t_3
     model.set_shapes(output=[3, "a"])
@@ -4429,8 +4552,8 @@ def test_total_repr_count():
     var2 = MyVariadic4()
     shapes: dict[str, list] = {"input": [1, ("Var", ...)]}
     var2.set_shapes(**shapes)
-    model |= (var1 := MyVariadic1())(output=IOKey(name="output"))
-    model |= var2(input=var1.output)
+    model |= (var1 := MyVariadic1()).connect(output=IOKey(name="output"))
+    model |= var2.connect(input=var1.output)
 
     edge = var2.input.metadata
 
@@ -4454,12 +4577,12 @@ def test_total_repr_count_linear_1():
 def test_variadic_naming_2():
     for _ in range(100):
         model = Model()
-        model |= MyVariadic1()(input="input1")
-        model |= (var2 := MyVariadic2())(input="input2")
-        model |= MyVariadic1()(input=var2.output)
-        model |= MyVariadic3()(input=var2.output)
-        model |= MyVariadic4()(input=var2.output)
-        model |= MyVariadic1()(input="input3")
+        model |= MyVariadic1().connect(input="input1")
+        model |= (var2 := MyVariadic2()).connect(input="input2")
+        model |= MyVariadic1().connect(input=var2.output)
+        model |= MyVariadic3().connect(input=var2.output)
+        model |= MyVariadic4().connect(input=var2.output)
+        model |= MyVariadic1().connect(input="input3")
         shape_1: dict[str, list] = {
             "input1": [("Var1", ...), "a"],
             "input3": [("Var1", ...), "b"],
@@ -4517,8 +4640,8 @@ def test_variadic_naming_2():
 
 def test_variadic_naming_3():
     model = Model()
-    model |= (var1 := MyVariadic1())(input="input")
-    model |= MyVariadic4()(input=var1.output, output=IOKey(name="output"))
+    model |= (var1 := MyVariadic1()).connect(input="input")
+    model |= MyVariadic4().connect(input=var1.output, output=IOKey(name="output"))
     ref_shapes = {
         "$_MyVariadic1_0_output": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
         "input": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
@@ -4529,8 +4652,8 @@ def test_variadic_naming_3():
 
 def test_variadic_naming_4():
     model = Model()
-    model |= (var2 := MyVariadic4())(input="a", output=IOKey(name="output"))
-    model |= MyVariadic1()(input="input", output=var2.input)
+    model |= (var2 := MyVariadic4()).connect(input="a", output=IOKey(name="output"))
+    model |= MyVariadic1().connect(input="input", output=var2.input)
     ref_shapes = {
         "a": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
         "input": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
@@ -4541,8 +4664,8 @@ def test_variadic_naming_4():
 
 def test_variadic_naming_5():
     model = Model()
-    model |= (var1 := MyVariadic5())(input="input")
-    model |= MyVariadic4()(input=var1.output, output=IOKey(name="output"))
+    model |= (var1 := MyVariadic5()).connect(input="input")
+    model |= MyVariadic4().connect(input=var1.output, output=IOKey(name="output"))
 
     ref_shapes = {
         "$_MyVariadic5_0_output": [["(V1, ...)", "a"], ["c", "(V2, ...)"]],
@@ -4554,8 +4677,8 @@ def test_variadic_naming_5():
 
 def test_variadic_naming_6():
     model = Model()
-    model |= (var2 := MyVariadic4())(input="a", output=IOKey(name="output"))
-    model |= MyVariadic5()(input="input", output=var2.input)
+    model |= (var2 := MyVariadic4()).connect(input="a", output=IOKey(name="output"))
+    model |= MyVariadic5().connect(input="input", output=var2.input)
 
     ref_shapes = {
         "a": [["(V1, ...)", "a"], ["c", "(V2, ...)"]],
@@ -4567,7 +4690,7 @@ def test_variadic_naming_6():
 
 def test_variadic_naming_7():
     model = Model()
-    model |= MyVariadic1()(
+    model |= MyVariadic1().connect(
         input="input",
     )
     model += MyVariadic4()
@@ -4587,7 +4710,7 @@ def test_unresolved_merge_1():
     #           [b, V2] - [b, V2]
     #                     [V3, c] - [c, c]
     model = Model()
-    model += MyVariadic1()(
+    model += MyVariadic1().connect(
         input="input",
     )
     model += MyVariadic4()
@@ -4662,7 +4785,7 @@ def test_unresolved_merge_5():
     sig_1.set_shapes(**shape_2)
     sig_2.set_shapes(**shape_3)
     model |= sig_1
-    model |= sig_2(input=sig_1.output, output=IOKey(name="output"))
+    model |= sig_2.connect(input=sig_1.output, output=IOKey(name="output"))
     ref_shapes = {
         "$_Sigmoid_0_output": [["a", "(V1, ...)"], ["(V2, ...)", "b"]],
         "$input": [["a", "(V1, ...)"], ["(V2, ...)", "b"]],
@@ -4744,9 +4867,9 @@ def test_unresolved_merge_8():
     sig_2.set_shapes(input=["u1", ("V1", ...), "u2"])
     sig_2.set_shapes(input=[("V1", ...), "u1", "u2"])
 
-    model |= sig_1(input="input")
-    model |= sig_2(input="input")
-    model |= sig_3(input="input")
+    model |= sig_1.connect(input="input")
+    model |= sig_2.connect(input="input")
+    model |= sig_3.connect(input="input")
     ref_shapes: dict[str, list] = {
         "$_Sigmoid_0_output": [1, "u1", "(V1, ...)", "u1", 1],
         "$_Sigmoid_1_output": [1, "u1", "(V1, ...)", "u1", 1],
@@ -4769,9 +4892,9 @@ def test_unresolved_merge_9():
     sig_2.set_shapes(input=["u1", 2, ("V1", ...)])
     sig_2.set_shapes(input=[("V1", ...), 3, "u2"])
 
-    model |= sig_1(input="input")
-    model |= sig_2(input="input")
-    model |= sig_3(input="input")
+    model |= sig_1.connect(input="input")
+    model |= sig_2.connect(input="input")
+    model |= sig_3.connect(input="input")
     ref_shapes: dict[str, list] = {
         "$_Sigmoid_0_output": [1, 2, "(V1, ...)", 3, 4],
         "$_Sigmoid_1_output": [1, 2, "(V1, ...)", 3, 4],
@@ -4901,7 +5024,7 @@ def test_variadic_naming_10():
     t_1 = Model2()
     t_2 = Model2()
     t_3 = Model2()
-    model += t_1(input="input", output=IOKey(name="output"))
+    model += t_1.connect(input="input", output=IOKey(name="output"))
     model += t_2
     model += t_3
     model.set_shapes(output=[3, 4])
@@ -4919,7 +5042,7 @@ def test_variadic_naming_11():
     t_1 = Model2()
     t_2 = Model2()
     t_3 = Model2()
-    model += t_1(input="input", output=IOKey(name="output"))
+    model += t_1.connect(input="input", output=IOKey(name="output"))
     model += t_2
     model += t_3
     model.set_shapes(output=[3, "a"])
@@ -4936,7 +5059,7 @@ def test_variadic_naming_11_1():
     model = Model()
     t_1 = Model2()
     t_2 = Model6()
-    model += t_1(input="input", output=IOKey(name="output"))
+    model += t_1.connect(input="input", output=IOKey(name="output"))
     model += t_2
     ref_shapes = {
         "$_Model6_1_output": ["(V1, ...)", "u1"],
@@ -5060,7 +5183,7 @@ def test_variadic_naming_11_2():
     model = Model()
     t_1 = Model2()
     t_2 = Model7()
-    model += t_1(input="input", output=IOKey(name="output"))
+    model += t_1.connect(input="input", output=IOKey(name="output"))
     model += t_2
     ref_shapes: dict[str, list] = {
         "$_Model7_1_output": ["u1", "(V1, ...)"],
@@ -5074,7 +5197,7 @@ def test_variadic_naming_11_3():
     model = Model()
     t_1 = Model7()
     t_2 = Model8()
-    model += t_1(input="input", output=IOKey(name="output"))
+    model += t_1.connect(input="input", output=IOKey(name="output"))
     model += t_2
     ref_shapes = {
         "$_Model8_1_output": [["(V1, ...)", "u1"], ["u2", "(V2, ...)"]],
@@ -5090,18 +5213,18 @@ def test_variadic_naming_12():
     buff_1 = Buffer()
     buff_2 = Buffer()
     buff_3 = Buffer()
-    model |= buff_1(input="input", output=IOKey(name="output1"))
-    model |= buff_2(input="output1", output=IOKey(name="output2"))
-    model |= buff_3(input="output2", output=IOKey(name="output3"))
+    model |= buff_1.connect(input="input", output=IOKey(name="output1"))
+    model |= buff_2.connect(input="output1", output=IOKey(name="output2"))
+    model |= buff_3.connect(input="output2", output=IOKey(name="output3"))
 
 
 def test_variadic_naming_13():
     model = Model()
-    model |= (mult := MatrixMultiply())(
+    model |= (mult := MatrixMultiply()).connect(
         left=IOKey("input", type=Tensor),
         right=IOKey("w", type=Tensor),
     )
-    model |= Add()(
+    model |= Add().connect(
         left=mult.output,
         right=IOKey("b", type=Tensor),
         output=IOKey(name="output"),
@@ -5191,7 +5314,7 @@ def test_variadic_naming_16() -> None:
                 output=BaseKey(shape=["b", ("Var1", ...), "a"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -5208,8 +5331,8 @@ def test_variadic_naming_16() -> None:
     }
     sig_model.set_shapes(**shape_1)
     sig_model.set_shapes(**shape_2)
-    model |= sig_model(input="input")
-    model |= test_model(input=sig_model.output, output=IOKey(name="output"))
+    model |= sig_model.connect(input="input")
+    model |= test_model.connect(input=sig_model.output, output=IOKey(name="output"))
 
     ref_shapes: Mapping[str, Sequence[Sequence[str] | str]] = {
         "input": ["u1", "(V1, ...)", "u2"],
@@ -5232,7 +5355,7 @@ def test_variadic_naming_17() -> None:
                 output=BaseKey(shape=["b", ("Var1", ...), "a"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -5249,8 +5372,8 @@ def test_variadic_naming_17() -> None:
         }
         sig_model.set_shapes(**shape_1)
         sig_model.set_shapes(**shape_2)
-        model |= sig_model(input="input")
-        model |= test_model(input=sig_model.output, output=IOKey(name="output"))
+        model |= sig_model.connect(input="input")
+        model |= test_model.connect(input=sig_model.output, output=IOKey(name="output"))
 
         ref_shapes: Mapping[str, Sequence[Sequence[str] | str]] = {
             "input": [
@@ -5290,11 +5413,11 @@ def test_variadic_naming_18():
     add_model_5.set_cin("left")
 
     model = Model()
-    model |= add_model_1(left="left", right="right")
+    model |= add_model_1.connect(left="left", right="right")
     model += add_model_2
     model += add_model_3
     model += add_model_4
-    model |= add_model_5(output=IOKey(name="output"))
+    model |= add_model_5.connect(output=IOKey(name="output"))
     shape_1: dict[str, list] = {"output": ["u1", "u2", "u3", ("Var1", ...)]}
     shape_2: dict[str, list] = {"output": ["u1", "u2", ("Var1", ...), "u3"]}
     shape_3: dict[str, list] = {"output": ["u1", ("Var1", ...), "u2", "u3"]}
@@ -5358,11 +5481,11 @@ def test_variadic_naming_19():
         add_model_5.set_cin("left")
 
         model = Model()
-        model += add_model_1(left="left", right="right")
+        model += add_model_1.connect(left="left", right="right")
         model += add_model_2
         model += add_model_3
         model += add_model_4
-        model |= add_model_5(output=IOKey(name="output"))
+        model |= add_model_5.connect(output=IOKey(name="output"))
 
         model.set_shapes(output=["u1", "u2", "u3", ("Var1", ...)])
         model.set_shapes(output=["u1", "u2", ("Var1", ...), "u3"])
@@ -5421,11 +5544,11 @@ def test_variadic_naming_20():
     add_model_5.set_cin("left")
 
     model = Model()
-    model += add_model_1(left="left", right="right")
+    model += add_model_1.connect(left="left", right="right")
     model += add_model_2
     model += add_model_3
     model += add_model_4
-    model |= add_model_5(output=IOKey(name="output"))
+    model |= add_model_5.connect(output=IOKey(name="output"))
     shape_1: dict[str, list] = {"output": ["a", ("Var1", ...), "b"]}
     shape_2: dict[str, list] = {"output": ["a", "b", ("Var1", ...)]}
     shape_3: dict[str, list] = {
@@ -5472,8 +5595,8 @@ def test_variadic_naming_22():
     sig_model.set_shapes(**shape_2)
     sig_model.set_shapes(**shape_3)
     model = Model()
-    model |= sig_model(output=IOKey(name="output"))
-    model |= red_model(input="input", output=sig_model.input, axis=-1)
+    model |= sig_model.connect(output=IOKey(name="output"))
+    model |= red_model.connect(input="input", output=sig_model.input, axis=-1)
     ref_shapes = {
         "$_Mean_0_output": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
         "input": [["(V2, ...)", "u2", "u3"], ["u1", "(V1, ...)", "u3"]],
@@ -5489,8 +5612,8 @@ def test_variadic_naming_23():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    model |= sig_model_1(input="input1", output=IOKey(name="output1"))
-    model |= sig_model_2(input="input2", output=IOKey(name="output2"))
+    model |= sig_model_1.connect(input="input1", output=IOKey(name="output1"))
+    model |= sig_model_2.connect(input="input2", output=IOKey(name="output2"))
     model.set_shapes(input1=[("V1", ...)], input2=[("V1", ...)])
     shape_1: dict[str, list] = {"output1": [("V1", ...), "a", "b"]}
     shape_2: dict[str, list] = {"output1": ["a", ("V1", ...), "b"]}
@@ -5511,8 +5634,8 @@ def test_variadic_naming_24():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    model |= sig_model_1(input="input1", output=IOKey(name="output1"))
-    model |= sig_model_2(input="input2", output=IOKey(name="output2"))
+    model |= sig_model_1.connect(input="input1", output=IOKey(name="output1"))
+    model |= sig_model_2.connect(input="input2", output=IOKey(name="output2"))
     model.set_shapes(input1=[("V1", ...)], input2=[("V1", ...)])
     shape_1: dict[str, list] = {"output1": [("V1", ...), "a", "b"]}
     shape_2: dict[str, list] = {"output1": ["a", ("V1", ...), "b"]}
@@ -5547,13 +5670,13 @@ def test_variadic_naming_25() -> None:
                 ),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
 
     model = Model()
-    model += MyModel()(input="input")
+    model += MyModel().connect(input="input")
     model += MyModel()
     model += MyModel()
     model += MyModel()
@@ -5592,7 +5715,7 @@ def test_variadic_naming_26() -> None:
                 output=BaseKey(shape=["a", ("Var1", ...), "c"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self,
             input1: ConnectionType = NOT_GIVEN,
             input2: ConnectionType = NOT_GIVEN,
@@ -5640,7 +5763,7 @@ def test_variadic_naming_27() -> None:
                 output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -5649,15 +5772,15 @@ def test_variadic_naming_27() -> None:
 
     model = Model()
 
-    model |= (buffer1 := Buffer())(input="input1")
-    model |= Buffer()(input=buffer1.output, output="output1")
+    model |= (buffer1 := Buffer()).connect(input="input1")
+    model |= Buffer().connect(input=buffer1.output, output="output1")
 
-    model |= Buffer()(input="input2")
-    model |= Buffer()(input=buffer1.output, output="output2")
+    model |= Buffer().connect(input="input2")
+    model |= Buffer().connect(input=buffer1.output, output="output2")
 
     model.set_shapes(input1=[("Var1", ...)], input2=[("Var1", ...)])
 
-    model |= test_model_1(input="output1", output="output3")
+    model |= test_model_1.connect(input="output1", output="output3")
     ref_shapes = {
         "$_Buffer_0_output": ["(V1, ...)", "u1"],
         "$_Buffer_2_output": ["(V1, ...)", "u1"],
@@ -5686,7 +5809,7 @@ def test_same_uniadic_1() -> None:
                 output=BaseKey(shape=[("Var1", ...), "u4"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -5729,7 +5852,7 @@ def test_same_uniadic_2() -> None:
                 output=BaseKey(shape=[("Var1", ...), "u4"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -5772,9 +5895,9 @@ def test_same_uniadic_3():
     buffer2 = Buffer()
     buffer3 = Buffer()
 
-    model |= buffer1(input="input1", output="output1")
-    model |= buffer2(input="input2", output="output2")
-    model |= buffer3(input="input3", output="output3")
+    model |= buffer1.connect(input="input1", output="output1")
+    model |= buffer2.connect(input="input2", output="output2")
+    model |= buffer3.connect(input="input3", output="output3")
     shape_1: dict[str, list] = {"input": [1, 1, ("V1", ...)]}
     shape_2: dict[str, list] = {"input": [1, ("V1", ...), 2]}
     shape_3: dict[str, list] = {"input": [1, ("V1", ...), 1]}
@@ -5802,9 +5925,9 @@ def test_same_uniadic_4():
     buffer2 = Buffer()
     buffer3 = Buffer()
 
-    model |= buffer1(input="input1", output="output1")
-    model |= buffer2(input="input2", output="output2")
-    model |= buffer3(input="input3", output="output3")
+    model |= buffer1.connect(input="input1", output="output1")
+    model |= buffer2.connect(input="input2", output="output2")
+    model |= buffer3.connect(input="input3", output="output3")
 
     shape_1: dict[str, list] = {"input": [1, 1, ("V1", ...)]}
     shape_2: dict[str, list] = {"input": [1, ("V1", ...), 2]}
@@ -5854,13 +5977,13 @@ def test_scalar_propagation():
     model = Model()
     shape_model = Shape()
     reduce_model = Mean(axis=TBD)
-    model += reduce_model(
+    model += reduce_model.connect(
         input="input_reduce", axis=(2, 3), output=IOKey(name="output")
     )
 
     # TODO: assert test
     with pytest.raises(Exception):  # noqa B017
-        model += shape_model(input="shape_input", output=reduce_model.axis)
+        model += shape_model.connect(input="shape_input", output=reduce_model.axis)
 
 
 def test_scalar_propagation_2():
@@ -5868,13 +5991,13 @@ def test_scalar_propagation_2():
     size_model = Size(dim=TBD)
 
     reduce_model = Mean(axis=TBD)
-    model += reduce_model(
+    model += reduce_model.connect(
         input="reduce_input", axis=(1, 2), output=IOKey(name="output")
     )
 
     # TODO: assert test
     with pytest.raises(Exception):  # noqa B017
-        model += size_model(output=reduce_model.axis, dim=reduce_model.axis)
+        model += size_model.connect(output=reduce_model.axis, dim=reduce_model.axis)
 
 
 def test_reshape_1():
@@ -5962,16 +6085,16 @@ def test_cartesian_call():
     sig_1.set_shapes(**shape_1)
     sig_2.set_shapes(**shape_2)
     model1 = Model()
-    model1 |= sig_1(input="input", output=IOKey(name="output1"))
-    model1 |= sig_2(input="input", output=IOKey(name="output2"))
+    model1 |= sig_1.connect(input="input", output=IOKey(name="output1"))
+    model1 |= sig_2.connect(input="input", output=IOKey(name="output2"))
 
     model2 = deepcopy(model1)
     model3 = Model()
     add_model = Add()
     add_model.set_shapes(output=["a", "b"])
-    model3 |= model1()
-    model3 |= model2()
-    model3 |= add_model(
+    model3 |= model1.connect()
+    model3 |= model2.connect()
+    model3 |= add_model.connect(
         left=model1.input,  # type: ignore
         right=model2.input,  # type: ignore
         output=IOKey(name="output"),
@@ -6024,16 +6147,16 @@ def test_cartesian_call_2():
     shape_2: dict[str, list] = {"input": ["a", "b", ("V1", ...)]}
     sig_1.set_shapes(**shape_1)
     sig_2.set_shapes(**shape_2)
-    model |= sig_1(input="input", output=IOKey(name="output"))
-    model |= sig_2(input="input", output=IOKey(name="output2"))
+    model |= sig_1.connect(input="input", output=IOKey(name="output"))
+    model |= sig_2.connect(input="input", output=IOKey(name="output2"))
 
     # connect two mean models to these inputs. One of them has axis of 0 and other
     # one of them has axis of -1. And let output of these mean models be output3 and
     # output4 respectively. In this setting, expected behavior for shapes is (b, V1) for
     # for output3 and (V2) for output4. This behavior is possible due to cartesian call
     # of each constraint.
-    model |= mean_model_1(axis=0, input="input", output=IOKey(name="output3"))
-    model |= mean_model_2(axis=-1, input="input", output="output4")
+    model |= mean_model_1.connect(axis=0, input="input", output=IOKey(name="output3"))
+    model |= mean_model_2.connect(axis=-1, input="input", output="output4")
 
     all_input_shapes = model.input.metadata.shape.reprs  # type: ignore
     assert len(all_input_shapes) == 2
@@ -6408,8 +6531,8 @@ def test_shaperepr_contains_16():
 def test_prune_match_1():
     """Prune model which input and output exposed"""
     model = Model()
-    model |= Squeeze()(input="input", output=IOKey(name="out1"))
-    model |= Squeeze()(input="input", output=IOKey(name="out2"))
+    model |= Squeeze().connect(input="input", output=IOKey(name="out1"))
+    model |= Squeeze().connect(input="input", output=IOKey(name="out2"))
     shape_1: dict[str, list] = {"out1": [3, 2, ("V1", ...)]}
     model.set_shapes(**shape_1)
 
@@ -6433,10 +6556,10 @@ def test_prune_match_2():
     shape_1: dict[str, list] = {"output": [3, 2, ("V1", ...)]}
     s1.set_shapes(**shape_1)
 
-    model |= s1(input="input")
-    model |= s2(input="input")
-    model |= Gelu()(input=s1.output, output=IOKey(name="out1"))
-    model |= Relu()(input=s2.output, output=IOKey(name="out2"))
+    model |= s1.connect(input="input")
+    model |= s2.connect(input="input")
+    model |= Gelu().connect(input=s1.output, output=IOKey(name="out1"))
+    model |= Relu().connect(input=s2.output, output=IOKey(name="out2"))
 
     shape: dict[str, list | None] = {
         "input": ["(V1, ...)"],
@@ -6466,13 +6589,13 @@ def test_prune_match_3():
     s1.set_shapes(**shape_1)
 
     model_sub = Model()
-    model_sub |= s1(input="input")
-    model_sub |= Gelu()(input=s1.output, output=IOKey(name="out1"))
+    model_sub |= s1.connect(input="input")
+    model_sub |= Gelu().connect(input=s1.output, output=IOKey(name="out1"))
 
-    model |= model_sub(input="input", out1=IOKey(name="out1"))
+    model |= model_sub.connect(input="input", out1=IOKey(name="out1"))
 
-    model |= s2(input="input")
-    model |= Relu()(input=s2.output, output=IOKey(name="out2"))
+    model |= s2.connect(input="input")
+    model |= Relu().connect(input=s2.output, output=IOKey(name="out2"))
 
     shape: dict[str, list] = {
         "input": ["(V1, ...)"],
@@ -6498,14 +6621,14 @@ def test_prune_match_4():
     s1, s2 = Squeeze(), Squeeze()
     shape_1: dict[str, list] = {"output": [3, 2, ("V1", ...)]}
     s1.set_shapes(**shape_1)
-    model |= s2(input="input")
-    model |= Relu()(input=s2.output, output=IOKey(name="out2"))
+    model |= s2.connect(input="input")
+    model |= Relu().connect(input=s2.output, output=IOKey(name="out2"))
 
     model_sub = Model()
-    model_sub |= s1(input="input")
-    model_sub |= Gelu()(input=s1.output, output=IOKey(name="out1"))
+    model_sub |= s1.connect(input="input")
+    model_sub |= Gelu().connect(input=s1.output, output=IOKey(name="out1"))
 
-    model |= model_sub(input="input", out1=IOKey(name="out1"))
+    model |= model_sub.connect(input="input", out1=IOKey(name="out1"))
 
     shape: dict[str, list] = {
         "input": ["(V1, ...)"],
@@ -6533,17 +6656,17 @@ def test_prune_match_5():
     s1.set_shapes(**shape_1)
 
     model_sub = Model()
-    model_sub |= s1(input="input")
-    model_sub |= Squeeze()(input=s1.output)
+    model_sub |= s1.connect(input="input")
+    model_sub |= Squeeze().connect(input=s1.output)
     model_sub += Squeeze()
-    model_sub |= Gelu()(input=model_sub.cout, output=IOKey(name="out1"))
+    model_sub |= Gelu().connect(input=model_sub.cout, output=IOKey(name="out1"))
 
-    model |= model_sub(input="input", out1=IOKey(name="out1"))
-    model |= s2(input="input")
+    model |= model_sub.connect(input="input", out1=IOKey(name="out1"))
+    model |= s2.connect(input="input")
     model.set_cout(s2.output)
     model += Squeeze()
     model += Squeeze()
-    model |= Relu()(input=model.cout, output=IOKey(name="out2"))
+    model |= Relu().connect(input=model.cout, output=IOKey(name="out2"))
 
     shape: dict[str, list] = {
         "input": ["(V1, ...)"],
@@ -6859,7 +6982,7 @@ def test_node_count_1():
 
 def test_node_count_2():
     model = Model()
-    model += MyVariadic4()(input="in1", output="out1")
+    model += MyVariadic4().connect(input="in1", output="out1")
     model += MyVariadic4()
     model += MyVariadic4()
     model += MyVariadic4()
@@ -6881,13 +7004,13 @@ def test_node_count_2():
 
 def test_node_count_3():
     model = Model()
-    model |= MyVariadic4()(input="in1", output="out1")
+    model |= MyVariadic4().connect(input="in1", output="out1")
     model += MyVariadic4()
     model += MyVariadic4()
     model += MyVariadic4()
     model += MyVariadic4()
     model += MyVariadic11()
-    model |= MyVariadic4()(input="in2")
+    model |= MyVariadic4().connect(input="in2")
 
     shapes = set()
     for con in model.conns.all.values():
@@ -7262,7 +7385,7 @@ def test_shapes_rnn():
 
 def test_numeric_compatibility_inference_1():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [1, ("Var1", ...)]}
     shape_2: dict[str, list] = {"input": [("Var1", ...), 2]}
     shape_3: dict[str, list] = {"input": [("Var1", ...), 3, 2]}
@@ -7278,7 +7401,7 @@ def test_numeric_compatibility_inference_1():
 
 def test_numeric_compatibility_inference_2():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 2, 3, 4]}
     shape_2: dict[str, list] = {"input": [1, 2, 3, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7292,7 +7415,7 @@ def test_numeric_compatibility_inference_2():
 
 def test_numeric_compatibility_inference_3():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 2, 3, 4]}
     shape_2: dict[str, list] = {"input": [1, 2, 3, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7306,7 +7429,7 @@ def test_numeric_compatibility_inference_3():
 
 def test_numeric_compatibility_inference_4():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
 
     shape_1: dict[str, list] = {"input": [1, 2, 3, ("Var1", ...)]}
     shape_2: dict[str, list] = {"input": [("Var1", ...), 2, 3, 4, 5]}
@@ -7322,7 +7445,7 @@ def test_numeric_compatibility_inference_4():
 
 def test_numeric_compatibility_inference_5():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 2, 3, 4, 5]}
     shape_2: dict[str, list] = {"input": [1, 2, 3, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7336,7 +7459,7 @@ def test_numeric_compatibility_inference_5():
 
 def test_numeric_compatibility_inference_6():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 3, 4]}
     shape_2: dict[str, list] = {"input": [1, 2, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7350,7 +7473,7 @@ def test_numeric_compatibility_inference_6():
 
 def test_numeric_compatibility_inference_7():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 2, 3]}
     shape_2: dict[str, list] = {"input": [1, 2, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7364,7 +7487,7 @@ def test_numeric_compatibility_inference_7():
 
 def test_numeric_compatibility_inference_8():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), "a", 1]}
     shape_2: dict[str, list] = {"input": ["b", 3, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7378,7 +7501,7 @@ def test_numeric_compatibility_inference_8():
 
 def test_numeric_compatibility_inference_9():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 1, 1]}
     shape_2: dict[str, list] = {"input": [1, 1, ("Var1", ...)]}
     model.set_shapes(**shape_1)
@@ -7392,7 +7515,7 @@ def test_numeric_compatibility_inference_9():
 
 def test_numeric_compatibility_inference_10():
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output"))
+    model += Buffer().connect(input="input", output=IOKey(name="output"))
     shape_1: dict[str, list] = {"input": [("Var1", ...), 1]}
     shape_2: dict[str, list] = {"input": [2, ("Var1", ...)]}
     shape_3: dict[str, list] = {"input": [("Var1", ...), 5, 4, 3, 1]}
@@ -7415,7 +7538,7 @@ def test_node_count_4():
                 output=BaseKey(shape=[("Var1", ...), "b"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -7449,7 +7572,7 @@ def test_node_count_5():
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self,
             input1: ConnectionType = NOT_GIVEN,
             input2: ConnectionType = NOT_GIVEN,
@@ -7467,7 +7590,7 @@ def test_node_count_5():
     buff_model.set_shapes(**shapes)
     model += test_model
     model.merge_connections(test_model.input2, buff_model.input)  # type: ignore
-    model |= Buffer()(input=buff_model.input, output=IOKey(name="output"))
+    model |= Buffer().connect(input=buff_model.input, output=IOKey(name="output"))
     all_nodes = get_all_nodes(model)
 
     data = buff_model.input.metadata
@@ -7513,9 +7636,9 @@ def test_node_count_8():
     add_model1.set_types(left=Tensor, right=Tensor)
     add_model2 = Add()
     add_model3 = Add()
-    model |= add_model1(left="left", right="right")
-    model |= add_model2(left="left", right=add_model1.output)
-    model |= add_model3(left="left", right=add_model2.output)
+    model |= add_model1.connect(left="left", right="right")
+    model |= add_model2.connect(left="left", right=add_model1.output)
+    model |= add_model3.connect(left="left", right=add_model2.output)
     model.set_shapes(left=[])
     ref_all_nodes = {model.left.metadata.shape, model.right.metadata.shape}  # type: ignore
     all_nodes = get_all_nodes(model)
@@ -7528,9 +7651,9 @@ def test_node_count_9():
     add_model1.set_types(left=Tensor, right=Tensor)
     add_model2 = Add()
     add_model3 = Add()
-    model |= add_model1(left="left", right="right")
-    model |= add_model2(left="left", right=add_model1.output)
-    model |= add_model3(left="left", right=add_model2.output)
+    model |= add_model1.connect(left="left", right="right")
+    model |= add_model2.connect(left="left", right=add_model1.output)
+    model |= add_model3.connect(left="left", right=add_model2.output)
     model.set_shapes(left=[])
     ref_all_nodes = {model.left.metadata.shape, model.right.metadata.shape}  # type: ignore
     all_nodes = get_all_nodes(model)
@@ -7544,15 +7667,15 @@ def test_node_count_10():
     buff_model2 = Buffer()
     buff_model3 = Buffer()
 
-    submodel1 |= buff_model1(
+    submodel1 |= buff_model1.connect(
         input=IOKey("input1", type=Tensor),
         output=IOKey(name="output1"),
     )
-    submodel1 |= buff_model2(
+    submodel1 |= buff_model2.connect(
         input=IOKey("input2", type=Tensor),
         output=IOKey(name="output2"),
     )
-    submodel1 |= buff_model3(
+    submodel1 |= buff_model3.connect(
         input=IOKey("input3", type=Tensor),
         output=IOKey(name="output3"),
     )
@@ -7561,13 +7684,13 @@ def test_node_count_10():
     submodel2 = deepcopy(submodel1)
     submodel3 = deepcopy(submodel1)
 
-    model |= submodel1(input1="input1", input2="input2", input3="input3")
-    model |= submodel2(
+    model |= submodel1.connect(input1="input1", input2="input2", input3="input3")
+    model |= submodel2.connect(
         input1=submodel1.output1,  # type: ignore
         input2=submodel1.output2,  # type: ignore
         input3=submodel1.output3,  # type: ignore
     )
-    model |= submodel3(
+    model |= submodel3.connect(
         input1=submodel2.output1,  # type: ignore
         input2=submodel2.output2,  # type: ignore
         input3=submodel2.output3,  # type: ignore
@@ -7585,22 +7708,30 @@ def test_node_count_10():
 def test_node_count_11():
     composite_3 = Model()
     m1 = Model()
-    m1 |= Add()(
+    m1 |= Add().connect(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
         output=IOKey(name="output"),
     )
     m2 = Model()
-    m2 |= m1(input1="input1", input2="input2")
-    m2 |= Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= m1.connect(input1="input1", input2="input2")
+    m2 |= Add().connect(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 |= m2(input1="input1", input2="input2")
-    m3 |= (add3 := Add())(left="input1", right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 |= m2.connect(input1="input1", input2="input2")
+    m3 |= (add3 := Add()).connect(
+        left="input1",
+        right=m2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
     m4 = Model()
-    m4 |= m3(input1="input1", input2="input2")
-    m4 |= Add()(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
-    composite_3 |= m4(input1="input1", input2="input2")
-    composite_3 |= Add()(left="input1", right=m4.output, output=IOKey(name="output"))  # type: ignore
+    m4 |= m3.connect(input1="input1", input2="input2")
+    m4 |= Add().connect(left="input1", right=m3.output, output=IOKey(name="output"))  # type: ignore
+    composite_3 |= m4.connect(input1="input1", input2="input2")
+    composite_3 |= Add().connect(
+        left="input1",
+        right=m4.output,  # type: ignore
+        output=IOKey(name="output"),
+    )
 
     add3.set_shapes(left=[])
 
@@ -7616,8 +7747,8 @@ def test_node_count_12():
     model = Model()
     buff_model1 = Buffer()
     buff_model2 = Buffer()
-    model |= buff_model1(input="input1", output=IOKey(name="output1"))
-    model |= buff_model2(input="input2", output=IOKey(name="output2"))
+    model |= buff_model1.connect(input="input1", output=IOKey(name="output1"))
+    model |= buff_model2.connect(input="input2", output=IOKey(name="output2"))
     shape_1: dict[str, list] = {
         "input1": ["x", "y", 1],
         "input2": ["x", "y", 1],
@@ -7633,8 +7764,8 @@ def test_node_count_13():
     model = Model()
     buff_model1 = Buffer()
     buff_model2 = Buffer()
-    model |= buff_model1(input="input1", output=IOKey(name="output1"))
-    model |= buff_model2(input="input2", output=IOKey(name="output2"))
+    model |= buff_model1.connect(input="input1", output=IOKey(name="output1"))
+    model |= buff_model2.connect(input="input2", output=IOKey(name="output2"))
     shape_1: dict[str, list] = {
         "input1": [("Var1", ...), "a"],
         "input2": [("Var1", ...), "a"],
@@ -7649,8 +7780,8 @@ def test_node_count_14():
     model = Model()
     buff_model1 = Buffer()
     buff_model2 = Buffer()
-    model |= buff_model1(input="input1", output=IOKey(name="output1"))
-    model |= buff_model2(input="input2", output=IOKey(name="output2"))
+    model |= buff_model1.connect(input="input1", output=IOKey(name="output1"))
+    model |= buff_model2.connect(input="input2", output=IOKey(name="output2"))
     model.set_shapes(input1=["x", "y", "z"], input2=["x", "y", "z"])
 
     all_nodes = get_all_nodes(model)
@@ -7662,8 +7793,8 @@ def test_node_count_15():
     model = Model()
     buff_model1 = Buffer()
     buff_model2 = Buffer()
-    model |= buff_model1(input="input1", output=IOKey(name="output1"))
-    model |= buff_model2(input="input2", output=IOKey(name="output2"))
+    model |= buff_model1.connect(input="input1", output=IOKey(name="output1"))
+    model |= buff_model2.connect(input="input2", output=IOKey(name="output2"))
     model.set_shapes(input1=[1, 1], input2=[1, 1])
 
     all_nodes = get_all_nodes(model)
@@ -7683,7 +7814,7 @@ def test_node_count_16() -> None:
                 output=BaseKey(shape=[5, 5], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -7713,7 +7844,7 @@ def test_node_count_18() -> None:
                 output=BaseKey(shape=["a", "b"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -7742,7 +7873,7 @@ def test_node_count_19() -> None:
                 output=BaseKey(shape=["c", ("V1", ...), "a", "b"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -7778,7 +7909,7 @@ def test_node_count_20() -> None:
                 output=BaseKey(shape=["b", "c", "a"], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -7814,7 +7945,7 @@ def test_node_count_21() -> None:
                 output=BaseKey(shape=[], type=Tensor),
             )
 
-        def __call__(  # type: ignore[override]
+        def connect(  # type: ignore[override]
             self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
         ):
             return ExtendInfo(self, {"input": input, "output": output})
@@ -7858,9 +7989,11 @@ def test_uniadic_repr_count_1():
 
 def test_uniadic_repr_count_2():
     model = Model()
-    model |= (buff_model1 := Buffer())(input="input1", output=IOKey(name="output1"))
-    model |= Buffer()(input="input2", output=IOKey(name="output2"))
-    model |= Buffer()(input="input3", output=IOKey(name="output3"))
+    model |= (buff_model1 := Buffer()).connect(
+        input="input1", output=IOKey(name="output1")
+    )
+    model |= Buffer().connect(input="input2", output=IOKey(name="output2"))
+    model |= Buffer().connect(input="input3", output=IOKey(name="output3"))
     shape_1: dict[str, list] = {
         "input1": [1, "u1", "u2"],
         "input2": [1, "u1", "u2"],
@@ -7885,12 +8018,14 @@ def test_uniadic_repr_count_2():
 
 def test_uniadic_repr_count_3():
     model = Model()
-    model |= (buff_model1 := Buffer())(input="input1", output=IOKey(name="output1"))
-    model |= Buffer()(input="input2", output=IOKey(name="output2"))
-    model |= Buffer()(input="input3", output=IOKey(name="output3"))
-    model |= Buffer()(input="input4", output="output4")
-    model |= Buffer()(input="input5", output="output5")
-    model |= Buffer()(input="input6", output="output6")
+    model |= (buff_model1 := Buffer()).connect(
+        input="input1", output=IOKey(name="output1")
+    )
+    model |= Buffer().connect(input="input2", output=IOKey(name="output2"))
+    model |= Buffer().connect(input="input3", output=IOKey(name="output3"))
+    model |= Buffer().connect(input="input4", output="output4")
+    model |= Buffer().connect(input="input5", output="output5")
+    model |= Buffer().connect(input="input6", output="output6")
 
     model.set_shapes(
         input1=["u1", "u2", "u3", "u4", "u5"],
@@ -7923,17 +8058,19 @@ def test_uniadic_repr_count_3():
 
 def test_uniadic_repr_count_4():
     model = Model()
-    model |= Buffer()(input="input1", output=IOKey(name="output1"))
-    model |= Buffer()(input="input2", output=IOKey(name="output2"))
-    model |= Buffer()(input="input3", output=IOKey(name="output3"))
-    model |= Buffer()(input="input4", output=IOKey(name="output4"))
-    model |= Buffer()(input="input5", output=IOKey(name="output5"))
-    model |= Buffer()(input="input6", output=IOKey(name="output6"))
+    model |= Buffer().connect(input="input1", output=IOKey(name="output1"))
+    model |= Buffer().connect(input="input2", output=IOKey(name="output2"))
+    model |= Buffer().connect(input="input3", output=IOKey(name="output3"))
+    model |= Buffer().connect(input="input4", output=IOKey(name="output4"))
+    model |= Buffer().connect(input="input5", output=IOKey(name="output5"))
+    model |= Buffer().connect(input="input6", output=IOKey(name="output6"))
 
     main_model = Model()
-    main_model |= (model1 := deepcopy(model))(**{key: key for key in model.input_keys})
+    main_model |= (model1 := deepcopy(model)).connect(
+        **{key: key for key in model.input_keys}
+    )
 
-    main_model |= (model2 := deepcopy(model))(
+    main_model |= (model2 := deepcopy(model)).connect(
         input1=model1.output1,  # type: ignore
         input2=model1.output2,  # type: ignore
         input3=model1.output3,  # type: ignore
@@ -7942,7 +8079,7 @@ def test_uniadic_repr_count_4():
         input6=model1.output6,  # type: ignore
     )
 
-    main_model |= (model3 := deepcopy(model))(
+    main_model |= (model3 := deepcopy(model)).connect(
         input1=model2.output1,  # type: ignore
         input2=model2.output2,  # type: ignore
         input3=model2.output3,  # type: ignore
@@ -7951,7 +8088,7 @@ def test_uniadic_repr_count_4():
         input6=model2.output6,  # type: ignore
     )
 
-    main_model |= deepcopy(model)(
+    main_model |= deepcopy(model).connect(
         input1=model3.output1,  # type: ignore
         input2=model3.output2,  # type: ignore
         input3=model3.output3,  # type: ignore
@@ -7990,12 +8127,14 @@ def test_uniadic_repr_count_4():
 
 def test_uniadic_repr_count_5():
     model = Model()
-    model |= (buff_model1 := Buffer())(input="input1", output=IOKey(name="output1"))
-    model |= Buffer()(input="input2", output=IOKey(name="output2"))
-    model |= Buffer()(input="input3", output=IOKey(name="output3"))
-    model |= Buffer()(input="input4", output="output4")
-    model |= Buffer()(input="input5", output="output5")
-    model |= Buffer()(input="input6", output="output6")
+    model |= (buff_model1 := Buffer()).connect(
+        input="input1", output=IOKey(name="output1")
+    )
+    model |= Buffer().connect(input="input2", output=IOKey(name="output2"))
+    model |= Buffer().connect(input="input3", output=IOKey(name="output3"))
+    model |= Buffer().connect(input="input4", output="output4")
+    model |= Buffer().connect(input="input5", output="output5")
+    model |= Buffer().connect(input="input6", output="output6")
 
     model.set_shapes(
         input1=[1, "u1"],
@@ -8053,8 +8192,8 @@ def test_different_constsolver_objects():
     relu1.set_shapes(input=[1, 2])
     relu2 = deepcopy(relu1)
 
-    model |= relu1(input="input1", output=IOKey(name="output1"))
-    model |= relu2(input="input2", output=IOKey(name="output2"))
+    model |= relu1.connect(input="input1", output=IOKey(name="output1"))
+    model |= relu2.connect(input="input2", output=IOKey(name="output2"))
     assert model.input2.metadata.shape == model.input1.metadata.shape  # type: ignore
 
 
@@ -8083,8 +8222,8 @@ def test_symbol_store():
     model1 = Model()
     model2 = Model()
     add_model = Add()
-    model1 += add_model(left="left", right="right", output=IOKey(name="output"))
-    model2 += model1(left="left", right="right", output=IOKey(name="output"))
+    model1 += add_model.connect(left="left", right="right", output=IOKey(name="output"))
+    model2 += model1.connect(left="left", right="right", output=IOKey(name="output"))
     model2.set_shapes(output=[2, 3, 4, 5])
     model1.set_shapes(left=[2, 3, 4, 5])
     add_model.set_shapes(right=[2, 3, 4, 5])
@@ -8100,7 +8239,7 @@ def test_multi_repr_with_integer_uni():
 
     model = Model()
     relu_model = Relu()
-    model += relu_model(input="input", output=IOKey(name="output"))
+    model += relu_model.connect(input="input", output=IOKey(name="output"))
     model.set_shapes(input=[("Var1", ...), 1])
     model.set_shapes(input=[1, ("Var1", ...)])
     input_shape_node = model.input.metadata.shape  # type: ignore
@@ -8130,7 +8269,9 @@ def test_add_model_with_scalar_input():
 
     left_input: Tensor[float] = Tensor(np.ones((3, 4, 5, 6, 7)).tolist())
     right_input: Tensor[float] = Tensor(np.ones((3, 4, 5, 6, 7)).tolist())
-    model += add1(left=left_input, right=right_input, output=IOKey(name="output"))
+    model += add1.connect(
+        left=left_input, right=right_input, output=IOKey(name="output")
+    )
     assert_all_nodes_unique(model)
 
 
@@ -8138,7 +8279,7 @@ def test_add_model_set_shapes():
     model = Model()
     add1 = Add()
 
-    model += add1(left="left", right="right", output=IOKey(name="output"))
+    model += add1.connect(left="left", right="right", output=IOKey(name="output"))
     model.set_shapes(left=[3, 4, 5, 6, 7], right=[3, 4, 5, 6, 7])
     assert_all_nodes_unique(model)
 
@@ -8296,8 +8437,8 @@ def test_possible_uniadic_values_directed_12():
 
 def test_possible_uniadic_values_1():
     model = Model()
-    model |= Add()(left="l1", right="r1", output="o1")
-    model |= Add()(left="l1", right="r2", output="o2")
+    model |= Add().connect(left="l1", right="r1", output="o1")
+    model |= Add().connect(left="l1", right="r2", output="o2")
     shapes: dict[str, list] = {
         "o1": [4],
         "l1": [None],
@@ -9666,7 +9807,7 @@ def test_connect_shapes():
     model |= relu1
     model |= relu2
     model.merge_connections(relu1.input, relu2.input)
-    model |= relu3(input="input", output=relu1.input)
+    model |= relu3.connect(input="input", output=relu1.input)
 
     assert model.shapes["input"] == [5, 7]
 
@@ -9674,7 +9815,7 @@ def test_connect_shapes():
 def test_remove_variadic():
     model = Model()
     sig2 = Sigmoid()
-    model += sig2(input="input", output="output")
+    model += sig2.connect(input="input", output="output")
     model.set_shapes(input=[7, ("Var1", ...), 5])
     with pytest.raises(Exception) as err_info:
         # model.shape_map["output"].remove_variadic([Uniadic(5)])
@@ -9764,8 +9905,8 @@ def test_bcast_4():
     #     "output": [3, 5]
     # })
 
-    model |= add1()
-    model |= add2(left=add1.output, right=add1.right)
+    model |= add1.connect()
+    model |= add2.connect(left=add1.output, right=add1.right)
     ref_shapes: dict[str, list] = {
         "$_Add_0_output": ["a", "b"],
         "$_Add_1_output": ["a", "b"],
@@ -9794,8 +9935,8 @@ def test_bcast_4_len1():
 
     add2.set_shapes(output=["a"])
 
-    model |= add1()
-    model |= add2(left=add1.output, right=add1.right)
+    model |= add1.connect()
+    model |= add2.connect(left=add1.output, right=add1.right)
     ref_shapes: dict[str, list] = {
         "$_Add_0_output": ["a"],
         "$_Add_1_output": ["a"],
@@ -9818,7 +9959,7 @@ def test_bcast_pos_val_1():
     add2.set_shapes(right=[1, 1], output=["a", "b"])
 
     model |= add1
-    model |= add2(left=add1.output)
+    model |= add2.connect(left=add1.output)
     ref_shapes: dict[str, list] = {
         "$_Add_0_output": ["u1", "u2"],
         "$_Add_1_output": ["u1", "u2"],
@@ -10087,8 +10228,10 @@ def test_shapes_tensor_item_numeric():
     relu_model1 = Relu()
     relu_model2 = Relu()
     relu_model1.set_shapes(input=[("V1", ...), "u1", "u2"])
-    model |= relu_model1(input="input", output="output")
-    model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+    model |= relu_model1.connect(input="input", output="output")
+    model |= relu_model2.connect(
+        input=relu_model1.output[:, None, :, 2:4], output="output2"
+    )
     model.set_shapes(input=[3, 4, 5])
 
     ref = {
@@ -10119,8 +10262,10 @@ def test_shapes_tensor_item_symbolic():
     relu_model1 = Relu()
     relu_model2 = Relu()
     relu_model1.set_shapes(input=[("V1", ...), "u1", "u2"])
-    model |= relu_model1(input="input", output="output")
-    model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+    model |= relu_model1.connect(input="input", output="output")
+    model |= relu_model2.connect(
+        input=relu_model1.output[:, None, :, 2:4], output="output2"
+    )
 
     ref: Mapping[str, list | None] = {
         "$_Slice_1_output": None,
@@ -10148,10 +10293,10 @@ def test_shapes_tensor_item_symbolic():
 def test_tensor_item_with_single_tensor_index():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]])]
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "output": [7, 4, 5],
@@ -10166,10 +10311,10 @@ def test_tensor_item_with_single_tensor_index():
 def test_tensor_item_with_multiple_tensor_index():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]]), Tensor([[[1]]])]  # type: ignore
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "output": [7, 4, 5],
@@ -10187,14 +10332,14 @@ def test_tensor_item_with_multiple_tensor_index():
 def test_tensor_item_with_slice_and_multiple_tensor_index():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[
         1:7,  # type: ignore
         Tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
         Tensor([[[1]], [[2]], [[3]], [[1]], [[0]]]),
     ]
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "$_Slice_1_output": None,
@@ -10215,7 +10360,7 @@ def test_tensor_item_with_slice_and_multiple_tensor_index():
 def test_tensor_item_with_slice_and_non_consecutive_tensors():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[
         1:7,  # type: ignore
@@ -10223,7 +10368,7 @@ def test_tensor_item_with_slice_and_non_consecutive_tensors():
         None,
         Tensor([[[1]], [[2]], [[3]], [[1]], [[0]]]),
     ]
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "$_Slice_1_output": None,
@@ -10246,10 +10391,10 @@ def test_tensor_item_with_slice_and_non_consecutive_tensors():
 def test_tensor_item_with_post_ellipsis_non_consecutive_tensors_and_int():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[..., Tensor([[1, 1, 0], [1, 0, 2], [2, 2, 2]]), None, 2]  # type: ignore
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "output": [7, 4, 5],
@@ -10279,7 +10424,7 @@ def test_index_with_two_consec_arange():
     model.set_shapes({relu.input: [2, 3, 4]})
 
     output = relu.output[None, None, None, tensor1, tensor2]
-    model |= Buffer()(input=output, output="output")
+    model |= Buffer().connect(input=output, output="output")
 
     ref: Mapping[str, list | None] = {
         "$_Arange_0_output": [7],
@@ -10326,7 +10471,7 @@ def test_index_with_two_non_consec_arange():
     model.set_shapes({relu.input: [2, 3, 4]})
 
     output = relu.output[None, None, None, tensor1, 1:3, tensor2]
-    model |= Buffer()(input=output, output="output")
+    model |= Buffer().connect(input=output, output="output")
 
     ref: Mapping[str, list | None] = {
         "$_Arange_0_output": [7],
@@ -10367,10 +10512,10 @@ def test_index_with_two_non_consec_arange():
 def test_index_with_list_int():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[[[1, 2, 3], [4, 5, 6], [7, 8, 9]]]
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "output": [7, 4, 5],
@@ -10385,10 +10530,10 @@ def test_index_with_list_int():
 def test_index_with_list_of_tuple_ints():
     model = Model()
     relu_model = Relu()
-    model |= relu_model(input="input", output="output")
+    model |= relu_model.connect(input="input", output="output")
     model.set_shapes(input=[7, 4, 5])
     output = model.cout[None, None, [[1, 2, 3, 4, 5, 6]], None, [[1], [2], [3]]]  # type: ignore
-    model |= Buffer()(input=output, output="output2")
+    model |= Buffer().connect(input=output, output="output2")
 
     ref: Mapping[str, list | None] = {
         "output": [7, 4, 5],
@@ -10408,10 +10553,10 @@ def test_index_with_list_of_tuple_ints():
 def test_partial_shape_propagation():
     model = Model()
     relu_model = Relu()
-    model += relu_model(input="input", output="output1")
+    model |= relu_model.connect(input="input", output="output1")
     model.set_shapes(input=["u1", "u2", 3, 4])
     shp_1 = model.cout.shape[-1]
     shp_2 = model.cout.shape[-2]
     out = shp_1 * shp_2
-    model |= Buffer()(input=out, output="output2")
+    model |= Buffer().connect(input=out, output="output2")
     assert model.cout.metadata.value == 12
