@@ -367,9 +367,6 @@ class FlatGraph(GenericDataType[DataType]):
         self.connections[new_source_key].source_keys = cache_source_keys
         self.all_target_keys.add(target_key)
 
-    def _rename_key(self, old_key: str, new_key: str) -> None:
-        self.connections[new_key] = self.connections.pop(old_key)
-
     def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
         # should be updated with the new reference key.

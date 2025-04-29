@@ -310,7 +310,7 @@ def test_discard_from_middle():
     )
 
 
-def test_flat_graph_insert_to_input_siso_1():
+def test_insert_to_input_siso_used_by_single_op():
     # Insert before SISO operator
     sine_op = SineOp()
     cosine_op = CosineOp()
@@ -340,7 +340,7 @@ def test_flat_graph_insert_to_input_siso_1():
     assert fg.get_target_keys("sin_out") == ["transpose_out"]
 
 
-def test_flat_graph_insert_to_input_siso_2():
+def test_insert_to_input_siso_used_by_multiple_ops():
     # Insert before SISO operator
     # The input is used by multiple operators
     sine_op = SineOp()
@@ -383,7 +383,7 @@ def test_flat_graph_insert_to_input_siso_2():
     assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
 
 
-def test_flat_graph_insert_to_input_miso_1():
+def test_insert_to_input_miso_used_by_single_op():
     # Insert before MISO operator
     # The input is used by single operators
     sine_op = SineOp()
@@ -414,7 +414,7 @@ def test_flat_graph_insert_to_input_miso_1():
     assert fg.get_target_keys("sin_out") == ["transpose_out"]
 
 
-def test_flat_graph_insert_to_input_miso_2():
+def test_insert_to_input_miso_used_by_multiple_ops():
     # Insert before MISO operator
     # The input is used by multiple operators
     sine_op = SineOp()
@@ -457,7 +457,7 @@ def test_flat_graph_insert_to_input_miso_2():
     assert fg.get_source_keys("multiply_out") == ["transpose_out", "input"]
 
 
-def test_flat_graph_insert_to_output_siso_1():
+def test_insert_to_output_siso_used_by_single_op():
     # Insert after SISO operator
     sine_op = SineOp()
     cosine_op = CosineOp()
@@ -488,7 +488,7 @@ def test_flat_graph_insert_to_output_siso_1():
     assert fg.get_target_keys("sin_out") == ["output"]
 
 
-def test_flat_graph_insert_to_output_siso_2():
+def test_insert_to_output_siso_used_by_multiple_ops():
     # Insert before SISO operator
     # The output is used by multiple operators
     sine_op = SineOp()
@@ -532,7 +532,7 @@ def test_flat_graph_insert_to_output_siso_2():
     assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
 
 
-def test_flat_graph_insert_errors():
+def test_insert_errors():
     # Insert after SISO operator
     # The output is used by multiple operators
     sine_op = SineOp()
@@ -605,3 +605,21 @@ def test_flat_graph_insert_errors():
         )
 
     assert str(e.value) == ("Inserted key `sin_out` must be in the keys dictionary")
+
+
+def test_insert_to_output_key_not_in_keys_err():
+    # If the target inserted key not in the keys raise error
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            cosine_op,
+            {"input": "sin_out", "output": "cos_out"},
+            "sin_out",
+            sine_op,
+            "not_in_keys",
+        )
+
+    assert str(e.value) == ("Inserted key `not_in_keys` must be in the keys dictionary")
