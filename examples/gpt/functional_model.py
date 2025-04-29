@@ -55,7 +55,6 @@ def causal_attention(input_dim, num_heads, bias=True):
     return Model.create(output, name="attn")
 
 
-
 def mlp(n_embd: int):
     fc_out = Linear(n_embd * 4, name="c_fc")(input=IOKey("input"))
     gelu_out = Gelu()(input=fc_out)
@@ -87,7 +86,7 @@ def create_gpt(bias, block_size, dims, num_heads, num_layers, vocab_size):
     for idx in range(num_layers):
         block_out = create_block(f"{idx}", dims, num_heads)(input=block_out)
     blocks_out = Model.create(block_out, name="h")(input=pos_out + token_out)
-    
+
     ln_out = LayerNorm(use_bias=bias, name="ln_f")(input=blocks_out)
     transformer = Model.create(ln_out, name="transformer")
     # Create GPT
