@@ -931,3 +931,19 @@ def test_functional_model_with_decorator_nested():
     parent_model._freeze()
 
     assert_models_equal(functional_model, parent_model)
+
+
+def test_functional_model_with_call_concat():
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = Concat()(input=[input1**2, Add(right=1)(input2)])
+    functional_model = Model.create(x)
+
+    # Equivalent model using the |= operator
+    model = Model()
+    model |= (pow := Power(exponent=2)).connect("input1")
+    model |= (add := Add(right=1)).connect("input2")
+    model |= Concat().connect(input=[pow.output, add.output])
+    model._freeze()
+
+    assert_models_equal(functional_model, model)  # type: ignore

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Callable, KeysView, Mapping, Sequence
 from dataclasses import dataclass
 from types import EllipsisType
@@ -450,14 +451,18 @@ class Model(BaseModel):
         """
         model = Model(name=name)
 
-        for value in list(args) + list(kwargs.values()):
+        # Iterate over the input arguments and keyword arguments
+        # and extract the submodels from them.
+        for value in itertools.chain(args, kwargs.values()):
             assert value.model is not None
             extract_m = value.model._get_outermost_parent()
             assert isinstance(extract_m, Model)
             model.extend_extracted_model(extract_m, value)
 
+        # Iterate over the named arguments and assign them to the model
         for key, value in kwargs.items():
             model.rename_key(value, key)
+        # Freeze the model to prevent further modifications
         model._freeze()
         return model
 
@@ -470,9 +475,12 @@ class Model(BaseModel):
         self,
         *args: ConnectionType | MainValueType | Tensor[int | float | bool],
         **kwargs: ConnectionType | MainValueType | Tensor[int | float | bool],
-    ) -> Connection | list[Connection]:
-        keys = list(args) + list(kwargs.values())
-        provisional_model, _conns = create_provisional_model(connections=keys)  # type: ignore
+    ) -> Connection:
+        # Create a provisional model.
+        _conns = list(args) + list(kwargs.values())
+        provisional_model = create_provisional_model(connections=_conns)  # type: ignore
+
+        # Prepare extend inputs from args and kwargs
         _args = {
             key: con for key, _, con in zip(self.input_keys, args, _conns, strict=False)
         }
@@ -482,11 +490,16 @@ class Model(BaseModel):
             for key, con in zip(kwargs.keys(), _conns[len(args) :], strict=True)
         }
 
-        provisional_model._extend(self, _args | _kwargs)
+        # Extend the provisional model with the current model.
+        # provisional_model._extend(self, _args | _kwargs)
+        provisional_model |= self.connect(**(_args | _kwargs))
+
+        # Return all output connections of the model.
         outputs = list(self.conns.output_connections)
 
         if len(outputs) == 1:
-            return outputs[0]  # type: ignore
+            assert isinstance(outputs[0], Connection)
+            return outputs[0]
         return outputs  # type: ignore
 
     def _create_connection(
@@ -830,9 +843,31 @@ class Model(BaseModel):
                 model.summary(**kwargs)  # type: ignore
 
 
-def create_provisional_model(
-    connections: list[TemplateConnectionType],
-) -> tuple[Model, list[TemplateConnectionType]]:
+def update_connections(
+    connections: list[TemplateConnectionType | ConnectionData],
+    main_model: Model,
+    provisional_model: BaseModel,
+) -> None:
+    # Recursively iterate over connections, if connection is coming from main model,
+    # create a new connection with same edge, otherwise use existing element as is.
+
+    for idx, c in enumerate(connections):
+        if isinstance(c, list | tuple):
+            update_connections(c, main_model, provisional_model)  # type: ignore
+        elif (
+            isinstance(c, ConnectionData)
+            and c.model is not None
+            and c.model._get_outermost_parent() is main_model
+        ):
+            _c = main_model.conns.get_con_by_metadata(c.metadata)
+            assert isinstance(_c, ConnectionData)
+            con = provisional_model.conns.get_con_by_metadata(_c.metadata)
+            if con is None:
+                con = _c._replicate()
+            connections[idx] = con
+
+
+def create_provisional_model(connections: list[TemplateConnectionType]) -> Model:
     """
     Create a provisional model for connection-based operations (e.g. +, abs(), etc.).
     If any connection contains an associated model, that is considered the main model.
@@ -847,11 +882,21 @@ def create_provisional_model(
     provisional_model: BaseModel | None = None
     main_model: Model | None = None
     new_models: list[BaseModel] = []
-    for c in connections:
-        if isinstance(c, str):
+    # Find all connections in the connections list
+    all_conns = []
+    stack: list[Any] = [connections]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ConnectionData):
+            all_conns.append(current)
+        elif isinstance(current, list | tuple):
+            stack.extend(current)
+        elif isinstance(current, str):
             raise ValueError(
                 "Strings are not allowed to be used in Connection Operations!"
             )
+
+    for c in all_conns:
         if isinstance(c, ConnectionData) and c.model is not None:
             m = c.model
             if isinstance(m.provisional_source, BaseModel):
@@ -883,23 +928,9 @@ def create_provisional_model(
             provisional_model.provisional_source = True
 
     assert isinstance(provisional_model, Model)
-    _connections: list[TemplateConnectionType | ConnectionData] = []
-    # Iterate over connections, if connection is coming from main model, create
-    # a new connection with same edge, otherwise use connections as is.
-    for c in connections:
-        if (
-            isinstance(c, ConnectionData)
-            and c.model is not None
-            and c.model._get_outermost_parent() is main_model
-        ):
-            _c = main_model.conns.get_con_by_metadata(c.metadata)
-            assert isinstance(_c, ConnectionData)
-            con = provisional_model.conns.get_con_by_metadata(_c.metadata)
-            if con is None:
-                con = _c._replicate()
-            _connections.append(con)
-        else:
-            _connections.append(c)
+    # Note that update_connections changes connections list in place by replacing
+    # the connections with the new connections.
+    update_connections(connections, main_model, provisional_model)  # type: ignore
 
     # Merge provisional models
     for m in new_models:
@@ -913,7 +944,7 @@ def create_provisional_model(
             provisional_model._extend_with_submodels(m, clear=True)
         else:
             provisional_model._extend(m)
-    return provisional_model, _connections  # type: ignore
+    return provisional_model
 
 
 def extend_with_op_model(
@@ -921,27 +952,32 @@ def extend_with_op_model(
     model: type[Operator],
     defaults: dict[str, Any] | None = None,
 ) -> Connection:
-    provisional_model, _connections = create_provisional_model(connections)
-    return provisional_model._extend_op_model(_connections, model, defaults)  # type: ignore
+    provisional_model = create_provisional_model(connections)
+    return provisional_model._extend_op_model(connections, model, defaults)  # type: ignore
 
 
 # Define the model decorator
 def functional(name: str | None = None) -> Callable[..., Any]:
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        # TODO: We should check if all inputs are connections.
+        # TODO: We may need to check if all inputs are proper connections.
 
         # Get only positional arguments.
         code = func.__code__
         input_strings = list(code.co_varnames[: code.co_argcount])
 
         def wrapper(*args, **kwargs) -> Any:  # type: ignore
-            inputs = [IOKey() for _ in range(len(args))]
+            # Create a list of empty Connection objects for each argument
+            inputs = [Connection() for _ in range(len(args))]
+            # Call the function with the created input list and create a new model
             result = func(*inputs, **kwargs)
-            m = Model.create(result, name=name)
-            for key, con in zip(input_strings, inputs, strict=False):
-                m.rename_key(con, key)
+            model = Model.create(result, name=name)
+            # Iterate over the named arguments and assign them to the model
+            for key, value in zip(input_strings, inputs, strict=False):
+                model.rename_key(value, key)
+
+            # Prepare the call keys for the model and return call of the model
             call_keys = {key: con for key, con in zip(input_strings, args, strict=True)}
-            return m(**call_keys)
+            return model(**call_keys)
 
         return wrapper
 
