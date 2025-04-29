@@ -449,7 +449,7 @@ class Model(BaseModel):
         """
         Create a new instance of the Model class.
         """
-        model = Model(name=name)
+        model = cls(name=name)
 
         # Iterate over the input arguments and keyword arguments
         # and extract the submodels from them.
@@ -972,15 +972,14 @@ def _extend_with_op_model(
     return provisional_model._extend_op_model(connections, model, defaults)  # type: ignore
 
 
-# Define the model decorator
-def functional(name: str | None = None) -> Callable[..., Any]:
+def functional(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     A decorator that transforms a function defining a computational model into one that
     automatically wires its input and output connections.
 
     For example, when decorating a function like:
 
-        @functional("my_lin")
+        @functional
         def lin(left, right):
             scale = IOKey("scale")
             add_output = Add()(left=left, right=right)
@@ -989,9 +988,9 @@ def functional(name: str | None = None) -> Callable[..., Any]:
 
     the decorator converts it into behavior equivalent to writing:
 
-        def manual_functional_lin(left, right):
+        def manual_functional_lin(left, right, name=None):
             l, r = IOKey(), IOKey()
-            m = Model.create(lin(l, r), name="my_lin")
+            m = Model.create(lin(l, r), name=name)
             m.rename_key(l, "left")
             m.rename_key(r, "right")
             return m(left, right)
@@ -1009,30 +1008,30 @@ def functional(name: str | None = None) -> Callable[..., Any]:
     outputs, abstracting the manual wiring of connection objects.
     """
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        # TODO: We may need to check if all inputs are proper connections.
+    # Get only positional arguments.
+    code = func.__code__
+    input_strings = list(code.co_varnames[: code.co_argcount])
 
-        # Get only positional arguments.
-        code = func.__code__
-        input_strings = list(code.co_varnames[: code.co_argcount])
+    def wrapper(*args, **kwargs) -> Any:  # type: ignore
+        # Extract name from kwargs if provided
+        name = kwargs.pop("name", None)
 
-        def wrapper(*args, **kwargs) -> Any:  # type: ignore
-            # Create a list of temporary Connection objects for each argument.
-            inputs = [Connection() for _ in range(len(args))]
-            # Call the function with the temporary connections and create a new model.
-            result = func(*inputs, **kwargs)
-            model = Model.create(result, name=name)
-            # Map the temporary connection names to the model.
-            for key, value in zip(input_strings, inputs, strict=False):
-                model.rename_key(value, key)
+        # Create a list of temporary Connection objects for each argument.
+        inputs = [Connection() for _ in range(len(args))]
+        # Call the function with the temporary connections and create a new model.
+        result = func(*inputs, **kwargs)
+        model = Model.create(result, name=name)
+        if name is None:
+            model._model_name = func.__name__
+        # Map the temporary connection names to the model.
+        for key, value in zip(input_strings, inputs, strict=False):
+            model.rename_key(value, key)
 
-            # Prepare the call keys for the model and return the model's output.
-            call_keys = {key: con for key, con in zip(input_strings, args, strict=True)}
-            return model(**call_keys)
+        # Prepare the call keys for the model and return the model's output.
+        call_keys = {key: con for key, con in zip(input_strings, args, strict=True)}
+        return model(**call_keys)
 
-        return wrapper
-
-    return decorator
+    return wrapper
 
 
 def define_unique_names(

@@ -416,6 +416,7 @@ class BaseModel:
 
     # TODO: This can be checked from backend's gradient function dict???
     disposable: bool = False
+    _model_name: str = ""
     # TODO: factory_args should be instance variable not class!
     factory_args: dict[str, Any] = {}
 
@@ -1514,7 +1515,9 @@ class BaseModel:
 
     @property
     def class_name(self) -> str:
-        return self.__class__.__name__
+        if self._model_name == "":
+            return self.__class__.__name__
+        return self._model_name
 
     @property
     def enforce_jit(self) -> bool:

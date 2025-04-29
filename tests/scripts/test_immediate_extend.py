@@ -865,27 +865,44 @@ def test_functional_attn_block():
     assert_models_equal(functional_model, model)
 
 
-@functional("my_lin")
-def lin(left, right):
+@functional
+def my_lin(left, right):
     scale = IOKey("scale")
     add_output = Add()(left=left, right=right)
     mult_out = Multiply()(left=left, right=add_output)
     return mult_out * scale  # type: ignore
 
 
-def manual_functional_lin(left, right):
+def manual_functional_lin(left, right, name: str | None = None):
     _l, _r = IOKey(), IOKey()
-    m = Model.create(lin(_l, _r), name="my_lin")
+    m = Model.create(my_lin(_l, _r), name=name)
     m.rename_key(_l, "left")
     m.rename_key(_r, "right")
     return m(left, right)
+
+
+def test_functional_model_naming():
+    # Functional API with name
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = my_lin(input1, input2, name="my_lin")
+    functional_model = Model.create(x)
+    assert list(functional_model.dag)[0].name == "my_lin"
+
+    # Functional API without name
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = my_lin(input1, input2)
+    functional_model_no_name = Model.create(x)
+    assert list(functional_model_no_name.dag)[0].name == "my_lin"
+    assert_models_equal(functional_model, functional_model_no_name)
 
 
 def test_functional_model_with_decorator():
     # Functional API with decorator
     input1 = IOKey("input1")
     input2 = IOKey("input2")
-    x = lin(input1, input2)
+    x = my_lin(input1, input2, name="my_lin")
 
     # Equivalent model using the |= operator
 
@@ -906,29 +923,29 @@ def test_functional_model_with_decorator():
 
     input1 = IOKey("input1")
     input2 = IOKey("input2")
-    x = manual_functional_lin(input1, input2)
+    x = manual_functional_lin(input1, input2, name="my_lin")
     manual_functional_model = Model.create(x)
     assert_models_equal(manual_functional_model, functional_model)
 
 
-@functional("my_square")
+@functional
 def square(arg):
     return arg**2
 
 
-@functional("my_lin")
+@functional
 def lin_nested(left, right, *, scale_shp=None):
     scale = IOKey("scale", shape=scale_shp)
     add_output = Add()(left=left, right=right)
     mult_out = Multiply()(left=left, right=add_output)
-    return mult_out * square(scale)
+    return mult_out * square(scale, name="my_square")
 
 
 def test_functional_model_with_decorator_nested():
     # Functional API with nested functional model
     input1 = IOKey("input1")
     input2 = IOKey("input2")
-    x = lin_nested(input1, input2)
+    x = lin_nested(input1, input2, name="my_lin")
     functional_model = Model.create(x)
 
     # Equivalent model using the |= operator
