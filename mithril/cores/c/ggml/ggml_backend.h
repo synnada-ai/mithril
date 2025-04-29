@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #ifndef GGMLBACKEND_H
 #define GGMLBACKEND_H
 
-#include "ops.h"
 #include "ggml/include/ggml-cpu.h"
+#include "ops.h"
 #include <string.h>
 
 #endif

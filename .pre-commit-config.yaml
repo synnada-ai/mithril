@@ -1,5 +1,9 @@
 exclude: '^mithril/cores/c/ggml/ggml/'
 repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v19.1.7
+    hooks:
+    -   id: clang-format
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.6.6

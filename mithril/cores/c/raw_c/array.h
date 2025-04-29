@@ -15,17 +15,16 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
-typedef struct
-{
-    float *data;
-    int *shape;
-    int *strides;
+typedef struct {
+  float *data;
+  int *shape;
+  int *strides;
 
-    int ndim;
-    int size;
+  int ndim;
+  int size;
 } Array;
 
 Array *create_struct(float *data, int ndim, int *shape);

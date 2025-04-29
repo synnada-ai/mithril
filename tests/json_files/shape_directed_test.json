@@ -1,2245 +1,4550 @@
 {
-    "test_Linear_1_init_shapes": {
-        "model": {
-            "name": "Linear",
-            "args": {
-                "shapes": {
-                    "input": [100, 4],
-                    "target": [100, 1]
-                }
-            }
-        },
-        "results": {
-            "input": [100, 4],
-            "target": [100, 1],
-            "w": [4, 1], 
-            "MatrixMultiply_0_output": [100, 1], 
-            "b": [1], 
-            "output": [100, 1],
-            "SquaredError_2_output": [100, 1], 
-            "Mean_3_output": [1]
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
+  "test_Linear_1_init_shapes": {
+    "model": {
+      "name": "Linear",
+      "args": {
+        "shapes": {
+          "input": [
+            100,
+            4
+          ],
+          "target": [
+            100,
+            1
+          ]
         }
+      }
     },
-    "test_Linear_1_static_shapes": {
-        "model": {
-            "name": "Linear"
-        },
-        "results": {
-            "input": [100, 4],
-            "target": [100, 1],
-            "w": [4, 1], 
-            "MatrixMultiply_0_output": [100, 1], 
-            "b": [1], 
-            "output": [100, 1],
-            "SquaredError_2_output": [100, 1], 
-            "Mean_3_output": [1]
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        },
-        "static_shapes": {
-            "input": [100, 4],
-            "target": [100, 1]
-        }
+    "results": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ],
+      "w": [
+        4,
+        1
+      ],
+      "MatrixMultiply_0_output": [
+        100,
+        1
+      ],
+      "b": [
+        1
+      ],
+      "output": [
+        100,
+        1
+      ],
+      "SquaredError_2_output": [
+        100,
+        1
+      ],
+      "Mean_3_output": [
+        1
+      ]
     },
-    "test_Linear_1_static_inputs": {
-        "model": {
-            "name": "Linear"
-        },
-        "results": {
-            "input": [100, 4],
-            "target": [100, 1],
-            "w": [4, 1], 
-            "MatrixMultiply_0_output": [100, 1], 
-            "b": [1], 
-            "output": [100, 1],
-            "SquaredError_2_output": [100, 1], 
-            "Mean_3_output": [1]
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        },
-        "static_input_shapes": {
-            "input": [100, 4],
-            "target": [100, 1]
-        }
-    },
-    "test_simple_composite_1_init_shapes": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "rhs": [2, 2]
-                        }
-                    }
-                }
-            },
-            "connections": {
-                "m1": {
-                    "output": "output",
-                    "rhs": "rhs",
-                    "input": [[2.0]]
-                }
-            }
-        },
-        "results": {
-            "rhs": [2, 2],
-            "output": [2, 2],
-            "Multiply_0_input": [1, 1]
-        }
-    },
-    "test_simple_composite_1_static_shapes": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "rhs": "input2",
-                    "input": 0.5,
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input2": [2, 2]
-        },
-        "results": {
-            "input2": [2, 2],
-            "output": [2, 2],
-            "Multiply_0_input": [1]
-        }
-    }, 
-    "test_simple_composite_1_static_inputs": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Add"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input": 0.5,
-                    "rhs": "input2",
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input2": [2, 2]
-        },
-        "results": {
-            "input2": [2, 2],
-            "output": [2, 2],
-            "Add_0_input": [1]
-        }
-    },  
-    "test_simple_composite_2_init_shapes": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "rhs": [2, 2]
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Divide"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input": 2.0,
-                    "rhs": "in1"
-                },
-                "m2": {
-                    "rhs": [["m1", "output"]],
-                     "output": "output",
-                     "input": 2.0
-                }
-            }
-        },
-        "results": {
-            "Multiply_0_input": [1],
-            "in1": [2, 2],
-            "Multiply_0_output": [2, 2],
-            "Divide_1_input": [1],
-            "output": [2, 2]
-        }
-    },    
-    "test_simple_composite_2_static_shapes": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Divide"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input": 2.0,
-                    "rhs": "in1"
-                },
-                "m2": {
-                    "rhs": [["m1", "output"]],
-                     "output": "output",
-                     "input": 2.0
-                }
-            }
-        },
-        "static_shapes": {
-            "in1": [2, 2]
-        },
-        "results": {
-            "Multiply_0_input": [1],
-            "in1": [2, 2],
-            "Multiply_0_output": [2, 2],
-            "Divide_1_input": [1],
-            "output": [2, 2]
-        }
-    },  
-    "test_simple_composite_2_static_inputs": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Divide"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input": 2.0,
-                    "rhs": "in1"
-                },
-                "m2": {
-                    "rhs": [["m1", "output"]],
-                     "output": "output",
-                     "input": 2.0
-                }
-            }
-        },
-        "static_input_shapes": {
-            "in1": [2, 2]
-        },
-        "results": {
-            "Multiply_0_input": [1],
-            "in1": [2, 2],
-            "Multiply_0_output": [2, 2],
-            "Divide_1_input": [1],
-            "output": [2, 2]
-        }
-    },        
-    "test_composite_1_init_shapes_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "input": [1, 1, 1, 1, 1, 1, 1,37, 43],
-                            "rhs": [134,47, 1, 1, 1]
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-
-
-            }
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_init_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "input": [1, 1, 1, 1, 1, 1, 1,37, 43]
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "input": [134,47, 1, 1, 1]
-                        }
-                    }
-
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-
-
-            }
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_init_shapes_3": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "input": [1, 1, 1, 1, 1, 1, 1,37, 43]
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add",
-                    "args": {
-                        "shapes": {
-                            "output": [1, 1, 1, 1, 134, 47, 1,37, 43]
-                        }
-                    }
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-
-
-            }
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_init_shapes_4": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "input": [1, 1, 1, 1, 1, 1, 1,37, 43],
-                            "output": [1, 1, 1, 1, 134, 47, 1,37, 43]
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-
-
-            }
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_init_shapes_5": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply",
-                    "args": {
-                        "shapes": {
-                            "rhs": [134,47, 1, 1, 1]
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add",
-                    "args": {
-                        "shapes": {
-                            "output": [1, 1, 1, 1, 134, 47, 1,37, 43]
-                        }
-                    }
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-
-
-            }
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_static_shapes_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-            "input2": [134,47, 1, 1, 1] 
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_static_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43], 
-            "output": [1, 1, 1, 1, 134, 47, 1, 37, 43]
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_static_shapes_3": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input2": [134, 47, 1, 1, 1], 
-            "output": [1, 1, 1, 1, 134, 47, 1,37, 43]
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_static_inputs_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-            "input2": [134,47, 1, 1, 1] 
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_static_inputs_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input2": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input2": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-            "output": [1, 1, 1, 1, 134, 47, 1,37, 43]
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_1_static_inputs_3": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1",
-                    "rhs": "input2"
-                },
-                "m2": {
-                    "input": "input2",
-                    "rhs": [["m1","output"]]
-                },
-                "m3": {
-                    "input": [["m2","output"]],
-                    "rhs": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input2": [134, 47, 1, 1, 1], 
-            "output": [1, 1, 1, 1, 134, 47, 1,37, 43]
-        },
-        "results": {"input1": [1, 1, 1, 1, 1, 1, 1,37, 43], 
-                    "input2": [134,47, 1, 1, 1], 
-                    "Multiply_0_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "Multiply_1_output": [1, 1, 1, 1, 134, 47, 1,37, 43], 
-                    "output": [1, 1, 1, 1, 134, 47, 1,37, 43]}
-    },
-    "test_composite_2_init_shapes_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply",
-                            "args" : {
-                                "shapes": {
-                                    "input": [4, 5, 7, 1, 1],
-                                    "rhs": [1, 1, 7, 3, 4]
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": [["m1","output"]],
-                    "input2": "input2"
-                },
-                "m3": {
-                    "input1": [["m2","output"]],
-                    "input2": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "results": {   
-            "input1": [4, 5, 7, 1, 1], 
-             "input2": [1, 1, 7, 3, 4],
-             "Model_0_output": [4, 5, 7, 3, 4], 
-             "Model_1_output": [4, 5, 7, 3, 4], 
-             "output": [4, 5, 7, 3, 4] 
-        }
-    },
-    "test_composite_2_init_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply",
-                            "args" : {
-                                "shapes": {
-                                    "input": [4, 5, 7, 1, 1]
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply",
-                            "args": {
-                                "shapes": {
-                                    "rhs": [1, 1, 7, 3, 4]
-                                }
-                            }
-
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": [["m1","output"]],
-                    "input2": "input2"
-                },
-                "m3": {
-                    "input1": [["m2","output"]],
-                    "input2": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "results": {   
-            "input1": [4, 5, 7, 1, 1], 
-             "input2": [1, 1, 7, 3, 4],
-             "Model_0_output": [4, 5, 7, 3, 4], 
-             "Model_1_output": [4, 5, 7, 3, 4], 
-             "output": [4, 5, 7, 3, 4] 
-        }
-    },
-    "test_composite_2_init_shapes_3": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply",
-                            "args" : {
-                                "shapes": {
-                                    "input1": [4, 5, 7, 1, 1]
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply",
-                            "args": {
-                                "shapes": {
-                                    "input1": [4, 5, 7, 3, 4]
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": [["m1","output"]],
-                    "input2": "input2"
-                },
-                "m3": {
-                    "input1": [["m2","output"]],
-                    "input2": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "results": {   
-            "input1": [4, 5, 7, 1, 1], 
-             "input2": [1, 1, 7, 3, 4],
-             "Model_0_output": [4, 5, 7, 3, 4], 
-             "Model_1_output": [4, 5, 7, 3, 4], 
-             "output": [4, 5, 7, 3, 4] 
-        }
-    },
-    "test_composite_2_static_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": [["m1","output"]],
-                    "input2": "input2"
-                },
-                "m3": {
-                    "input1": [["m2","output"]],
-                    "input2": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input1": [4, 5, 7, 1, 1], 
-            "output": [4, 5, 7, 3, 4] 
-        },
-        "results": {   
-            "input1": [4, 5, 7, 1, 1], 
-             "input2": [1, 1, 7, 3, 4],
-             "Model_0_output": [4, 5, 7, 3, 4], 
-             "Model_1_output": [4, 5, 7, 3, 4], 
-             "output": [4, 5, 7, 3, 4] 
-        }
-    },
-    "test_composite_2_static_input_shapes_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input": "input1",
-                            "rhs": "input2"
-                        },
-                        "m2": {
-                            "input": "input2",
-                            "rhs": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input": [["m2","output"]],
-                            "rhs": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": [["m1","output"]],
-                    "input2": "input2"
-                },
-                "m3": {
-                    "input1": [["m2","output"]],
-                    "input2": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input1": [4, 5, 7, 1, 1], 
-            "input2": [1, 1, 7, 3, 4]
-        },
-        "results": {   
-            "input1": [4, 5, 7, 1, 1], 
-             "input2": [1, 1, 7, 3, 4],
-             "Model_0_output": [4, 5, 7, 3, 4], 
-             "Model_1_output": [4, 5, 7, 3, 4], 
-             "output": [4, 5, 7, 3, 4] 
-        }
-    },
-    "test_composite_2_static_input_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m2": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Multiply"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        },
-                        "m3": {
-                            "name": "Add"
-                        }  
-                    },
-                    "connections" : { 
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input2",
-                            "input2": [["m1","output"]]
-                        },
-                        "m3": {
-                            "input1": [["m2","output"]],
-                            "input2": [["m2","output"]],
-                            "output": "output"
-                        }
-                    }
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": [["m1","output"]],
-                    "input2": "input2"
-                },
-                "m3": {
-                    "input1": [["m2","output"]],
-                    "input2": [["m2","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input1": [4, 5, 7, 1, 1], 
-            "output": [4, 5, 7, 3, 4] 
-        },
-        "results": {   
-            "input1": [4, 5, 7, 1, 1], 
-             "input2": [1, 1, 7, 3, 4],
-             "Model_0_output": [4, 5, 7, 3, 4], 
-             "Model_1_output": [4, 5, 7, 3, 4], 
-             "output": [4, 5, 7, 3, 4] 
-        }
-    },
-    "test_composite_3_init_shapes_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Model",
-                            "submodels": {
-                                "m1": {
-                                    "name": "Model",
-                                    "submodels": {
-                                        "m1": {
-                                            "name": "Model",
-                                            "submodels": {
-                                                "m1": {
-                                                    "name": "Add",
-                                                    "args": {
-                                                        "shapes": {
-                                                            "input": [3, 4, 5, 6 ,1],
-                                                            "rhs": [1, 1, 1, 1, 7]
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            "connections" : { 
-                                                "m1": {
-                                                    "input": "input1",
-                                                    "rhs": "input2",
-                                                    "output": "output"
-                                                }
-                                            }                         
-                                        },
-                                        "m2": {
-                                            "name": "Add"
-                                        }
-                                    },
-                                    "connections": {
-                                        "m1": {
-                                            "input1": "input1",
-                                            "input2": "input2"
-                                        },
-                                        "m2": {
-                                            "input": "input1",
-                                            "rhs": [["m1","output"]],
-                                            "output": "output"
-                                        }
-                                    }
-                                },
-                                "m2": {
-                                    "name": "Add"
-                                }
-                            },
-                            "connections": {
-                                "m1": {
-                                    "input1": "input1",
-                                    "input2": "input2"
-                                },
-                                "m2": {
-                                    "input": "input1",
-                                    "rhs": [["m1","output"]],
-                                    "output": "output"
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Add"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input": "input1",
-                            "rhs":[ ["m1","output"]],
-                            "output": "output"
-                        }
-                    }
-
-                },
-                "m2": {
-                    "name": "Add"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input": "input1",
-                    "rhs": [["m1","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "results": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7], 
-            "Model_0_output": [3, 4, 5, 6, 7], 
-            "output": [3, 4, 5, 6, 7]
-        }
-    },
-    "test_composite_3_init_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Model",
-                            "submodels": {
-                                "m1": {
-                                    "name": "Model",
-                                    "submodels": {
-                                        "m1": {
-                                            "name": "Model",
-                                            "submodels": {
-                                                "m1": {
-                                                    "name": "Add",
-                                                    "args": {
-                                                        "shapes": {
-                                                            "rhs": [1, 1, 1, 1, 7]
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            "connections" : { 
-                                                "m1": {
-                                                    "input": "input1",
-                                                    "rhs": "input2",
-                                                    "output": "output"
-                                                }
-                                            }                         
-                                        },
-                                        "m2": {
-                                            "name": "Add"
-                                        }
-                                    },
-                                    "connections": {
-                                        "m1": {
-                                            "input1": "input1",
-                                            "input2": "input2"
-                                        },
-                                        "m2": {
-                                            "input": "input1",
-                                            "rhs": [["m1","output"]],
-                                            "output": "output"
-                                        }
-                                    }
-                                },
-                                "m2": {
-                                    "name": "Add",
-                                    "args": {
-                                        "shapes": {
-                                            "input": [3, 4, 5, 6 ,1]
-                                        }
-                                    }
-                                }
-                            },
-                            "connections": {
-                                "m1": {
-                                    "input1": "input1",
-                                    "input2": "input2"
-                                },
-                                "m2": {
-                                    "input": "input1",
-                                    "rhs": [["m1","output"]],
-                                    "output": "output"
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Add"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input": "input1",
-                            "rhs":[ ["m1","output"]],
-                            "output": "output"
-                        }
-                    }
-
-                },
-                "m2": {
-                    "name": "Add"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input": "input1",
-                    "rhs": [["m1","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "results": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7], 
-            "Model_0_output": [3, 4, 5, 6, 7], 
-            "output": [3, 4, 5, 6, 7]
-        }
-    },
-    "test_composite_3_static_shapes_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Model",
-                            "submodels": {
-                                "m1": {
-                                    "name": "Model",
-                                    "submodels": {
-                                        "m1": {
-                                            "name": "Model",
-                                            "submodels": {
-                                                "m1": {
-                                                    "name": "Add"
-                                                }
-                                            },
-                                            "connections" : { 
-                                                "m1": {
-                                                    "input": "input1",
-                                                    "rhs": "input2",
-                                                    "output": "output"
-                                                }
-                                            }                         
-                                        },
-                                        "m2": {
-                                            "name": "Add"
-                                        }
-                                    },
-                                    "connections": {
-                                        "m1": {
-                                            "input1": "input1",
-                                            "input2": "input2"
-                                        },
-                                        "m2": {
-                                            "input": "input1",
-                                            "rhs": [["m1","output"]],
-                                            "output": "output"
-                                        }
-                                    }
-                                },
-                                "m2": {
-                                    "name": "Add"
-                                }
-                            },
-                            "connections": {
-                                "m1": {
-                                    "input1": "input1",
-                                    "input2": "input2"
-                                },
-                                "m2": {
-                                    "input": "input1",
-                                    "rhs": [["m1","output"]],
-                                    "output": "output"
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Add"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input": "input1",
-                            "rhs":[ ["m1","output"]],
-                            "output": "output"
-                        }
-                    }
-
-                },
-                "m2": {
-                    "name": "Add"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input": "input1",
-                    "rhs": [["m1","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7] 
-        },
-        "results": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7], 
-            "Model_0_output": [3, 4, 5, 6, 7], 
-            "output": [3, 4, 5, 6, 7]
-        }
-    },
-    "test_composite_3_static_shapes_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Model",
-                            "submodels": {
-                                "m1": {
-                                    "name": "Model",
-                                    "submodels": {
-                                        "m1": {
-                                            "name": "Model",
-                                            "submodels": {
-                                                "m1": {
-                                                    "name": "Add"
-                                                }
-                                            },
-                                            "connections" : { 
-                                                "m1": {
-                                                    "input1": "input1",
-                                                    "input2": "input2",
-                                                    "output": "output"
-                                                }
-                                            }                         
-                                        },
-                                        "m2": {
-                                            "name": "Add"
-                                        }
-                                    },
-                                    "connections": {
-                                        "m1": {
-                                            "input1": "input1",
-                                            "input2": "input2"
-                                        },
-                                        "m2": {
-                                            "input1": "input1",
-                                            "input2": [["m1","output"]],
-                                            "output": "output"
-                                        }
-                                    }
-                                },
-                                "m2": {
-                                    "name": "Add"
-                                }
-                            },
-                            "connections": {
-                                "m1": {
-                                    "input1": "input1",
-                                    "input2": "input2"
-                                },
-                                "m2": {
-                                    "input1": "input1",
-                                    "input2": [["m1","output"]],
-                                    "output": "output"
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Add"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input1": "input1",
-                            "input2":[ ["m1","output"]],
-                            "output": "output"
-                        }
-                    }
-
-                },
-                "m2": {
-                    "name": "Add"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input1": "input1",
-                    "input2": [["m1","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_shapes": {
-            "input1": [3, 4, 5, 6, 1], 
-            "output": [3, 4, 5, 6, 7]
-        },
-        "results": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7], 
-            "Model_0_output": [3, 4, 5, 6, 7], 
-            "output": [3, 4, 5, 6, 7]
-        }
-    },
-    "test_composite_3_static_inputs_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Model",
-                            "submodels": {
-                                "m1": {
-                                    "name": "Model",
-                                    "submodels": {
-                                        "m1": {
-                                            "name": "Model",
-                                            "submodels": {
-                                                "m1": {
-                                                    "name": "Add"
-                                                }
-                                            },
-                                            "connections" : { 
-                                                "m1": {
-                                                    "input": "input1",
-                                                    "rhs": "input2",
-                                                    "output": "output"
-                                                }
-                                            }                         
-                                        },
-                                        "m2": {
-                                            "name": "Add"
-                                        }
-                                    },
-                                    "connections": {
-                                        "m1": {
-                                            "input1": "input1",
-                                            "input2": "input2"
-                                        },
-                                        "m2": {
-                                            "input": "input1",
-                                            "rhs": [["m1","output"]],
-                                            "output": "output"
-                                        }
-                                    }
-                                },
-                                "m2": {
-                                    "name": "Add"
-                                }
-                            },
-                            "connections": {
-                                "m1": {
-                                    "input1": "input1",
-                                    "input2": "input2"
-                                },
-                                "m2": {
-                                    "input": "input1",
-                                    "rhs": [["m1","output"]],
-                                    "output": "output"
-                                }
-                            }
-                        },
-                        "m2": {
-                            "name": "Add"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input1": "input1",
-                            "input2": "input2"
-                        },
-                        "m2": {
-                            "input": "input1",
-                            "rhs":[ ["m1","output"]],
-                            "output": "output"
-                        }
-                    }
-
-                },
-                "m2": {
-                    "name": "Add"
-                }
-            },
-            "connections": {
-                "m1": {
-                    "input1": "input1",
-                    "input2": "input2"
-                },
-                "m2": {
-                    "input": "input1",
-                    "rhs": [["m1","output"]],
-                    "output": "output"
-                }
-            }
-        },
-        "static_input_shapes": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7]
-        },
-        "results": {
-            "input1": [3, 4, 5, 6, 1], 
-            "input2": [1, 1, 1, 1, 7], 
-            "Model_0_output": [3, 4, 5, 6, 7], 
-            "output": [3, 4, 5, 6, 7]
-        }
-    },
-    "test_MLP_1_static_inputs": {
-        "model": {
-            "name": "MLP",
-            "args": {
-                "dimensions": [5, 10, 1],
-                "activations": ["softplus", "softplus", "buffer"]
-            }
-        },
-        "results": {
-            "input": [100, 4], 
-            "target": [100, 1], 
-            "w0": [4, 5], 
-            "b0": [5], 
-            "Layer_0_output": [100, 5], 
-            "w1": [5, 10], 
-            "b1": [10], 
-            "Layer_1_output": [100, 10], 
-            "w2": [10, 1], 
-            "b2": [1], 
-            "output": [100, 1],
-            "SquaredError_3_output": [100,1]
-            
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError", "reduce": "Mean", "target_key": "target"
-            }
-        },
-        "static_input_shapes": {
-            "input": [100, 4],
-            "target": [100, 1]
-        }
-    },
-    "test_KernelizedSVM_1": {
-        "model": {
-            "model": "KernelizedSVM",
-            "input_models": {
-                "kernel": {
-                    "model": "RBFKernel"
-                }
-            }
-        },
-        "input_shapes": {
-            "input1": [3, 2],
-            "input2": [3, 2],
-            "l": [1],
-            "sigma": [1],
-            "target": [3, 1]
-        },
-        "output_specs": {
-            "output": {
-                "loss": "HingeLoss", "reduce": "Mean", "target_key": "target"
-            }
-        },
-        "regularizations": {
-            "w": {
-                "type": "model",
-                "coef": 1e-1
-            }
-        },        
-        "final_loss_combiner": "Mean",
-        "results": {
-            "input1": [3, 2], 
-            "input2": [3, 2], 
-            "l": [1], 
-            "sigma": [1], 
-            "target": [3, 1], 
-            "RBFKernel_0_CartesianDifference_output_0": [3, 3, 2], 
-            "RBFKernel_0_Multiply_output_1": [3, 3, 2], 
-            "RBFKernel_0_Add_output_2": [3, 3], 
-            "RBFKernel_0_Multiply_output_3": [3, 3], 
-            "RBFKernel_0_Multiply_output_4": [1], 
-            "RBFKernel_0_Divide_output_5": [3, 3], 
-            "RBFKernel_0_Exponential_output_6": [3, 3], 
-            "RBFKernel_0_Multiply_output_7": [1], 
-            "RBFKernel_output_0": [3, 3], 
-            "w": [3, 1], 
-            "Linear_1_MatrixMultiply_output_0": [3, 1], 
-            "b": [1], 
-            "output": [3, 1], 
-            "Loss_output": [3, 1], 
-            "Mean_4_Concat_output_0": [1], 
-            "Reduce_Loss_output": [1], 
-            "Mean_5_Concat_output_0": [1], 
-            "loss_without_reg": [1], 
-            "Add_6_Concat_output_0": [1], 
-            "final_loss": [1]            
-        }
-    },
-    "test_MLP_1_init_shapes": {
-        "model": {
-            "name": "MLP",
-            "args": {
-                "dimensions": [5, 10, 1],
-                "activations": ["softplus", "softplus", "buffer"],
-                "shapes": {
-                    "input": [100, 4],
-                    "target": [100, 1]
-                }
-            }
-        },
-        "results": {
-            "input": [100, 4], 
-            "target": [100, 1], 
-            "w0": [4, 5], 
-            "b0": [5], 
-            "Layer_0_output": [100, 5], 
-            "w1": [5, 10], 
-            "b1": [10], 
-            "Layer_1_output": [100, 10], 
-            "w2": [10, 1], 
-            "b2": [1], 
-            "output": [100, 1],
-            "SquaredError_3_output": [100,1]
-            
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError", "reduce": "Mean", "target_key": "target"
-            }
-        }
-    },
-    "test_MLP_1_static_shapes": {
-        "model": {
-            "name": "MLP",
-            "args": {
-                "dimensions": [5, 10, 1],
-                "activations": ["softplus", "softplus", "buffer"]
-            }
-        },
-        "results": {
-            "input": [100, 4], 
-            "target": [100, 1], 
-            "w0": [4, 5], 
-            "b0": [5], 
-            "Layer_0_output": [100, 5], 
-            "w1": [5, 10], 
-            "b1": [10], 
-            "Layer_1_output": [100, 10], 
-            "w2": [10, 1], 
-            "b2": [1], 
-            "output": [100, 1],
-            "SquaredError_3_output": [100,1]  
-            
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError", "reduce": "Mean", "target_key": "target"
-            }
-        },
-        "static_shapes": {
-            "input": [100, 4],
-            "target": [100, 1]
-        }
-    },
-    "test_simple_Flattten_static1": {
-        "model": {
-            "name": "Flatten",
-            "args": {"start_dim": 1, "end_dim": -1}
-        },
-        "static_shapes": {
-            "input": [10, 5, 20, 30]
-        },
-        "results": {
-            "input": [10, 5, 20, 30],
-            "output": [10, 3000]
-        }
-    },
-    "test_simple_Flattten_static2": {
-        "model": {
-            "name": "Flatten",
-            "args": {"start_dim": 1, "end_dim": -1}
-        },
-        "static_shapes": {
-            "input": [null, 5, 20, 30]
-        },
-        "results": {
-            "input": [null, 5, 20, 30],
-            "output": [null, 3000]
-        }
-    },
-    "test_simple_Flattten_static3": {
-        "model": {
-            "name": "Flatten",
-            "args": {"start_dim": 1, "end_dim": -1}
-        },
-        "static_shapes": {
-            "input": [8, null, 20, 30]
-        },
-        "results": {
-            "input": [8, null, 20, 30],
-            "output": [8, null]
-        }
-    },
-    "test_simple_Flattten_static4": {
-        "model": {
-            "name": "Flatten",
-            "args": {"start_dim": 1, "end_dim": -1}
-        },
-        "static_shapes": {
-            "input": [8, 3, null, null]
-        },
-        "results": {
-            "input": [8, 3, null, null],
-            "output": [8, null]
-        }
-    },
-    "test_simple_Flattten_static5": {
-        "model": {
-            "name": "Flatten",
-            "args": {"start_dim": 3, "end_dim": -1}
-        },
-        "static_shapes": {
-            "input": [8, 3, 2, 4, 5]
-        },
-        "results": {
-            "input": [8, 3, 2, 4, 5],
-            "output": [8, 3, 2, 20]
-        }
-    },
-    "test_simple_Flattten_static6": {
-        "model": {
-            "name": "Flatten",
-            "args": {"start_dim": 3, "end_dim": -1}
-        },
-        "static_shapes": {
-            "input": [8, 3, null, 4, 5]
-        },
-        "results": {
-            "input": [8, 3, null, 4, 5],
-            "output": [8, 3, null, 20]
-        }
-    }, 
-    "test_simple_Flattten_static7": {
-        "model": {
-            "name": "Flatten"
-        },
-        "static_shapes": {
-            "input": [8, 3, 2]
-        },
-        "results": {
-            "input": [8, 3, 2],
-            "output": [48]
-        }
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [
+          "Mean"
+        ],
+        "target_key": "target"
+      }
     }
+  },
+  "test_Linear_1_static_shapes": {
+    "model": {
+      "name": "Linear"
+    },
+    "results": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ],
+      "w": [
+        4,
+        1
+      ],
+      "MatrixMultiply_0_output": [
+        100,
+        1
+      ],
+      "b": [
+        1
+      ],
+      "output": [
+        100,
+        1
+      ],
+      "SquaredError_2_output": [
+        100,
+        1
+      ],
+      "Mean_3_output": [
+        1
+      ]
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [
+          "Mean"
+        ],
+        "target_key": "target"
+      }
+    },
+    "static_shapes": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ]
+    }
+  },
+  "test_Linear_1_static_inputs": {
+    "model": {
+      "name": "Linear"
+    },
+    "results": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ],
+      "w": [
+        4,
+        1
+      ],
+      "MatrixMultiply_0_output": [
+        100,
+        1
+      ],
+      "b": [
+        1
+      ],
+      "output": [
+        100,
+        1
+      ],
+      "SquaredError_2_output": [
+        100,
+        1
+      ],
+      "Mean_3_output": [
+        1
+      ]
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [
+          "Mean"
+        ],
+        "target_key": "target"
+      }
+    },
+    "static_input_shapes": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ]
+    }
+  },
+  "test_simple_composite_1_init_shapes": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "rhs": [
+                2,
+                2
+              ]
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "output": "output",
+          "rhs": "rhs",
+          "input": [
+            [
+              2.0
+            ]
+          ]
+        }
+      }
+    },
+    "results": {
+      "rhs": [
+        2,
+        2
+      ],
+      "output": [
+        2,
+        2
+      ],
+      "Multiply_0_input": [
+        1,
+        1
+      ]
+    }
+  },
+  "test_simple_composite_1_static_shapes": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        }
+      },
+      "connections": {
+        "m1": {
+          "rhs": "input2",
+          "input": 0.5,
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input2": [
+        2,
+        2
+      ]
+    },
+    "results": {
+      "input2": [
+        2,
+        2
+      ],
+      "output": [
+        2,
+        2
+      ],
+      "Multiply_0_input": [
+        1
+      ]
+    }
+  },
+  "test_simple_composite_1_static_inputs": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": 0.5,
+          "rhs": "input2",
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input2": [
+        2,
+        2
+      ]
+    },
+    "results": {
+      "input2": [
+        2,
+        2
+      ],
+      "output": [
+        2,
+        2
+      ],
+      "Add_0_input": [
+        1
+      ]
+    }
+  },
+  "test_simple_composite_2_init_shapes": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "rhs": [
+                2,
+                2
+              ]
+            }
+          }
+        },
+        "m2": {
+          "name": "Divide"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": 2.0,
+          "rhs": "in1"
+        },
+        "m2": {
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output",
+          "input": 2.0
+        }
+      }
+    },
+    "results": {
+      "Multiply_0_input": [
+        1
+      ],
+      "in1": [
+        2,
+        2
+      ],
+      "Multiply_0_output": [
+        2,
+        2
+      ],
+      "Divide_1_input": [
+        1
+      ],
+      "output": [
+        2,
+        2
+      ]
+    }
+  },
+  "test_simple_composite_2_static_shapes": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Divide"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": 2.0,
+          "rhs": "in1"
+        },
+        "m2": {
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output",
+          "input": 2.0
+        }
+      }
+    },
+    "static_shapes": {
+      "in1": [
+        2,
+        2
+      ]
+    },
+    "results": {
+      "Multiply_0_input": [
+        1
+      ],
+      "in1": [
+        2,
+        2
+      ],
+      "Multiply_0_output": [
+        2,
+        2
+      ],
+      "Divide_1_input": [
+        1
+      ],
+      "output": [
+        2,
+        2
+      ]
+    }
+  },
+  "test_simple_composite_2_static_inputs": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Divide"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": 2.0,
+          "rhs": "in1"
+        },
+        "m2": {
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output",
+          "input": 2.0
+        }
+      }
+    },
+    "static_input_shapes": {
+      "in1": [
+        2,
+        2
+      ]
+    },
+    "results": {
+      "Multiply_0_input": [
+        1
+      ],
+      "in1": [
+        2,
+        2
+      ],
+      "Multiply_0_output": [
+        2,
+        2
+      ],
+      "Divide_1_input": [
+        1
+      ],
+      "output": [
+        2,
+        2
+      ]
+    }
+  },
+  "test_composite_1_init_shapes_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "input": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                37,
+                43
+              ],
+              "rhs": [
+                134,
+                47,
+                1,
+                1,
+                1
+              ]
+            }
+          }
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+
+      }
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_init_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "input": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                37,
+                43
+              ]
+            }
+          }
+        },
+        "m2": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "input": [
+                134,
+                47,
+                1,
+                1,
+                1
+              ]
+            }
+          }
+
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+
+      }
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_init_shapes_3": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "input": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                37,
+                43
+              ]
+            }
+          }
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add",
+          "args": {
+            "shapes": {
+              "output": [
+                1,
+                1,
+                1,
+                1,
+                134,
+                47,
+                1,
+                37,
+                43
+              ]
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+
+      }
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_init_shapes_4": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "input": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                37,
+                43
+              ],
+              "output": [
+                1,
+                1,
+                1,
+                1,
+                134,
+                47,
+                1,
+                37,
+                43
+              ]
+            }
+          }
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+
+      }
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_init_shapes_5": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply",
+          "args": {
+            "shapes": {
+              "rhs": [
+                134,
+                47,
+                1,
+                1,
+                1
+              ]
+            }
+          }
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add",
+          "args": {
+            "shapes": {
+              "output": [
+                1,
+                1,
+                1,
+                1,
+                134,
+                47,
+                1,
+                37,
+                43
+              ]
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+
+      }
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_static_shapes_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ]
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_static_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_static_shapes_3": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_static_inputs_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ]
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_static_inputs_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input2": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input2": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_1_static_inputs_3": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1",
+          "rhs": "input2"
+        },
+        "m2": {
+          "input": "input2",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ]
+        },
+        "m3": {
+          "input": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "rhs": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    },
+    "results": {
+      "input1": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        37,
+        43
+      ],
+      "input2": [
+        134,
+        47,
+        1,
+        1,
+        1
+      ],
+      "Multiply_0_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "Multiply_1_output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ],
+      "output": [
+        1,
+        1,
+        1,
+        1,
+        134,
+        47,
+        1,
+        37,
+        43
+      ]
+    }
+  },
+  "test_composite_2_init_shapes_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply",
+              "args": {
+                "shapes": {
+                  "input": [
+                    4,
+                    5,
+                    7,
+                    1,
+                    1
+                  ],
+                  "rhs": [
+                    1,
+                    1,
+                    7,
+                    3,
+                    4
+                  ]
+                }
+              }
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m2": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "input2": "input2"
+        },
+        "m3": {
+          "input1": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "input2": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "results": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ],
+      "Model_0_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "Model_1_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    }
+  },
+  "test_composite_2_init_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply",
+              "args": {
+                "shapes": {
+                  "input": [
+                    4,
+                    5,
+                    7,
+                    1,
+                    1
+                  ]
+                }
+              }
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m2": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply",
+              "args": {
+                "shapes": {
+                  "rhs": [
+                    1,
+                    1,
+                    7,
+                    3,
+                    4
+                  ]
+                }
+              }
+
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "input2": "input2"
+        },
+        "m3": {
+          "input1": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "input2": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "results": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ],
+      "Model_0_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "Model_1_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    }
+  },
+  "test_composite_2_init_shapes_3": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply",
+              "args": {
+                "shapes": {
+                  "input1": [
+                    4,
+                    5,
+                    7,
+                    1,
+                    1
+                  ]
+                }
+              }
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m2": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply",
+              "args": {
+                "shapes": {
+                  "input1": [
+                    4,
+                    5,
+                    7,
+                    3,
+                    4
+                  ]
+                }
+              }
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "input2": "input2"
+        },
+        "m3": {
+          "input1": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "input2": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "results": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ],
+      "Model_0_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "Model_1_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    }
+  },
+  "test_composite_2_static_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m2": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "input2": "input2"
+        },
+        "m3": {
+          "input1": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "input2": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    },
+    "results": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ],
+      "Model_0_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "Model_1_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    }
+  },
+  "test_composite_2_static_input_shapes_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m2": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1",
+              "rhs": "input2"
+            },
+            "m2": {
+              "input": "input2",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "rhs": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "input2": "input2"
+        },
+        "m3": {
+          "input1": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "input2": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ]
+    },
+    "results": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ],
+      "Model_0_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "Model_1_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    }
+  },
+  "test_composite_2_static_input_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m2": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Multiply"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            },
+            "m3": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input2",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ]
+            },
+            "m3": {
+              "input1": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "input2": [
+                [
+                  "m2",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "input2": "input2"
+        },
+        "m3": {
+          "input1": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "input2": [
+            [
+              "m2",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    },
+    "results": {
+      "input1": [
+        4,
+        5,
+        7,
+        1,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        7,
+        3,
+        4
+      ],
+      "Model_0_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "Model_1_output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ],
+      "output": [
+        4,
+        5,
+        7,
+        3,
+        4
+      ]
+    }
+  },
+  "test_composite_3_init_shapes_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Model",
+              "submodels": {
+                "m1": {
+                  "name": "Model",
+                  "submodels": {
+                    "m1": {
+                      "name": "Model",
+                      "submodels": {
+                        "m1": {
+                          "name": "Add",
+                          "args": {
+                            "shapes": {
+                              "input": [
+                                3,
+                                4,
+                                5,
+                                6,
+                                1
+                              ],
+                              "rhs": [
+                                1,
+                                1,
+                                1,
+                                1,
+                                7
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "connections": {
+                        "m1": {
+                          "input": "input1",
+                          "rhs": "input2",
+                          "output": "output"
+                        }
+                      }
+                    },
+                    "m2": {
+                      "name": "Add"
+                    }
+                  },
+                  "connections": {
+                    "m1": {
+                      "input1": "input1",
+                      "input2": "input2"
+                    },
+                    "m2": {
+                      "input": "input1",
+                      "rhs": [
+                        [
+                          "m1",
+                          "output"
+                        ]
+                      ],
+                      "output": "output"
+                    }
+                  }
+                },
+                "m2": {
+                  "name": "Add"
+                }
+              },
+              "connections": {
+                "m1": {
+                  "input1": "input1",
+                  "input2": "input2"
+                },
+                "m2": {
+                  "input": "input1",
+                  "rhs": [
+                    [
+                      "m1",
+                      "output"
+                    ]
+                  ],
+                  "output": "output"
+                }
+              }
+            },
+            "m2": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input": "input1",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+
+        },
+        "m2": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input": "input1",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "results": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ],
+      "Model_0_output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  },
+  "test_composite_3_init_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Model",
+              "submodels": {
+                "m1": {
+                  "name": "Model",
+                  "submodels": {
+                    "m1": {
+                      "name": "Model",
+                      "submodels": {
+                        "m1": {
+                          "name": "Add",
+                          "args": {
+                            "shapes": {
+                              "rhs": [
+                                1,
+                                1,
+                                1,
+                                1,
+                                7
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "connections": {
+                        "m1": {
+                          "input": "input1",
+                          "rhs": "input2",
+                          "output": "output"
+                        }
+                      }
+                    },
+                    "m2": {
+                      "name": "Add"
+                    }
+                  },
+                  "connections": {
+                    "m1": {
+                      "input1": "input1",
+                      "input2": "input2"
+                    },
+                    "m2": {
+                      "input": "input1",
+                      "rhs": [
+                        [
+                          "m1",
+                          "output"
+                        ]
+                      ],
+                      "output": "output"
+                    }
+                  }
+                },
+                "m2": {
+                  "name": "Add",
+                  "args": {
+                    "shapes": {
+                      "input": [
+                        3,
+                        4,
+                        5,
+                        6,
+                        1
+                      ]
+                    }
+                  }
+                }
+              },
+              "connections": {
+                "m1": {
+                  "input1": "input1",
+                  "input2": "input2"
+                },
+                "m2": {
+                  "input": "input1",
+                  "rhs": [
+                    [
+                      "m1",
+                      "output"
+                    ]
+                  ],
+                  "output": "output"
+                }
+              }
+            },
+            "m2": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input": "input1",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+
+        },
+        "m2": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input": "input1",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "results": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ],
+      "Model_0_output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  },
+  "test_composite_3_static_shapes_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Model",
+              "submodels": {
+                "m1": {
+                  "name": "Model",
+                  "submodels": {
+                    "m1": {
+                      "name": "Model",
+                      "submodels": {
+                        "m1": {
+                          "name": "Add"
+                        }
+                      },
+                      "connections": {
+                        "m1": {
+                          "input": "input1",
+                          "rhs": "input2",
+                          "output": "output"
+                        }
+                      }
+                    },
+                    "m2": {
+                      "name": "Add"
+                    }
+                  },
+                  "connections": {
+                    "m1": {
+                      "input1": "input1",
+                      "input2": "input2"
+                    },
+                    "m2": {
+                      "input": "input1",
+                      "rhs": [
+                        [
+                          "m1",
+                          "output"
+                        ]
+                      ],
+                      "output": "output"
+                    }
+                  }
+                },
+                "m2": {
+                  "name": "Add"
+                }
+              },
+              "connections": {
+                "m1": {
+                  "input1": "input1",
+                  "input2": "input2"
+                },
+                "m2": {
+                  "input": "input1",
+                  "rhs": [
+                    [
+                      "m1",
+                      "output"
+                    ]
+                  ],
+                  "output": "output"
+                }
+              }
+            },
+            "m2": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input": "input1",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+
+        },
+        "m2": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input": "input1",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ]
+    },
+    "results": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ],
+      "Model_0_output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  },
+  "test_composite_3_static_shapes_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Model",
+              "submodels": {
+                "m1": {
+                  "name": "Model",
+                  "submodels": {
+                    "m1": {
+                      "name": "Model",
+                      "submodels": {
+                        "m1": {
+                          "name": "Add"
+                        }
+                      },
+                      "connections": {
+                        "m1": {
+                          "input1": "input1",
+                          "input2": "input2",
+                          "output": "output"
+                        }
+                      }
+                    },
+                    "m2": {
+                      "name": "Add"
+                    }
+                  },
+                  "connections": {
+                    "m1": {
+                      "input1": "input1",
+                      "input2": "input2"
+                    },
+                    "m2": {
+                      "input1": "input1",
+                      "input2": [
+                        [
+                          "m1",
+                          "output"
+                        ]
+                      ],
+                      "output": "output"
+                    }
+                  }
+                },
+                "m2": {
+                  "name": "Add"
+                }
+              },
+              "connections": {
+                "m1": {
+                  "input1": "input1",
+                  "input2": "input2"
+                },
+                "m2": {
+                  "input1": "input1",
+                  "input2": [
+                    [
+                      "m1",
+                      "output"
+                    ]
+                  ],
+                  "output": "output"
+                }
+              }
+            },
+            "m2": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input1": "input1",
+              "input2": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+
+        },
+        "m2": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input1": "input1",
+          "input2": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_shapes": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "results": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ],
+      "Model_0_output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  },
+  "test_composite_3_static_inputs_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Model",
+              "submodels": {
+                "m1": {
+                  "name": "Model",
+                  "submodels": {
+                    "m1": {
+                      "name": "Model",
+                      "submodels": {
+                        "m1": {
+                          "name": "Add"
+                        }
+                      },
+                      "connections": {
+                        "m1": {
+                          "input": "input1",
+                          "rhs": "input2",
+                          "output": "output"
+                        }
+                      }
+                    },
+                    "m2": {
+                      "name": "Add"
+                    }
+                  },
+                  "connections": {
+                    "m1": {
+                      "input1": "input1",
+                      "input2": "input2"
+                    },
+                    "m2": {
+                      "input": "input1",
+                      "rhs": [
+                        [
+                          "m1",
+                          "output"
+                        ]
+                      ],
+                      "output": "output"
+                    }
+                  }
+                },
+                "m2": {
+                  "name": "Add"
+                }
+              },
+              "connections": {
+                "m1": {
+                  "input1": "input1",
+                  "input2": "input2"
+                },
+                "m2": {
+                  "input": "input1",
+                  "rhs": [
+                    [
+                      "m1",
+                      "output"
+                    ]
+                  ],
+                  "output": "output"
+                }
+              }
+            },
+            "m2": {
+              "name": "Add"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input1": "input1",
+              "input2": "input2"
+            },
+            "m2": {
+              "input": "input1",
+              "rhs": [
+                [
+                  "m1",
+                  "output"
+                ]
+              ],
+              "output": "output"
+            }
+          }
+
+        },
+        "m2": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input1": "input1",
+          "input2": "input2"
+        },
+        "m2": {
+          "input": "input1",
+          "rhs": [
+            [
+              "m1",
+              "output"
+            ]
+          ],
+          "output": "output"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ]
+    },
+    "results": {
+      "input1": [
+        3,
+        4,
+        5,
+        6,
+        1
+      ],
+      "input2": [
+        1,
+        1,
+        1,
+        1,
+        7
+      ],
+      "Model_0_output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "output": [
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  },
+  "test_MLP_1_static_inputs": {
+    "model": {
+      "name": "MLP",
+      "args": {
+        "dimensions": [
+          5,
+          10,
+          1
+        ],
+        "activations": [
+          "softplus",
+          "softplus",
+          "buffer"
+        ]
+      }
+    },
+    "results": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ],
+      "w0": [
+        4,
+        5
+      ],
+      "b0": [
+        5
+      ],
+      "Layer_0_output": [
+        100,
+        5
+      ],
+      "w1": [
+        5,
+        10
+      ],
+      "b1": [
+        10
+      ],
+      "Layer_1_output": [
+        100,
+        10
+      ],
+      "w2": [
+        10,
+        1
+      ],
+      "b2": [
+        1
+      ],
+      "output": [
+        100,
+        1
+      ],
+      "SquaredError_3_output": [
+        100,
+        1
+      ]
+
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce": "Mean",
+        "target_key": "target"
+      }
+    },
+    "static_input_shapes": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ]
+    }
+  },
+  "test_KernelizedSVM_1": {
+    "model": {
+      "model": "KernelizedSVM",
+      "input_models": {
+        "kernel": {
+          "model": "RBFKernel"
+        }
+      }
+    },
+    "input_shapes": {
+      "input1": [
+        3,
+        2
+      ],
+      "input2": [
+        3,
+        2
+      ],
+      "l": [
+        1
+      ],
+      "sigma": [
+        1
+      ],
+      "target": [
+        3,
+        1
+      ]
+    },
+    "output_specs": {
+      "output": {
+        "loss": "HingeLoss",
+        "reduce": "Mean",
+        "target_key": "target"
+      }
+    },
+    "regularizations": {
+      "w": {
+        "type": "model",
+        "coef": 1e-1
+      }
+    },
+    "final_loss_combiner": "Mean",
+    "results": {
+      "input1": [
+        3,
+        2
+      ],
+      "input2": [
+        3,
+        2
+      ],
+      "l": [
+        1
+      ],
+      "sigma": [
+        1
+      ],
+      "target": [
+        3,
+        1
+      ],
+      "RBFKernel_0_CartesianDifference_output_0": [
+        3,
+        3,
+        2
+      ],
+      "RBFKernel_0_Multiply_output_1": [
+        3,
+        3,
+        2
+      ],
+      "RBFKernel_0_Add_output_2": [
+        3,
+        3
+      ],
+      "RBFKernel_0_Multiply_output_3": [
+        3,
+        3
+      ],
+      "RBFKernel_0_Multiply_output_4": [
+        1
+      ],
+      "RBFKernel_0_Divide_output_5": [
+        3,
+        3
+      ],
+      "RBFKernel_0_Exponential_output_6": [
+        3,
+        3
+      ],
+      "RBFKernel_0_Multiply_output_7": [
+        1
+      ],
+      "RBFKernel_output_0": [
+        3,
+        3
+      ],
+      "w": [
+        3,
+        1
+      ],
+      "Linear_1_MatrixMultiply_output_0": [
+        3,
+        1
+      ],
+      "b": [
+        1
+      ],
+      "output": [
+        3,
+        1
+      ],
+      "Loss_output": [
+        3,
+        1
+      ],
+      "Mean_4_Concat_output_0": [
+        1
+      ],
+      "Reduce_Loss_output": [
+        1
+      ],
+      "Mean_5_Concat_output_0": [
+        1
+      ],
+      "loss_without_reg": [
+        1
+      ],
+      "Add_6_Concat_output_0": [
+        1
+      ],
+      "final_loss": [
+        1
+      ]
+    }
+  },
+  "test_MLP_1_init_shapes": {
+    "model": {
+      "name": "MLP",
+      "args": {
+        "dimensions": [
+          5,
+          10,
+          1
+        ],
+        "activations": [
+          "softplus",
+          "softplus",
+          "buffer"
+        ],
+        "shapes": {
+          "input": [
+            100,
+            4
+          ],
+          "target": [
+            100,
+            1
+          ]
+        }
+      }
+    },
+    "results": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ],
+      "w0": [
+        4,
+        5
+      ],
+      "b0": [
+        5
+      ],
+      "Layer_0_output": [
+        100,
+        5
+      ],
+      "w1": [
+        5,
+        10
+      ],
+      "b1": [
+        10
+      ],
+      "Layer_1_output": [
+        100,
+        10
+      ],
+      "w2": [
+        10,
+        1
+      ],
+      "b2": [
+        1
+      ],
+      "output": [
+        100,
+        1
+      ],
+      "SquaredError_3_output": [
+        100,
+        1
+      ]
+
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce": "Mean",
+        "target_key": "target"
+      }
+    }
+  },
+  "test_MLP_1_static_shapes": {
+    "model": {
+      "name": "MLP",
+      "args": {
+        "dimensions": [
+          5,
+          10,
+          1
+        ],
+        "activations": [
+          "softplus",
+          "softplus",
+          "buffer"
+        ]
+      }
+    },
+    "results": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ],
+      "w0": [
+        4,
+        5
+      ],
+      "b0": [
+        5
+      ],
+      "Layer_0_output": [
+        100,
+        5
+      ],
+      "w1": [
+        5,
+        10
+      ],
+      "b1": [
+        10
+      ],
+      "Layer_1_output": [
+        100,
+        10
+      ],
+      "w2": [
+        10,
+        1
+      ],
+      "b2": [
+        1
+      ],
+      "output": [
+        100,
+        1
+      ],
+      "SquaredError_3_output": [
+        100,
+        1
+      ]
+
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce": "Mean",
+        "target_key": "target"
+      }
+    },
+    "static_shapes": {
+      "input": [
+        100,
+        4
+      ],
+      "target": [
+        100,
+        1
+      ]
+    }
+  },
+  "test_simple_Flattten_static1": {
+    "model": {
+      "name": "Flatten",
+      "args": {
+        "start_dim": 1,
+        "end_dim": -1
+      }
+    },
+    "static_shapes": {
+      "input": [
+        10,
+        5,
+        20,
+        30
+      ]
+    },
+    "results": {
+      "input": [
+        10,
+        5,
+        20,
+        30
+      ],
+      "output": [
+        10,
+        3000
+      ]
+    }
+  },
+  "test_simple_Flattten_static2": {
+    "model": {
+      "name": "Flatten",
+      "args": {
+        "start_dim": 1,
+        "end_dim": -1
+      }
+    },
+    "static_shapes": {
+      "input": [
+        null,
+        5,
+        20,
+        30
+      ]
+    },
+    "results": {
+      "input": [
+        null,
+        5,
+        20,
+        30
+      ],
+      "output": [
+        null,
+        3000
+      ]
+    }
+  },
+  "test_simple_Flattten_static3": {
+    "model": {
+      "name": "Flatten",
+      "args": {
+        "start_dim": 1,
+        "end_dim": -1
+      }
+    },
+    "static_shapes": {
+      "input": [
+        8,
+        null,
+        20,
+        30
+      ]
+    },
+    "results": {
+      "input": [
+        8,
+        null,
+        20,
+        30
+      ],
+      "output": [
+        8,
+        null
+      ]
+    }
+  },
+  "test_simple_Flattten_static4": {
+    "model": {
+      "name": "Flatten",
+      "args": {
+        "start_dim": 1,
+        "end_dim": -1
+      }
+    },
+    "static_shapes": {
+      "input": [
+        8,
+        3,
+        null,
+        null
+      ]
+    },
+    "results": {
+      "input": [
+        8,
+        3,
+        null,
+        null
+      ],
+      "output": [
+        8,
+        null
+      ]
+    }
+  },
+  "test_simple_Flattten_static5": {
+    "model": {
+      "name": "Flatten",
+      "args": {
+        "start_dim": 3,
+        "end_dim": -1
+      }
+    },
+    "static_shapes": {
+      "input": [
+        8,
+        3,
+        2,
+        4,
+        5
+      ]
+    },
+    "results": {
+      "input": [
+        8,
+        3,
+        2,
+        4,
+        5
+      ],
+      "output": [
+        8,
+        3,
+        2,
+        20
+      ]
+    }
+  },
+  "test_simple_Flattten_static6": {
+    "model": {
+      "name": "Flatten",
+      "args": {
+        "start_dim": 3,
+        "end_dim": -1
+      }
+    },
+    "static_shapes": {
+      "input": [
+        8,
+        3,
+        null,
+        4,
+        5
+      ]
+    },
+    "results": {
+      "input": [
+        8,
+        3,
+        null,
+        4,
+        5
+      ],
+      "output": [
+        8,
+        3,
+        null,
+        20
+      ]
+    }
+  },
+  "test_simple_Flattten_static7": {
+    "model": {
+      "name": "Flatten"
+    },
+    "static_shapes": {
+      "input": [
+        8,
+        3,
+        2
+      ]
+    },
+    "results": {
+      "input": [
+        8,
+        3,
+        2
+      ],
+      "output": [
+        48
+      ]
+    }
+  }
 
 }
