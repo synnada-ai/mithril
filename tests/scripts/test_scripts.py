@@ -3812,7 +3812,7 @@ def test_connect_12():
 
 
 def test_connect_13():
-    model = Model(enforce_jit=False)
+    model = Model()
     add1 = Add()
     add2 = Add()
     buf = Buffer()
@@ -6621,7 +6621,7 @@ def test_constant_4():
 
 
 def test_constant_5():
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= Add().connect(
         left=Tensor([0, 0]),
         right=IOKey("right", Tensor(Constant.EPSILON)),
@@ -6638,7 +6638,7 @@ def test_constant_5():
 
 
 def test_constant_6():
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= Add().connect(
         left=Tensor([0, 0]), right=IOKey("right", Tensor(3)), output=IOKey("out")
     )

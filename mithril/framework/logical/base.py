@@ -419,12 +419,7 @@ class BaseModel:
     # TODO: factory_args should be instance variable not class!
     factory_args: dict[str, Any] = {}
 
-    def __init__(
-        self,
-        name: str | None = None,
-        formula_key: str | None = None,
-        enforce_jit: bool = True,
-    ) -> None:
+    def __init__(self, name: str | None = None, formula_key: str | None = None) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self._formula_key: str | None = formula_key
         # TODO: maybe set it only to Operator / Model.
@@ -442,7 +437,6 @@ class BaseModel:
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
         self.name = name
-        self._enforce_jit = enforce_jit
         self._jittable = True
         self._constraint_solver: ConstraintSolver | None = ConstraintSolver()
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
@@ -935,11 +929,7 @@ class BaseModel:
             raise AttributeError("Child model could not be re-extended!")
         if self == model:
             raise KeyError("Model can not extend with itself!")
-        if self._enforce_jit and not model.jittable:
-            raise Exception(
-                "Model with enforced Jit can not be extended by a non-jittable model! \
-                            Jit can be unforced by setting enforce_jit = False"
-            )
+
         if model.name is not None:
             # TODO: We could store model names in a set to check if it is unique.
             for m in self.dag:
@@ -1004,7 +994,7 @@ class BaseModel:
         model.conns._connections_dict = {}
 
         # Update jittablity by using model's jittablity.
-        self._jittable &= model.jittable
+        # self._jittable &= model.jittable
         if not self.provisional_source:
             model.conns._connections_dict = None
             model._constraint_solver = None
@@ -1515,14 +1505,6 @@ class BaseModel:
     @property
     def class_name(self) -> str:
         return self.__class__.__name__
-
-    @property
-    def enforce_jit(self) -> bool:
-        return self._enforce_jit
-
-    @enforce_jit.setter
-    def enforce_jit(self, value: bool) -> None:
-        self._enforce_jit = value
 
     @property
     def jittable(self) -> bool:

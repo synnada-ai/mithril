@@ -51,6 +51,7 @@ class Backend(ABC, Generic[DataType]):
     array_creation_funcs: list[str]
     primitive_fn_path: str
     CODEGEN_CONFIG: PythonGenConfig | CGenConfig
+    JITABLE: dict[str, Callable[..., bool]] = {}
 
     def __init__(self, dtype: types.Dtype = types.float32, device: str = "cpu") -> None:
         # Check if given dtype is a valid one.
@@ -1136,6 +1137,24 @@ class Backend(ABC, Generic[DataType]):
         NotImplementedError: If the method is not implemented.
         """
         raise NotImplementedError("convert_to_logical is not implemented!")
+
+    def check_op_jittable(self, op_key: str, *args: Any) -> bool:
+        """Check if the operation is JIT-able.
+        Parameters
+        ----------
+        op_key : str
+            The operation key to check.
+        *args : Any
+            Additional arguments for the operation.
+        Returns
+        -------
+        bool
+            True if the operation is JIT-able, False otherwise.
+        """
+        if op_key in self.JITABLE:
+            return self.JITABLE[op_key](*args)
+
+        return True
 
 
 class ParallelBackend(Backend[DataType]):

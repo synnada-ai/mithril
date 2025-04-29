@@ -96,12 +96,14 @@ class PhysicalModel(GenericDataType[DataType]):
         safe_shapes: bool,
         safe_names: bool,
         use_short_namings: bool,
+        jit: bool,
     ) -> None:
         if len(model.conns.output_keys) == 0 and len(model.conns.couts) == 0:
             raise KeyError("Models with no output keys can not be compiled.")
 
         # TODO: Update StaticDataStore.convert_data_to_physical function.
 
+        self.jit: bool = jit
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
         flat_model = FlatModel(
@@ -574,7 +576,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     "no need to provide data for it."
                 )
 
-        self.flat_graph.prune_duplicate_connections(self.data, constant_keys)
+        self.traverse_graph()
 
         self.discarded_keys |= {
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys
@@ -1042,6 +1044,35 @@ class PhysicalModel(GenericDataType[DataType]):
             if len(state_outputs) == 0:
                 return outputs, gradients
             return outputs, gradients, state_outputs
+
+    def traverse_graph(self) -> None:
+        for op in self.flat_graph.all_models:
+            # Prune the operation if it is not needed
+            self.flat_graph.prune_duplicate_operation(
+                op, self.data, self.flat_graph.cached_data
+            )
+
+            if self.jit:
+                # Check if the operation supports JIT compilation
+                self._check_op_jittable(op)
+
+    def _check_op_jittable(self, op: Operator) -> None:
+        conn = self.flat_graph.model_table.get(op)
+        if conn is None:
+            return
+        arg_types = []
+        for source_key in conn.source_keys:
+            data = self.data[source_key]
+            if data.is_tensor:
+                arg_types.append((True, data._type.__args__))  # type: ignore
+            else:
+                arg_types.append((False, data._type))
+
+        if not self.backend.check_op_jittable(op.formula_key, *arg_types):
+            raise RuntimeError(
+                f"Operator '{op.formula_key}' is not JIT compatible. "
+                "Please set jit=False in compile() function."
+            )
 
 
 @dataclass

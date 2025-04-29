@@ -36,6 +36,11 @@ from ....utils.type_utils import is_tuple_int
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
+JITABLE: dict[str, Callable[..., bool]] = {
+    "default": lambda *args, **kwargs: True,
+    "tensor_to_list": lambda *args, **kwargs: False,
+    "item": lambda *args, **kwargs: False,
+}
 
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 

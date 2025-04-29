@@ -52,6 +52,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     registered_primitives = {}
     primitive_fn_path = "mithril.cores.python.torch.ops"
     CODEGEN_CONFIG = utils.CODEGEN_CONFIG
+    JITABLE = utils.JITABLE
 
     def __init__(
         self,

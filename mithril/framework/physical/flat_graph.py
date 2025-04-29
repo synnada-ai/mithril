@@ -383,13 +383,86 @@ class FlatGraph(GenericDataType[DataType]):
 
         return target_keys
 
+    def prune_duplicate_operation(
+        self,
+        op: Operator,
+        data: dict[str, IOHyperEdge],
+        constant_keys: Mapping[str, DataType | MainValueType],
+    ) -> None:
+        conn = self.model_table[op]
+        key = conn.key
+
+        # The connection is already calculated
+        if key in self.data_store.data_values:
+            # Unlink source connections
+            for source_key in list(conn.source_keys):
+                src_conn = self.connections[source_key]
+                src_conn.target_keys.remove(key)
+
+                self._update_conn_info(src_conn)
+
+                while source_key in conn.source_keys:
+                    conn.source_keys.remove(source_key)
+
+            # Clear connection
+            conn.op = None
+            self.model_table.pop(op)
+
+            if len(conn.source_keys) != 0:
+                raise RuntimeError(f"Source keys of {key} must be empty")
+
+            if key in self._all_target_keys:
+                self._all_target_keys.remove(key)
+
+            return
+
+        # Nuke buffer
+        if isinstance(op, BufferOp):
+            input_key = conn.source_keys[0]
+            input_conn = self.connections[input_key]
+            input_conn = self._temp_connection_info.get(input_conn, input_conn)
+            output_conn = self.connections[key]
+
+            self._update_output_keys(key, input_key)
+            self._temp_connection_info[output_conn] = input_conn
+
+            # Update Output conn target conns source keys
+            for target_key in output_conn.target_keys:
+                target_conn = self.connections[target_key]
+                idx = target_conn.source_keys.index(key)
+                target_conn.source_keys[idx] = input_key
+
+            # Update input conn target keys
+            input_conn.target_keys += output_conn.target_keys
+
+            self._remove_conn(output_conn)
+        else:
+            # Check duplicate
+            source_conn = self._is_duplicate(conn, data, constant_keys)
+            if source_conn is None:
+                return
+
+            pruned_key = key
+            source_key = source_conn.key
+
+            ## Update Data Memo
+            pruned_data = self.all_data[pruned_key]
+            remained_data = self.all_data[source_key]
+
+            # Match shapes
+            updates = remained_data.match(pruned_data)
+
+            # Finally prune the connection
+            self._prune_connection(conn, source_conn)
+
+            self.data_store.update_cached_data(updates)
+            self.constraint_solver(updates)
+
     def prune_duplicate_connections(
         self,
         data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
     ) -> None:
-        reverse_data_memo = {value: key for key, value in self.data_memo.items()}
-
         updates = Updates()
 
         # Traverse the graph connections
@@ -453,11 +526,6 @@ class FlatGraph(GenericDataType[DataType]):
                 ## Update Data Memo
                 pruned_data = self.all_data[pruned_key]
                 remained_data = self.all_data[source_key]
-
-                # find the occurrence of pruned data in data memo and replace it with
-                # remained data
-                logical_id = reverse_data_memo[pruned_data]
-                self.data_memo[logical_id] = remained_data
 
                 # Match shapes
                 updates |= remained_data.match(pruned_data)
