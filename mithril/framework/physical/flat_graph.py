@@ -650,8 +650,7 @@ class FlatGraph(GenericDataType[DataType]):
                 # TODO: Move this outside of while loop
                 # after CBackend is completely implemented.
                 fn_dict = (
-                    self.backend.primitive_function_dict
-                    | self.backend.registered_primitives
+                    self.backend.op_function_dict | self.backend.registered_primitives
                 )
 
                 static_value: DataType | MainValueType

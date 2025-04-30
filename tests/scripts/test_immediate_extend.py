@@ -653,7 +653,7 @@ def test_flat_model_key_naming_matching():
     assert model.conns.get_con_by_metadata(metadata) is not None  # type: ignore
     flat_model = FlatModel(
         model,
-        ml.JaxBackend().primitive_function_dict,
+        ml.JaxBackend().op_function_dict,
         short_namings=False,
     )
     assert flat_model.queued_models == {}
