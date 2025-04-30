@@ -106,7 +106,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self._output_keys: set[str] = set(model.conns.output_keys)
         flat_model = FlatModel(
             model,
-            backend.primitive_function_dict,
+            backend.op_function_dict,
             short_namings=use_short_namings,
         )
         self.external_key_mapping: dict[str, str] = flat_model.external_mapping

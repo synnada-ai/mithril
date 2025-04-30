@@ -41,7 +41,7 @@ class GGMLBackend(Backend[PyArray]):
 
     def __init__(self) -> None:
         self._device = "cpu"
-        self.primitive_function_dict = ops.primitive_func_dict
+        self.op_function_dict = ops.primitive_func_dict
         self.dtype_map = dtype_map
         self.registered_primitives = {}
         self.array_creation_funcs: list[str] = []

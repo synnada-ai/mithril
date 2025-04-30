@@ -16,6 +16,12 @@
 import pytest
 
 import mithril as ml
+from mithril.framework.logical.operators import (
+    CosineOp,
+    MultiplyOp,
+    SineOp,
+    TransposeOp,
+)
 from mithril.framework.physical.flat_graph import FlatGraph
 from mithril.models import Add, Buffer, ConstraintSolver, Model, Relu, Sigmoid, Tanh
 
@@ -302,3 +308,318 @@ def test_discard_from_middle():
         "'Provided discard keys must be subset of the input keys and output keys. "
         "Invalid keys: output1.'"
     )
+
+
+def test_insert_to_input_siso_used_by_single_op():
+    # Insert before SISO operator
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    fg.add_value(cosine_op, {"input": "sin_out", "output": "output"})
+
+    assert fg.input_keys == {"input"}
+    assert fg.output_keys == {"output"}
+    assert fg.all_keys == {"input", "sin_out", "output"}
+    assert fg.all_models == [sine_op, cosine_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["output"]
+
+    fg.insert_operator_before(
+        transpose_op,
+        {"input": "sin_out", "output": "transpose_out"},
+        cosine_op,
+        "sin_out",
+    )
+    assert fg.all_keys == {"input", "sin_out", "transpose_out", "output"}
+    assert fg.all_models == [sine_op, cosine_op, transpose_op]
+    assert fg.get_source_keys("output") == ["transpose_out"]
+    assert fg.get_target_keys("transpose_out") == ["output"]
+    assert fg.get_source_keys("transpose_out") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["transpose_out"]
+
+
+def test_insert_to_input_siso_used_by_multiple_ops():
+    # Insert before SISO operator
+    # The input is used by multiple operators
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    multiply_op = MultiplyOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    fg.add_value(cosine_op, {"input": "sin_out", "output": "output"})
+    fg.add_value(
+        multiply_op, {"left": "sin_out", "right": "input", "output": "multiply_out"}
+    )
+
+    assert fg.input_keys == {"input"}
+    assert fg.output_keys == {"output"}
+    assert fg.all_keys == {"input", "sin_out", "output", "multiply_out"}
+    assert fg.all_models == [sine_op, cosine_op, multiply_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
+    assert fg.get_target_keys("sin_out") == ["output", "multiply_out"]
+
+    fg.insert_operator_before(
+        transpose_op,
+        {"input": "sin_out", "output": "transpose_out"},
+        cosine_op,
+        "sin_out",
+    )
+    assert fg.all_keys == {
+        "input",
+        "sin_out",
+        "transpose_out",
+        "output",
+        "multiply_out",
+    }
+    assert fg.all_models == [sine_op, cosine_op, multiply_op, transpose_op]
+    assert fg.get_source_keys("output") == ["transpose_out"]
+    assert fg.get_target_keys("transpose_out") == ["output"]
+    assert fg.get_source_keys("transpose_out") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["multiply_out", "transpose_out"]
+    assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
+
+
+def test_insert_to_input_miso_used_by_single_op():
+    # Insert before MISO operator
+    # The input is used by single operators
+    sine_op = SineOp()
+    multiply_op = MultiplyOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    fg.add_value(multiply_op, {"left": "sin_out", "right": "input", "output": "output"})
+
+    assert fg.input_keys == {"input"}
+    assert fg.output_keys == {"output"}
+    assert fg.all_keys == {"input", "sin_out", "output"}
+    assert fg.all_models == [sine_op, multiply_op]
+    assert fg.get_source_keys("output") == ["sin_out", "input"]
+    assert fg.get_target_keys("sin_out") == ["output"]
+
+    fg.insert_operator_before(
+        transpose_op,
+        {"input": "sin_out", "output": "transpose_out"},
+        multiply_op,
+        "sin_out",
+    )
+    assert fg.all_keys == {"input", "sin_out", "transpose_out", "output"}
+    assert fg.all_models == [sine_op, multiply_op, transpose_op]
+    assert fg.get_source_keys("output") == ["transpose_out", "input"]
+    assert fg.get_target_keys("transpose_out") == ["output"]
+    assert fg.get_source_keys("transpose_out") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["transpose_out"]
+
+
+def test_insert_to_input_miso_used_by_multiple_ops():
+    # Insert before MISO operator
+    # The input is used by multiple operators
+    sine_op = SineOp()
+    multiply_op = MultiplyOp()
+    cosine_op = CosineOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    fg.add_value(
+        multiply_op, {"left": "sin_out", "right": "input", "output": "multiply_out"}
+    )
+    fg.add_value(cosine_op, {"input": "sin_out", "output": "output"})
+
+    assert fg.input_keys == {"input"}
+    assert fg.output_keys == {"output"}
+    assert fg.all_keys == {"input", "sin_out", "multiply_out", "output"}
+    assert fg.all_models == [sine_op, multiply_op, cosine_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
+    assert fg.get_target_keys("sin_out") == ["multiply_out", "output"]
+
+    fg.insert_operator_before(
+        transpose_op,
+        {"input": "sin_out", "output": "transpose_out"},
+        multiply_op,
+        "sin_out",
+    )
+    assert fg.all_keys == {
+        "input",
+        "sin_out",
+        "transpose_out",
+        "multiply_out",
+        "output",
+    }
+    assert fg.all_models == [sine_op, multiply_op, cosine_op, transpose_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_target_keys("transpose_out") == ["multiply_out"]
+    assert fg.get_source_keys("transpose_out") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["output", "transpose_out"]
+    assert fg.get_source_keys("multiply_out") == ["transpose_out", "input"]
+
+
+def test_insert_to_output_siso_used_by_single_op():
+    # Insert after SISO operator
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    fg.add_value(cosine_op, {"input": "sin_out", "output": "output"})
+
+    assert fg.input_keys == {"input"}
+    assert fg.output_keys == {"output"}
+    assert fg.all_keys == {"input", "sin_out", "output"}
+    assert fg.all_models == [sine_op, cosine_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["output"]
+
+    fg.insert_operator_after(
+        transpose_op,
+        {"input": "transpose_input", "output": "sin_out"},
+        "transpose_input",
+        sine_op,
+        "sin_out",
+    )
+    assert fg.all_keys == {"input", "sin_out", "transpose_input", "output"}
+    assert fg.all_models == [sine_op, cosine_op, transpose_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_target_keys("transpose_input") == ["sin_out"]
+    assert fg.get_source_keys("transpose_input") == ["input"]
+    assert fg.get_target_keys("sin_out") == ["output"]
+
+
+def test_insert_to_output_siso_used_by_multiple_ops():
+    # Insert before SISO operator
+    # The output is used by multiple operators
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    transpose_op = TransposeOp()
+    multiply_op = MultiplyOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    fg.add_value(cosine_op, {"input": "sin_out", "output": "output"})
+    fg.add_value(
+        multiply_op, {"left": "sin_out", "right": "input", "output": "multiply_out"}
+    )
+
+    assert fg.input_keys == {"input"}
+    assert fg.output_keys == {"output"}
+    assert fg.all_keys == {"input", "sin_out", "output", "multiply_out"}
+    assert fg.all_models == [sine_op, cosine_op, multiply_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["output", "multiply_out"]
+
+    fg.insert_operator_after(
+        transpose_op,
+        {"input": "transpose_input", "output": "sin_out"},
+        "transpose_input",
+        sine_op,
+        "sin_out",
+    )
+    assert fg.all_keys == {
+        "input",
+        "sin_out",
+        "transpose_input",
+        "multiply_out",
+        "output",
+    }
+    assert fg.all_models == [sine_op, cosine_op, multiply_op, transpose_op]
+    assert fg.get_source_keys("output") == ["sin_out"]
+    assert fg.get_target_keys("sin_out") == ["output", "multiply_out"]
+    assert fg.get_source_keys("sin_out") == ["transpose_input"]
+    assert fg.get_target_keys("transpose_input") == ["sin_out"]
+    assert fg.get_source_keys("transpose_input") == ["input"]
+    assert fg.get_source_keys("multiply_out") == ["sin_out", "input"]
+
+
+def test_insert_errors():
+    # Insert after SISO operator
+    # The output is used by multiple operators
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    transpose_op = TransposeOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+
+    # Insert operator that is not in the graph
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            "transpose_input",
+            cosine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Base operator `cos` must already be in the graph")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_before(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            cosine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Base operator `cos` must already be in the graph")
+
+    # Insert with wrong key
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            "transpose_input",
+            sine_op,
+            "asd",
+        )
+
+    assert str(e.value) == ("Inserted key `asd` must be in the keys dictionary")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            "sin_out",
+            sine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Source key `sin_out` must be in the keys dictionary")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_before(
+            transpose_op,
+            {"input": "transpose_input", "output": "sin_out"},
+            sine_op,
+            "asd",
+        )
+
+    assert str(e.value) == ("Inserted key `asd` must be in the keys dictionary")
+
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_before(
+            transpose_op,
+            {"input": "transpose_input", "output": "qwerty"},
+            sine_op,
+            "sin_out",
+        )
+
+    assert str(e.value) == ("Inserted key `sin_out` must be in the keys dictionary")
+
+
+def test_insert_to_output_key_not_in_keys_err():
+    # If the target inserted key not in the keys raise error
+    sine_op = SineOp()
+    cosine_op = CosineOp()
+    fg = FlatGraph({"input"}, {"output"}, ml.TorchBackend(), ConstraintSolver(), [])
+    fg.add_value(sine_op, {"input": "input", "output": "sin_out"})
+    with pytest.raises(ValueError) as e:
+        fg.insert_operator_after(
+            cosine_op,
+            {"input": "sin_out", "output": "cos_out"},
+            "sin_out",
+            sine_op,
+            "not_in_keys",
+        )
+
+    assert str(e.value) == ("Inserted key `not_in_keys` must be in the keys dictionary")

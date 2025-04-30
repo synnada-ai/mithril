@@ -38,6 +38,7 @@ from ..utils import check_repr_inequality
 from .python_gen import PythonCodeGen, RawGradientType
 
 
+# Numpy codegen will be updated after AUTOGRAD is added.
 class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
     BACKWARD_FN_SUFFIX = "_grad"
 
@@ -57,6 +58,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         return functions
 
     def generate_imports(self) -> list[ast.stmt]:
+        # Numpy backend also imports gradient functions
         imports = super().generate_imports()
 
         # Import grad functions
@@ -178,9 +180,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
 
-    def get_primitive_details(
-        self, output_key: str
-    ) -> tuple[Operator, list[str], list[str]]:
+    def get_op_details(self, output_key: str) -> tuple[Operator, list[str], list[str]]:
         model = self.pm.flat_graph.get_op(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
@@ -435,7 +435,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         slice=ast.Constant(
                             "_" + target_key
                             if keyword.iskeyword(target_key)
-                            or target_key in self.backend.primitive_function_dict
+                            or target_key in self.backend.op_function_dict
                             else target_key
                         ),
                         ctx=ast.Load(),
@@ -447,7 +447,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         slice=ast.Constant(
                             "_" + target_key
                             if keyword.iskeyword(target_key)
-                            or target_key in self.backend.primitive_function_dict
+                            or target_key in self.backend.op_function_dict
                             else target_key
                         ),
                         ctx=ast.Load(),
@@ -458,7 +458,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         slice=ast.Constant(
                             "_" + source_key
                             if keyword.iskeyword(source_key)
-                            or source_key in self.backend.primitive_function_dict
+                            or source_key in self.backend.op_function_dict
                             else source_key
                         ),
                         ctx=ast.Load(),
@@ -489,8 +489,8 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
             # Get primitive function inputs order
             primitive_function = (
-                self.backend.primitive_function_dict[model.formula_key]
-                if model.formula_key in self.backend.primitive_function_dict
+                self.backend.op_function_dict[model.formula_key]
+                if model.formula_key in self.backend.op_function_dict
                 else self.backend.registered_primitives[model.formula_key]
             )
             local_to_global_dict = {
@@ -556,7 +556,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     slice=ast.Constant(
                         "_" + output_key
                         if keyword.iskeyword(output_key)
-                        or output_key in self.backend.primitive_function_dict
+                        or output_key in self.backend.op_function_dict
                         else output_key
                     ),
                     ctx=ast.Load(),
@@ -581,7 +581,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
                 if (
                     keyword.iskeyword(global_input_key)
-                    or global_input_key in self.backend.primitive_function_dict
+                    or global_input_key in self.backend.op_function_dict
                 ):
                     manipulated_key = "_" + global_input_key
                 else:
