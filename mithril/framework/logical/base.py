@@ -993,8 +993,6 @@ class BaseModel:
         model.constraint_solver.clear()
         model.conns._connections_dict = {}
 
-        # Update jittablity by using model's jittablity.
-        # self._jittable &= model.jittable
         if not self.provisional_source:
             model.conns._connections_dict = None
             model._constraint_solver = None

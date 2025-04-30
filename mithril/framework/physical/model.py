@@ -20,7 +20,7 @@ from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Literal, overload
+from typing import Any, Literal, get_args, overload
 
 from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
@@ -1064,9 +1064,9 @@ class PhysicalModel(GenericDataType[DataType]):
         for source_key in conn.source_keys:
             data = self.data[source_key]
             if data.is_tensor:
-                arg_types.append((True, data._type.__args__))  # type: ignore
+                arg_types.append((True, get_args(data._type)))
             else:
-                arg_types.append((False, data._type))
+                arg_types.append((False, data._type))  # type: ignore
 
         if not self.backend.check_op_jittable(op.formula_key, *arg_types):
             raise RuntimeError(

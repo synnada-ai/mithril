@@ -1154,7 +1154,7 @@ class Backend(ABC, Generic[DataType]):
         if op_key in self.JITABLE:
             return self.JITABLE[op_key](*args)
 
-        return True
+        return self.JITABLE["default"](*args)
 
 
 class ParallelBackend(Backend[DataType]):
