@@ -1170,7 +1170,6 @@ def test_physical_summary_11():
         safe_names=False,
         inference=True,
         jit=False,
-        file_path="ekmek.py",
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, model=sig_model2)

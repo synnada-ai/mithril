@@ -51,7 +51,9 @@ class Backend(ABC, Generic[DataType]):
     array_creation_funcs: list[str]
     primitive_fn_path: str
     CODEGEN_CONFIG: PythonGenConfig | CGenConfig
-    JITABLE: dict[str, Callable[..., bool]] = {}
+    JITABLE: dict[str, Callable[..., bool]] = {
+        "default": lambda *args, **kwargs: True,
+    }
 
     def __init__(self, dtype: types.Dtype = types.float32, device: str = "cpu") -> None:
         # Check if given dtype is a valid one.
