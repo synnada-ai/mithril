@@ -1,669 +1,246 @@
 {
   "test_no_grad_1": {
-    "model": {
-      "name": "Model",
-      "submodels": {
-        "m1": {
-          "name": "Multiply"
-        },
-        "m2": {
-          "name": "Add"
-        },
-        "m3": {
-          "name": "Multiply"
-        },
-        "m4": {
-          "name": "Add"
-        },
-        "m5": {
-          "name": "Multiply"
-        }
+      "model": {
+          "name": "Model",
+          "submodels": {
+              "m1": {
+                  "name": "Multiply"
+              },
+              "m2": {
+                  "name": "Add"
+              },
+              "m3": {
+                  "name": "Multiply"
+              },
+              "m4": {
+                  "name": "Add"
+              },
+              "m5": {
+                  "name": "Multiply"
+              }
+          },
+          "assigned_differentiabilities": [
+              ["input1", true],
+              ["input2", true],
+              ["input3", true]
+          ],
+          "connections": {
+              "m1": {
+                  "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
+              },
+              "m2": {
+                  "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
+              },
+              "m3": {
+                  "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "output": {"key": {
+                      "name": "output3", 
+                      "expose": true
+                  }}
+              },
+              "m4": {
+                  "left": {"key": {"connect": [["m1", "output"]]}}, 
+                  "right": {"key": {"connect": [["m2","output"]]}}, 
+                  "output": {"key": {
+                      "name": "output1", 
+                      "expose": true
+                  }}
+              },
+              "m5": {
+                  "left": {"key": {"connect": [["m2", "output"]]}}, 
+                  "right": {"key": {"connect": [["m3","output"]]}}, 
+                  "output": {"key": {
+                      "name": "output2", 
+                      "expose": true
+                  }}
+              }
+          }
       },
-      "assigned_differentiabilities": [
-        [
-          "input1",
-          true
-        ],
-        [
-          "input2",
-          true
-        ],
-        [
-          "input3",
-          true
-        ]
-      ],
-      "connections": {
-        "m1": {
-          "left": {
-            "key": {
-              "name": "input1",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input2",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          }
-        },
-        "m2": {
-          "left": {
-            "key": {
-              "name": "input2",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input3",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          }
-        },
-        "m3": {
-          "left": {
-            "key": {
-              "name": "input1",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input3",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output3",
-              "expose": true
-            }
-          }
-        },
-        "m4": {
-          "left": {
-            "key": {
-              "connect": [
-                [
-                  "m1",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "right": {
-            "key": {
-              "connect": [
-                [
-                  "m2",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output1",
-              "expose": true
-            }
-          }
-        },
-        "m5": {
-          "left": {
-            "key": {
-              "connect": [
-                [
-                  "m2",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "right": {
-            "key": {
-              "connect": [
-                [
-                  "m3",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output2",
-              "expose": true
-            }
-          }
-        }
-      }
-    },
-    "inputs": {
-      "input1": [
-        3.0
-      ],
-      "input2": [
-        2.0
-      ],
-      "input3": [
-        1.0
-      ]
-    },
-    "output_grads": {
-      "output1": [
-        1.0
-      ],
-      "output3": [
-        1.0
-      ]
-    },
-    "results": {
-      "eval": {
-        "output1": [
-          9.0
-        ],
-        "output2": [
-          9.0
-        ],
-        "output3": [
-          3.0
-        ]
+      "inputs": {
+          "input1": [3.0],
+          "input2": [2.0],
+          "input3": [1.0]
       },
-      "grad": {
-        "input1": [
-          3.0
-        ],
-        "input2": [
-          4.0
-        ],
-        "input3": [
-          4.0
-        ]
+      "output_grads": {
+          "output1": [1.0],
+          "output3": [1.0]
+      },
+      "results": {
+          "eval": {
+              "output1": [9.0],
+              "output2": [9.0],
+              "output3": [3.0]
+          },
+          "grad": {
+              "input1": [3.0],
+              "input2": [4.0],
+              "input3": [4.0]
+          } 
       }
-    }
   },
   "test_no_grad_2": {
-    "model": {
-      "name": "Model",
-      "submodels": {
-        "m1": {
-          "name": "Multiply"
-        },
-        "m2": {
-          "name": "Add"
-        },
-        "m3": {
-          "name": "Multiply"
-        },
-        "m4": {
-          "name": "Add"
-        },
-        "m5": {
-          "name": "Multiply"
-        }
+      "model": {
+          "name": "Model",
+          "submodels": {
+              "m1": {
+                  "name": "Multiply"
+              },
+              "m2": {
+                  "name": "Add"
+              },
+              "m3": {
+                  "name": "Multiply"
+              },
+              "m4": {
+                  "name": "Add"
+              },
+              "m5": {
+                  "name": "Multiply"
+              }
+          },
+          "assigned_differentiabilities": [
+              ["input1", true],
+              ["input2", true],
+              ["input3", true]
+          ],
+          "connections": {
+              "m1": {
+                  "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
+              },
+              "m2": {
+                  "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
+              },
+              "m3": {
+                  "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "output": {"key": {
+                      "name": "output3", 
+                      "expose": true
+                  }}
+              },
+              "m4": {
+                  "left": {"key": {"connect": [["m1", "output"]]}}, 
+                  "right": {"key": {"connect": [["m2","output"]]}}, 
+                  "output": {"key": {
+                      "name": "output1", 
+                      "expose": true
+                  }}
+              },
+              "m5": {
+                  "left": {"key": {"connect": [["m2", "output"]]}}, 
+                  "right": {"key": {"connect": [["m3","output"]]}}, 
+                  "output": {"key": {
+                      "name": "output2", 
+                      "expose": true
+                  }}
+              }
+          }
       },
-      "assigned_differentiabilities": [
-        [
-          "input1",
-          true
-        ],
-        [
-          "input2",
-          true
-        ],
-        [
-          "input3",
-          true
-        ]
-      ],
-      "connections": {
-        "m1": {
-          "left": {
-            "key": {
-              "name": "input1",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input2",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          }
-        },
-        "m2": {
-          "left": {
-            "key": {
-              "name": "input2",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input3",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          }
-        },
-        "m3": {
-          "left": {
-            "key": {
-              "name": "input1",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input3",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output3",
-              "expose": true
-            }
-          }
-        },
-        "m4": {
-          "left": {
-            "key": {
-              "connect": [
-                [
-                  "m1",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "right": {
-            "key": {
-              "connect": [
-                [
-                  "m2",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output1",
-              "expose": true
-            }
-          }
-        },
-        "m5": {
-          "left": {
-            "key": {
-              "connect": [
-                [
-                  "m2",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "right": {
-            "key": {
-              "connect": [
-                [
-                  "m3",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output2",
-              "expose": true
-            }
-          }
-        }
-      }
-    },
-    "inputs": {
-      "input1": [
-        3.0
-      ],
-      "input2": [
-        2.0
-      ],
-      "input3": [
-        1.0
-      ]
-    },
-    "output_grads": {
-      "output1": [
-        1.0
-      ]
-    },
-    "results": {
-      "eval": {
-        "output1": [
-          9.0
-        ],
-        "output2": [
-          9.0
-        ],
-        "output3": [
-          3.0
-        ]
+      "inputs": {
+          "input1": [3.0],
+          "input2": [2.0],
+          "input3": [1.0]
       },
-      "grad": {
-        "input1": [
-          2.0
-        ],
-        "input2": [
-          4.0
-        ],
-        "input3": [
-          1.0
-        ]
+      "output_grads": {
+          "output1": [1.0]
+      },
+      "results": {
+          "eval": {
+              "output1": [9.0],
+              "output2": [9.0],
+              "output3": [3.0]
+          },
+          "grad": {
+              "input1": [2.0],
+              "input2": [4.0],
+              "input3": [1.0]
+          } 
       }
-    }
   },
   "test_no_grad_3": {
-    "model": {
-      "name": "Model",
-      "submodels": {
-        "m1": {
-          "name": "Multiply"
-        },
-        "m2": {
-          "name": "Add"
-        },
-        "m3": {
-          "name": "Multiply"
-        },
-        "m4": {
-          "name": "Add"
-        },
-        "m5": {
-          "name": "Multiply"
-        }
+      "model": {
+          "name": "Model",
+          "submodels": {
+              "m1": {
+                  "name": "Multiply"
+              },
+              "m2": {
+                  "name": "Add"
+              },
+              "m3": {
+                  "name": "Multiply"
+              },
+              "m4": {
+                  "name": "Add"
+              },
+              "m5": {
+                  "name": "Multiply"
+              }
+          },
+          "assigned_differentiabilities": [
+              ["input1", true],
+              ["input2", true],
+              ["input3", true]
+          ],
+          "connections": {
+              "m1": {
+                  "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
+              },
+              "m2": {
+                  "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
+              },
+              "m3": {
+                  "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                  "output": {"key": {
+                      "name": "output3", 
+                      "expose": true
+                  }}
+              },
+              "m4": {
+                  "left": {"key": {"connect": [["m1", "output"]]}}, 
+                  "right": {"key": {"connect": [["m2","output"]]}}, 
+                  "output": {"key": {
+                      "name": "output1", 
+                      "expose": true
+                  }}
+              },
+              "m5": {
+                  "left": {"key": {"connect": [["m2", "output"]]}}, 
+                  "right": {"key": {"connect": [["m3","output"]]}}, 
+                  "output": {"key": {
+                      "name": "output2", 
+                      "expose": true
+                  }}
+              }
+          }
       },
-      "assigned_differentiabilities": [
-        [
-          "input1",
-          true
-        ],
-        [
-          "input2",
-          true
-        ],
-        [
-          "input3",
-          true
-        ]
-      ],
-      "connections": {
-        "m1": {
-          "left": {
-            "key": {
-              "name": "input1",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input2",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          }
-        },
-        "m2": {
-          "left": {
-            "key": {
-              "name": "input2",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input3",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          }
-        },
-        "m3": {
-          "left": {
-            "key": {
-              "name": "input1",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "right": {
-            "key": {
-              "name": "input3",
-              "type": {
-                "Tensor": [
-                  "int",
-                  "float",
-                  "bool"
-                ]
-              }
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output3",
-              "expose": true
-            }
-          }
-        },
-        "m4": {
-          "left": {
-            "key": {
-              "connect": [
-                [
-                  "m1",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "right": {
-            "key": {
-              "connect": [
-                [
-                  "m2",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output1",
-              "expose": true
-            }
-          }
-        },
-        "m5": {
-          "left": {
-            "key": {
-              "connect": [
-                [
-                  "m2",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "right": {
-            "key": {
-              "connect": [
-                [
-                  "m3",
-                  "output"
-                ]
-              ]
-            }
-          },
-          "output": {
-            "key": {
-              "name": "output2",
-              "expose": true
-            }
-          }
-        }
-      }
-    },
-    "inputs": {
-      "input1": [
-        3.0,
-        1.0
-      ],
-      "input2": [
-        2.0,
-        2.0
-      ],
-      "input3": [
-        1.0,
-        3.0
-      ]
-    },
-    "output_grads": {
-      "output2": [
-        1.0,
-        1.0
-      ]
-    },
-    "results": {
-      "eval": {
-        "output1": [
-          9.0,
-          7.0
-        ],
-        "output2": [
-          9.0,
-          15.0
-        ],
-        "output3": [
-          3.0,
-          3.0
-        ]
+      "inputs": {
+          "input1": [3.0,1.0],
+          "input2": [2.0,2.0],
+          "input3": [1.0,3.0]
       },
-      "grad": {
-        "input1": [
-          3.0,
-          15.0
-        ],
-        "input2": [
-          3.0,
-          3.0
-        ],
-        "input3": [
-          12.0,
-          8.0
-        ]
+      "output_grads": {
+          "output2": [1.0,1.0]
+      },
+      "results": {
+          "eval": {
+              "output1": [9.0, 7.0],
+              "output2": [9.0, 15.0],
+              "output3": [3.0, 3.0]
+          },
+          "grad": {
+              "input1": [3.0, 15.0],
+              "input2": [3.0, 3.0],
+              "input3": [12.0, 8.0]
+          } 
       }
-    }
   }
 }
