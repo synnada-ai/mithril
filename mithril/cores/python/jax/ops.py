@@ -177,6 +177,8 @@ __all__ = [
     "logical_and",
     "logical_xor",
     "matrix_multiplication",
+    "linear",
+    "linear_bias",
     "add",
     "subtract",
     "multiplication",
@@ -600,6 +602,16 @@ def avg_pool2d(
     if is_single_input:
         y = jnp.squeeze(y, axis=0)
     return y
+
+
+def linear(input: jax.Array, weight: jax.Array) -> jax.Array:
+    # Applies input @ weight.T
+    return jnp.matmul(input, weight.T)
+
+
+def linear_bias(input: jax.Array, weight: jax.Array, bias: jax.Array) -> jax.Array:
+    # Applies input @ weight.T + bias
+    return jnp.matmul(input, weight.T) + bias
 
 
 def scaled_dot_product_attention(

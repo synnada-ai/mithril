@@ -253,7 +253,7 @@ def test_data_store_9():
         backend=backend,
         constant_keys={"input": value},
         inference=True,
-        jit=False
+        jit=False,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {

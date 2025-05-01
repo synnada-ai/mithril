@@ -3000,6 +3000,37 @@ def test_replace_with_primitive_5():
     assert expected_ignore_keys == comp_model.discarded_keys
 
 
+def test_replace_with_primitive_linear():
+    model = Model()
+    model |= Linear(10, use_bias=False).connect(input="input", output="output")
+    torch_pm = compile(model=model, backend=TorchBackend())
+    jax_pm = compile(model=model, backend=JaxBackend())
+
+    assert len(torch_pm.flat_graph.model_table) == 2
+    assert [op.formula_key for op in torch_pm.flat_graph.model_table] == [
+        "transpose",
+        "matrix_multiplication",
+    ]
+    assert len(jax_pm.flat_graph.model_table) == 1
+    assert list(jax_pm.flat_graph.model_table)[0].formula_key == "linear"
+
+
+def test_replace_with_primitive_linear_bias():
+    model = Model()
+    model |= Linear(10, use_bias=True).connect(input="input", output="output")
+    torch_pm = compile(model=model, backend=TorchBackend())
+    jax_pm = compile(model=model, backend=JaxBackend())
+
+    assert len(torch_pm.flat_graph.model_table) == 3
+    assert [op.formula_key for op in torch_pm.flat_graph.model_table] == [
+        "transpose",
+        "matrix_multiplication",
+        "add",
+    ]
+    assert len(jax_pm.flat_graph.model_table) == 1
+    assert list(jax_pm.flat_graph.model_table)[0].formula_key == "linear_bias"
+
+
 def test_generate_gradients():
     backend = NumpyBackend()
     model = Model()
