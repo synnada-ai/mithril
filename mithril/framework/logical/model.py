@@ -487,7 +487,6 @@ class Model(BaseModel):
         """
         provisional_model.provisional_source = self
         self.provisional_model = provisional_model
-        provisional_model.enforce_jit = self.enforce_jit
         updates = self.constraint_solver.match(provisional_model.constraint_solver)
         self.constraint_solver(updates)
         provisional_model._constraint_solver = self._constraint_solver

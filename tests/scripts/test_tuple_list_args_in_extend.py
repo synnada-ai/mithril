@@ -53,7 +53,7 @@ def test_tuple_argument_1():
 def test_tuple_argument_2():
     backend = TorchBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
     model += add_model.connect(left="left", right="right")
@@ -80,7 +80,7 @@ def test_tuple_argument_2():
 def test_tuple_argument_3():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=True)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
     model += add_model.connect(left="left", right="right")
@@ -110,7 +110,7 @@ def test_tuple_argument_3():
 def test_tuple_argument_4():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
     model += add_model.connect(left="left", right="right")
@@ -137,7 +137,7 @@ def test_tuple_argument_4():
 def test_tuple_argument_5():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
     model += add_model.connect(left="left", right="right")
@@ -167,7 +167,7 @@ def test_tuple_argument_5():
 def test_list_tuple_mixed_argument_1():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
     model += add_model.connect(left="left", right="right")
@@ -197,7 +197,7 @@ def test_list_tuple_mixed_argument_1():
 def test_list_tuple_mixed_argument_2():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
 
     model += add_model.connect(left="left", right="right")
@@ -226,7 +226,7 @@ def test_list_tuple_mixed_argument_2():
 def test_list_tuple_mixed_argument_3():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     tensor = [(1, 2), [3.0, 4], (5, 5)]
 
     to_tensor = ToTensor()
@@ -275,7 +275,7 @@ def test_list_argument_1():
 def test_list_argument_2():
     backend = TorchBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
 
@@ -303,7 +303,7 @@ def test_list_argument_2():
 def test_list_argument_3():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=True)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
 
@@ -334,7 +334,7 @@ def test_list_argument_3():
 def test_list_argument_4():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
 
@@ -362,7 +362,7 @@ def test_list_argument_4():
 def test_list_argument_5():
     backend = JaxBackend()
 
-    model = Model(enforce_jit=False)
+    model = Model()
     add_model = Add()
     add_model_2 = Add()
 

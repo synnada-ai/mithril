@@ -3390,9 +3390,7 @@ class TensorToList(OperatorModel):
         *,
         name: str | None = None,
     ) -> None:
-        self._enforce_jit = False
         m = TensorToListOp(input=input)
-        m._enforce_jit = False
         super().__init__(name=name, model=m)
 
     def connect(  # type: ignore[override]

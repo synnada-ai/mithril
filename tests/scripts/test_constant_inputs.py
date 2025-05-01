@@ -670,12 +670,11 @@ def test_scalar_mean_2_set_values():
 
 def test_scalar_1():
     """This test should raise an error since we are trying to connect an output
-    connection to a valued input connection. If model1 is initialized with
-    enforce_jit=True, jittabilty error would be raised since a Tensor to
-    Scalar conversion is needed from left input of add_1 which is Tensor,
+    connection to a valued input connection.Scalar conversion is needed from left
+    input of add_1 which is Tensor,
     to left_2 which is valued Scalar.
     """
-    model1 = Model(enforce_jit=False)
+    model1 = Model()
     model2 = Model()
     add_1 = Add()
     add_2 = Add()
@@ -694,7 +693,7 @@ def test_scalar_1():
 
 
 def test_scalar_1_set_values():
-    model1 = Model(enforce_jit=False)
+    model1 = Model()
     model2 = Model()
     add_1 = Add()
     add_2 = Add()
@@ -754,7 +753,7 @@ def test_scalar_3():
 
 
 def test_scalar_3_set_values():
-    model1 = Model(enforce_jit=False)
+    model1 = Model()
     add_2 = Add()
     add_1 = Add()
     model1 |= add_2
@@ -777,7 +776,7 @@ def test_scalar_4():
 
 
 def test_scalar_4_set_values():
-    model1 = Model(enforce_jit=False)
+    model1 = Model()
     add_1 = Add()
     with pytest.raises(ValueError) as err_info:
         model1 |= add_1.connect(left="left", right="right", output="output")
@@ -1346,7 +1345,7 @@ def test_static_input_5():
 
 def test_static_input_6():
     model_1 = Model()
-    model_2 = Model(enforce_jit=False)
+    model_2 = Model()
     add_1 = Add()
     add_2 = Add()
     add_3 = Add()
@@ -1392,7 +1391,7 @@ def test_static_input_6_error():
     with values 3.0 and 1.0
     """
     model_1 = Model()
-    model_2 = Model(enforce_jit=False)
+    model_2 = Model()
     add_1 = Add()
     add_2 = Add()
     add_3 = Add()
@@ -2666,7 +2665,7 @@ def test_scalar_conns_elevated_with_immediate_extend_value():
 
 
 def test_multi_write_to_local_output_key():
-    model = Model(enforce_jit=False)
+    model = Model()
     model += Mean(axis=(1, 2)).connect(input="input", axis="axis")
     with pytest.raises(ValueError) as err_info:
         model |= Buffer().connect(input="buff_input", output="axis")

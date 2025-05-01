@@ -132,8 +132,6 @@ def compile(
         _description_, by default None
     """
 
-    if jit and not model.jittable:
-        raise Exception("Model is not jittable. Can only be compiled with jit = False.")
     # TrainModel model requires to be finalized before compilation.
     if isinstance(model, TrainModel):
         model.finalize()
@@ -161,6 +159,7 @@ def compile(
         safe_shapes=safe_shapes,
         safe_names=safe_names,
         use_short_namings=use_short_namings,
+        jit=jit,
     )
 
     if jit and file_path is not None:

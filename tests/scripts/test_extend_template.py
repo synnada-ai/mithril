@@ -1837,7 +1837,7 @@ def test_immediate_values_with_extend_template_and_regular_case():
 
 
 def test_item():
-    model1 = Model(enforce_jit=False)
+    model1 = Model()
 
     buffer_model_1 = Buffer()
     item_model = Item()
@@ -1847,7 +1847,7 @@ def test_item():
     model1 |= item_model.connect(input=buffer_model_1.output)
     model1 |= totensor.connect(input=item_model.output, output=IOKey("output"))
 
-    model2 = Model(enforce_jit=False)
+    model2 = Model()
     buffer_model_1 = Buffer()
     model2 |= buffer_model_1.connect(input="input")
     conn = buffer_model_1.output.item()

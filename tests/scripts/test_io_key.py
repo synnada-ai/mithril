@@ -610,7 +610,7 @@ def test_iokey_values_8():
 
 def test_iokey_values_9_error():
     """Tests connection functinality of IOKey Tensors"""
-    model = Model(enforce_jit=False)
+    model = Model()
     buffer1 = Buffer()
 
     with pytest.raises(ValueError) as err_info:
@@ -817,7 +817,7 @@ def test_iokey_scalar_output_all_args():
 
     # take product of all possible values
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
-        model = Model(enforce_jit=False)
+        model = Model()
         sub_model = Shape()
 
         try:
@@ -920,7 +920,7 @@ def test_iokey_scalar_input_all_args():
 
     # take product of all possible values
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
-        model = Model(enforce_jit=False)
+        model = Model()
 
         sub_model = Mean(axis=TBD)
 
@@ -1023,7 +1023,7 @@ def test_iokey_tensor_output_all_args():
 
     # take product of all possible values
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
-        model = Model(enforce_jit=False)
+        model = Model()
         sub_model = Add()
         sub_model.set_types(left=Tensor, right=Tensor)
 
@@ -1445,7 +1445,7 @@ def test_iokey_template_10():
 
 def test_iokey_template_11():
     # Use a IOKey twice in extend with different types
-    model = Model(enforce_jit=False)
+    model = Model()
 
     input = IOKey("input")
 

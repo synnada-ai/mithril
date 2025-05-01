@@ -198,7 +198,7 @@ def decoder(
     name: str | None = None,
     **kwargs,
 ):
-    decoder = Model(enforce_jit=False, name=name)
+    decoder = Model(name=name)
     block_in = ch * ch_mult[-1]
     decoder |= Convolution2D(3, block_in, padding=1, name="conv_in").connect("input")
 
@@ -208,11 +208,11 @@ def decoder(
     decoder += resnet_block(block_in, block_in, name="mid_block_2")
 
     # Upsample
-    up = Model(name="up", enforce_jit=False)
+    up = Model(name="up")
     for level_i in range(len(ch_mult)):
         name_idx_i = len(ch_mult) - level_i - 1
-        block = Model(name="block", enforce_jit=False)
-        model = Model(name=str(name_idx_i), enforce_jit=False)
+        block = Model(name="block")
+        model = Model(name=str(name_idx_i))
 
         block_out = ch * ch_mult[len(ch_mult) - level_i - 1]
         for idx in range(num_res_blocks + 1):
@@ -258,7 +258,7 @@ def diagonal_gaussian(sample: bool = True, chunk_dim: int = 1):
 def auto_encoder(
     ae_params: AutoEncoderParams,
 ):
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= encoder(
         ae_params.ch,
         ae_params.ch_mult,
@@ -283,7 +283,7 @@ def auto_encoder(
 
 
 def decode(ae_params: AutoEncoderParams):
-    model = Model(enforce_jit=False)
+    model = Model()
     input = IOKey("input")
     input = input / ae_params.scale_factor - ae_params.shift_factor  # type: ignore
     model |= decoder(

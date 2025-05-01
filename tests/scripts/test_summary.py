@@ -1165,7 +1165,11 @@ def test_physical_summary_11():
     model |= sig_model1.connect(input="input", output=IOKey(name="output1"))
     model |= sig_model2.connect(input="input", output=IOKey(name="output2"))
     comp_model = mithril.compile(
-        model=model, backend=JaxBackend(), safe_names=False, inference=True
+        model=model,
+        backend=JaxBackend(),
+        safe_names=False,
+        inference=True,
+        jit=False,
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, model=sig_model2)
