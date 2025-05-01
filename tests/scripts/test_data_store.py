@@ -170,11 +170,11 @@ def test_data_store_5():
     )
     res = pm.evaluate()
 
-    assert pm.flat_graph.data_store.data_values.keys() == {"output"}
+    assert pm.flat_graph.data_store.data_values.keys() == {"input"}
     assert (res["output"] == value).all()  # type: ignore[union-attr]
     assert pm.flat_graph.data_store.runtime_static_keys == set()
     assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
-    assert pm.flat_graph.data_store.unused_keys == {"input"}
+    assert pm.flat_graph.data_store.unused_keys == {"output"}
 
 
 def test_data_store_6():
@@ -188,13 +188,13 @@ def test_data_store_6():
         model, backend=backend, constant_keys={"input": value}, inference=True
     )
 
-    assert pm.flat_graph.data_store.data_values.keys() == {"output1", "output2"}
+    assert pm.flat_graph.data_store.data_values.keys() == {"output1"}
     assert (
         pm.flat_graph.data_store.data_values["output1"] == backend.sigmoid(value)
     ).all()  # type: ignore[union-attr]
     assert pm.flat_graph.data_store.runtime_static_keys == set()
     assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
-    assert pm.flat_graph.data_store.unused_keys == {"input"}
+    assert pm.flat_graph.data_store.unused_keys == {"input", "output2"}
 
 
 def test_data_store_7():
@@ -230,13 +230,13 @@ def test_data_store_8():
         model, backend=backend, constant_keys={"input": value}, inference=True
     )
 
-    assert pm.flat_graph.data_store.data_values.keys() == {"output1", "output2"}
+    assert pm.flat_graph.data_store.data_values.keys() == {"input", "output2"}
     assert (
         pm.flat_graph.data_store.data_values["output2"] == backend.sigmoid(value)
     ).all()  # type: ignore[union-attr]
     assert pm.flat_graph.data_store.runtime_static_keys == set()
     assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
-    assert pm.flat_graph.data_store.unused_keys == {"input"}
+    assert pm.flat_graph.data_store.unused_keys == {"output1"}
 
 
 def test_data_store_9():
@@ -249,12 +249,15 @@ def test_data_store_9():
     )
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(
-        model, backend=backend, constant_keys={"input": value}, inference=True
+        model,
+        backend=backend,
+        constant_keys={"input": value},
+        inference=True,
+        jit=False
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {
         "output1",
-        "output2",
         "output3",
     }
     assert (
@@ -265,10 +268,7 @@ def test_data_store_9():
     ).all()  # type: ignore[union-attr]
     assert pm.flat_graph.data_store.runtime_static_keys == set()
     assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
-    assert pm.flat_graph.data_store.unused_keys == {
-        "right",
-        "input",
-    }
+    assert pm.flat_graph.data_store.unused_keys == {"right", "input", "output2"}
 
 
 def test_data_store_11():
@@ -333,7 +333,7 @@ def test_data_store_12():
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
         inference=True,
     )
-    assert pm.flat_graph.data_store.data_values.keys() == {"out1", "out2"}
+    assert pm.flat_graph.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.flat_graph.data_store.runtime_static_keys == set()
     assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
 
@@ -344,7 +344,6 @@ def test_data_store_12():
         "output_5",
         "output_8",
         "output_1",
-        "input1",
         "output_7",
         "dilation",
         "output_6",
@@ -356,6 +355,7 @@ def test_data_store_12():
         "output_4",
         "step",
         "output_2",
+        "out1",
         "stop",
     }
 
@@ -392,12 +392,11 @@ def test_data_store_13():
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
         inference=True,
     )
-    assert pm.flat_graph.data_store.data_values.keys() == {"out1", "out2"}
+    assert pm.flat_graph.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.flat_graph.data_store.runtime_static_keys == set()
     assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
 
     assert pm.flat_graph.data_store.unused_keys == {
-        "input1",
         "padding",
         "output_4",
         "output_5",
@@ -416,6 +415,7 @@ def test_data_store_13():
         "output_8",
         "dilation",
         "output_0",
+        "out1",
     }
 
     infered_value = pm.flat_graph.data_store.data_values["out2"]

@@ -21,6 +21,7 @@ from typing import Any
 import mithril as ml
 
 from ...common import BiMap, PythonGenConfig
+from ...cores.c.array import PyArray
 from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import OrderedSet
@@ -528,9 +529,15 @@ class FlatGraph(GenericDataType[DataType]):
                     # Check tensors are equal
                     elif self.is_tensor_type(ref_value) and self.is_tensor_type(value):
                         is_equal = (
-                            id(ref_value) == id(value)
-                            or ref_value.shape == value.shape  # type: ignore
-                            and (ref_value == value).all().item()  # type: ignore
+                            (
+                                not isinstance(ref_value, PyArray)
+                                and not isinstance(value, PyArray)
+                            )
+                            and (
+                                id(ref_value) == id(value)
+                                or ref_value.shape == value.shape  # type: ignore
+                                and (ref_value == value).all().item()
+                            )  # type: ignore
                         )
                     else:
                         is_equal = ref_value == value  # type: ignore
@@ -562,8 +569,8 @@ class FlatGraph(GenericDataType[DataType]):
 
         # Update target keys of connections
         for target_key in conn.target_keys:
-            if target_key not in source_conn.target_keys:
-                source_conn.target_keys.append(target_key)
+            # if target_key not in source_conn.target_keys:
+            source_conn.target_keys.append(target_key)
 
         # The source key of the conn's target conns should be updated to
         # the source_conn's key
@@ -574,6 +581,7 @@ class FlatGraph(GenericDataType[DataType]):
                     target_conn.source_keys[idx] = source_conn.key
 
         self._remove_conn(conn)
+        self.all_source_keys.add(source_conn.key)
 
     def _update_conn_info(self, conn: GConnection) -> None:
         if len(conn.target_keys) == 0 and conn.key in self._all_source_keys:
@@ -677,7 +685,7 @@ class FlatGraph(GenericDataType[DataType]):
                 if not all(key in self.data_store.data_values for key in value_mapping):
                     continue
 
-                model = self.get_op(value)
+                op = self.get_op(value)
 
                 # TODO: Move this outside of while loop
                 # after CBackend is completely implemented.
@@ -687,10 +695,10 @@ class FlatGraph(GenericDataType[DataType]):
 
                 static_value: DataType | MainValueType
 
-                fn = fn_dict[model.formula_key]
+                fn = fn_dict[op.formula_key]
 
                 # Orginize args and kwargs
-                local_input_keys = list(model.input_keys)
+                local_input_keys = list(op.input_keys)
                 if self.backend.is_manualgrad:
                     local_input_keys.append("cache")
                 inputs = {
@@ -715,7 +723,7 @@ class FlatGraph(GenericDataType[DataType]):
                 }
 
                 # If function needs backend specific args
-                if model.formula_key in self.backend.array_creation_funcs:
+                if op.formula_key in self.backend.array_creation_funcs:
                     kwargs["default_dtype"] = self.backend._dtype.name
                     # TODO: Add support for C backends
                     if not isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig):
@@ -739,6 +747,7 @@ class FlatGraph(GenericDataType[DataType]):
                         static_value = self.backend.array(static_value)
 
                 _queue, _updates = self.add_static_data(value, static_value)
+                self.prune_duplicate_operation(op, self.all_data, self.cached_data)
 
                 queue |= _queue
                 updates |= _updates
