@@ -149,7 +149,7 @@ class ConnectionData:
     def is_exposed(self) -> bool | None:
         # TODO: get this from self.model model is set.
         if self.model is not None:
-            m = self.model._get_outermost_parent()
+            m = self.model.get_outermost_parent()
             con = m.conns.get_extracted_connection(self)
             self._expose = None
             return m.conns.get_type(con) in (KeyType.INPUT, KeyType.OUTPUT)
@@ -175,14 +175,14 @@ class ConnectionData:
 
     def set_differentiability(self, differentiable: bool = True) -> None:
         if self.model is not None:
-            m = self.model._get_outermost_parent()
+            m = self.model.get_outermost_parent()
             m.set_differentiability({self: differentiable})
         else:
             self.metadata.set_differentiability(differentiable)
 
     def set_value(self, value: ScalarValueType | Tensor[int | float | bool]) -> None:
         if self.model is not None:
-            m = self.model._get_outermost_parent()
+            m = self.model.get_outermost_parent()
             m.set_values({self: value})
         else:
             self.metadata.set_value(value)
@@ -191,14 +191,14 @@ class ConnectionData:
         self, value: type | UnionType | ScalarType | type[Tensor[int | float | bool]]
     ) -> None:
         if self.model is not None:
-            m = self.model._get_outermost_parent()
+            m = self.model.get_outermost_parent()
             m.set_types({self: value})
         else:
             self.metadata.set_type(value)
 
     def set_shapes(self, value: ShapeTemplateType) -> None:
         if self.model is not None:
-            m = self.model._get_outermost_parent()
+            m = self.model.get_outermost_parent()
             m.set_shapes({self: value})
         else:
             self.metadata.set_type(Tensor[int | float | bool])
@@ -208,7 +208,7 @@ class ConnectionData:
 
     def expose(self) -> None:
         if self.model is not None:
-            m = self.model._get_outermost_parent()
+            m = self.model.get_outermost_parent()
             m.expose_keys(self)
         else:
             self._expose = True
@@ -1559,7 +1559,7 @@ class BaseModel:
         if self.parent is not None:
             raise AttributeError("Submodel of a model could not be extended!")
 
-    def _get_outermost_parent(self) -> BaseModel:
+    def get_outermost_parent(self) -> BaseModel:
         model = self
         while model.parent is not None:
             model = model.parent
@@ -1638,7 +1638,7 @@ class BaseModel:
             if trace:
                 self.assigned_differentiabilities[conn_data] = value
 
-        model = self._get_outermost_parent()
+        model = self.get_outermost_parent()
         model.constraint_solver(updates)
 
     def set_differentiability(
@@ -1659,7 +1659,7 @@ class BaseModel:
         if shapes is None:
             shapes = {}
 
-        model = self._get_outermost_parent()
+        model = self.get_outermost_parent()
         used_keys: dict[str | int, ShapeType] = {}
         shape_nodes: dict[str | ConnectionData, tuple[ShapeNode, str]] = {}
         # TODO: Can this be refactored to use a single loop?
@@ -1715,7 +1715,7 @@ class BaseModel:
         if config is None:
             config = {}
         # Get the outermost parent as all the updates will happen here.
-        model = self._get_outermost_parent()
+        model = self.get_outermost_parent()
         updates = Updates()
         for key, key_type in chain(config.items(), kwargs.items()):
             assert isinstance(key, str | ConnectionData)
@@ -1802,7 +1802,7 @@ class BaseModel:
         if config is None:
             config = {}
         # Make all value updates in the outermost model.s
-        model = self._get_outermost_parent()
+        model = self.get_outermost_parent()
         updates = Updates()
         for key, value in chain(config.items(), kwargs.items()):
             # Perform metadata extraction process on self.

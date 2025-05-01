@@ -982,3 +982,21 @@ def test_functional_model_with_call_concat():
     model._freeze()
 
     assert_models_equal(functional_model, model)  # type: ignore
+
+
+def test_model_create_output_order():
+    for _ in range(20):
+        input1 = IOKey("input1")
+        input2 = IOKey("input2")
+        x = Multiply()(input1, input2)
+        y = Add()(input1, input2)
+        z = Power()(input1, input2)
+        model = Model.create(out1=x, out2=y, out3=z)
+        assert model.output_keys == ["out1", "out2", "out3"]
+
+        in1 = IOKey()
+        in2 = IOKey()
+        _out1, _out2, _out3 = model(in1, in2)  # type: ignore
+        assert model.out1.metadata == _out1.metadata  # type: ignore
+        assert model.out2.metadata == _out2.metadata  # type: ignore
+        assert model.out3.metadata == _out3.metadata  # type: ignore

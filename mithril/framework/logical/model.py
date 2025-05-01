@@ -455,13 +455,11 @@ class Model(BaseModel):
         # and extract the submodels from them.
         for value in itertools.chain(args, kwargs.values()):
             assert value.model is not None
-            extract_m = value.model._get_outermost_parent()
+            extract_m = value.model.get_outermost_parent()
             assert isinstance(extract_m, Model)
             model.extend_extracted_model(extract_m, value)
 
-        # Iterate over the named arguments and assign them to the model
-        for key, value in kwargs.items():
-            model.rename_key(value, key)
+        model.expose_keys(**kwargs)
         # Freeze the model to prevent further modifications
         model._freeze()
         return model
@@ -479,6 +477,8 @@ class Model(BaseModel):
         # Create a provisional model.
         _conns = list(args) + list(kwargs.values())
         provisional_model = _create_provisional_model(connections=_conns)  # type: ignore
+        _conns = _get_replicated_connections(_conns, provisional_model)  # type: ignore
+        # _get_replicated_connections(_conns, provisional_model)  # type: ignore
 
         # Prepare extend inputs from args and kwargs
         _args = {
@@ -593,7 +593,7 @@ class Model(BaseModel):
             p_model = extract_m.provisional_source
             if (
                 isinstance(p_model, BaseModel)
-                and self is not p_model._get_outermost_parent()
+                and self is not p_model.get_outermost_parent()
             ):
                 raise ValueError(
                     "Provisional source model is not the same as the current model!"
@@ -843,29 +843,34 @@ class Model(BaseModel):
                 model.summary(**kwargs)  # type: ignore
 
 
-def _update_connections(
+def _get_replicated_connections(
     connections: list[TemplateConnectionType | ConnectionData],
-    main_model: Model,
     provisional_model: BaseModel,
-) -> None:
+) -> list[TemplateConnectionType | ConnectionData]:
     # Recursively iterate over connections, if connection is coming from main model,
     # create a new connection with same edge and update input in place, otherwise use
     # existing element as is.
-
-    for idx, c in enumerate(connections):
+    if not isinstance(main_model := provisional_model.provisional_source, BaseModel):
+        main_model = None
+    _conns: list[TemplateConnectionType | ConnectionData] = []
+    for c in connections:
         if isinstance(c, list | tuple):
-            _update_connections(c, main_model, provisional_model)  # type: ignore
+            c = _get_replicated_connections(c, provisional_model)  # type: ignore
         elif (
             isinstance(c, ConnectionData)
             and c.model is not None
-            and c.model._get_outermost_parent() is main_model
+            and c.model.get_outermost_parent() is main_model
         ):
             _c = main_model.conns.get_con_by_metadata(c.metadata)
             assert isinstance(_c, ConnectionData)
             con = provisional_model.conns.get_con_by_metadata(_c.metadata)
             if con is None:
                 con = _c._replicate()
-            connections[idx] = con
+            c = con
+        _conns.append(c)
+    if isinstance(connections, tuple):
+        _conns = tuple(_conns)
+    return _conns
 
 
 def _create_provisional_model(connections: list[TemplateConnectionType]) -> Model:
@@ -887,22 +892,22 @@ def _create_provisional_model(connections: list[TemplateConnectionType]) -> Mode
     all_conns = []
     stack: list[Any] = [connections]
     while stack:
-        current = stack.pop()
-        if isinstance(current, ConnectionData):
-            all_conns.append(current)
-        elif isinstance(current, list | tuple):
-            stack.extend(current)
-        elif isinstance(current, str):
-            raise ValueError(
-                "Strings are not allowed to be used in Connection Operations!"
-            )
+        match current := stack.pop():
+            case ConnectionData():
+                all_conns.append(current)
+            case list() | tuple():
+                stack.extend(current)
+            case str():
+                raise ValueError(
+                    "Strings are not allowed to be used in Connection Operations!"
+                )
 
     for c in all_conns:
         if isinstance(c, ConnectionData) and c.model is not None:
             m = c.model
             if isinstance(m.provisional_source, BaseModel):
                 m = m.provisional_source
-            m = m._get_outermost_parent()
+            m = m.get_outermost_parent()
 
             if not m.is_frozen and m.provisional_source is False:
                 if main_model is not None and main_model is not m:
@@ -927,11 +932,10 @@ def _create_provisional_model(connections: list[TemplateConnectionType]) -> Mode
             main_model._bind_provisional_model(provisional_model)
         else:
             provisional_model.provisional_source = True
+    elif main_model is not None and main_model.provisional_model is None:
+        main_model._bind_provisional_model(provisional_model)
 
     assert isinstance(provisional_model, Model)
-    # Note that update_connections changes connections list in place by replacing
-    # the connections with the new connections.
-    _update_connections(connections, main_model, provisional_model)  # type: ignore
 
     # Merge provisional models
     for m in new_models:
@@ -968,6 +972,7 @@ def _extend_with_op_model(
     """
     # Create a provisional model based on the given connections.
     provisional_model = _create_provisional_model(connections)
+    connections = _get_replicated_connections(connections, provisional_model)  # type: ignore
     # Extend the provisional model using the provided Operator model and defaults.
     return provisional_model._extend_op_model(connections, model, defaults)  # type: ignore
 
