@@ -111,11 +111,6 @@ def test_multi_input_primitive(file_path: str):
     model.set_shapes(input=[1, 2, 3])
     backend = NumpyBackend()
 
-    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
-
-    file_name = os.path.basename(file_path).split(".")[0]
-    eval_func = import_module("tmp." + file_name).evaluate
-
     # Because of we set inference flag to False, caches will be stored
     @typing.no_type_check
     def evaluate(params, data, cache):
@@ -134,37 +129,25 @@ def test_multi_input_primitive(file_path: str):
         del output_1
         return {"output": output}
 
+    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+
+    file_name = os.path.basename(file_path).split(".")[0]
+    eval_func = import_module("tmp." + file_name).evaluate
     compare_callables(evaluate, eval_func)
+
+    @typing.no_type_check  # type: ignore
+    def evaluate(params, data, cache):
+        b = params["b"]
+        input = params["input"]
+        w = params["w"]
+        output_0 = transpose(w, None)
+        output_1 = matrix_multiplication(input, output_0)
+        del output_0
+        output = add(output_1, b)
+        del output_1
+        return {"output": output}
 
     mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
-
-    @typing.no_type_check  # type: ignore
-    def evaluate(params, data, cache):
-        b = params["b"]
-        input = params["input"]
-        w = params["w"]
-        output_0 = transpose(w, None)
-        output_1 = matrix_multiplication(input, output_0)
-        del output_0
-        output = add(output_1, b)
-        del output_1
-        return {"output": output}
-
-    compare_callables(evaluate, eval_func)
-
-    @typing.no_type_check  # type: ignore
-    def evaluate(params, data, cache):
-        b = params["b"]
-        input = params["input"]
-        w = params["w"]
-        output_0 = transpose(w, None)
-        output_1 = matrix_multiplication(input, output_0)
-        del output_0
-        output = add(output_1, b)
-        del output_1
-        return {"output": output}
-
-    mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)
     compare_callables(evaluate, eval_func)
 
     mithril.compile(
@@ -185,6 +168,17 @@ def test_multi_input_primitive(file_path: str):
             file_path=file_path,
         )
         compare_callables(evaluate, eval_func)
+
+    @typing.no_type_check  # type: ignore
+    def evaluate(params, data, cache):
+        b = params["b"]
+        input = params["input"]
+        w = params["w"]
+        output = linear_bias(input, w, b)
+        return {"output": output}
+
+    mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)
+    compare_callables(evaluate, eval_func)
 
 
 @with_temp_file(".py")
@@ -388,11 +382,6 @@ def test_default_kwarg_reduction_2(file_path: str):
 
     backend = NumpyBackend()
 
-    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
-
-    file_name = os.path.basename(file_path).split(".")[0]
-    eval_func = import_module("tmp." + file_name).evaluate
-
     @typing.no_type_check
     def evaluate(params, data, cache):
         input = params["input"]
@@ -400,9 +389,11 @@ def test_default_kwarg_reduction_2(file_path: str):
         output = output_cache["output"] = reduce_mean(input, axis=3, cache=output_cache)
         return {"output": output}
 
-    compare_callables(evaluate, eval_func)
+    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
 
-    mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
+    file_name = os.path.basename(file_path).split(".")[0]
+    eval_func = import_module("tmp." + file_name).evaluate
+    compare_callables(evaluate, eval_func)
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
@@ -410,6 +401,7 @@ def test_default_kwarg_reduction_2(file_path: str):
         output = reduce_mean(input, axis=3)
         return {"output": output}
 
+    mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
     compare_callables(evaluate, eval_func)
 
     mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)

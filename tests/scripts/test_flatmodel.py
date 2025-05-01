@@ -31,7 +31,7 @@ from mithril.models import (
 )
 
 # NOTE: We need primitive_lut just for testing purposes here.
-primitive_lut = JaxBackend().op_function_dict
+primitive_lut = ml.TorchBackend().op_function_dict
 
 
 def test_with_all_defined():
