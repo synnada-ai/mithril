@@ -47,48 +47,13 @@ class GGMLCodeGen(CGen):
         # allocator variables as global variables
         # We are storing these in global variables to be able to
         # access them in all functions (evaluate and evaluate_gradients)
-
-        eval_static_ctx = self.create_static_variable(
-            "g_context", "eval_static_ctx", "NULL", True
-        )
-
-        backend_static_ctx = self.create_static_variable(
-            "g_context", "eval_backend_static_ctx", "NULL", True
-        )
-
-        eval_allocr = self.create_static_variable(
-            "ggml_gallocr_t", "eval_allocr", "NULL", False
-        )
-
-        eval_buffer = self.create_static_variable(
-            "ggml_backend_buffer_t", "eval_buffer", "NULL", False
-        )
-
-        eval_static_gf = self.create_static_variable(
-            "struct ggml_cgraph", "eval_static_gf", "NULL", True
-        )
-
-        eval_backend = self.create_static_variable(
-            "ggml_backend_t", "eval_backend", "NULL", False
-        )
-
-        # Add bool check to avoid reinitializing the context
-        # and graph in every call
-        is_context_initialized = self.create_static_variable(
-            "bool", "is_context_initialized", "false", False
-        )
+        static_vars = self.genearate_static_variables()
 
         cleanup_fn = self.generate_cleanup_fn()
 
         self.globals.extend(
             [
-                eval_static_ctx,
-                backend_static_ctx,
-                eval_static_gf,
-                eval_allocr,
-                eval_buffer,
-                eval_backend,
-                is_context_initialized,
+                *static_vars,
                 cleanup_fn,
             ]
         )
@@ -567,6 +532,50 @@ class GGMLCodeGen(CGen):
         op_call = self.call_op("ggml_dup", input_vars)
         op_ast = self.assign_primitive_output(key, op_call, context=context)
         return op_ast
+
+    def genearate_static_variables(self) -> list[c_ast.Stmt]:
+        static_vars: list[c_ast.Stmt] = []
+        eval_static_ctx = self.create_static_variable(
+            "g_context", "eval_static_ctx", "NULL", True
+        )
+
+        backend_static_ctx = self.create_static_variable(
+            "g_context", "eval_backend_static_ctx", "NULL", True
+        )
+
+        eval_allocr = self.create_static_variable(
+            "ggml_gallocr_t", "eval_allocr", "NULL", False
+        )
+
+        eval_buffer = self.create_static_variable(
+            "ggml_backend_buffer_t", "eval_buffer", "NULL", False
+        )
+
+        eval_static_gf = self.create_static_variable(
+            "struct ggml_cgraph", "eval_static_gf", "NULL", True
+        )
+
+        eval_backend = self.create_static_variable(
+            "ggml_backend_t", "eval_backend", "NULL", False
+        )
+
+        # Add bool check to avoid reinitializing the context
+        # and graph in every call
+        is_context_initialized = self.create_static_variable(
+            "bool", "is_context_initialized", "false", False
+        )
+        static_vars.extend(
+            [
+                eval_static_ctx,
+                backend_static_ctx,
+                eval_allocr,
+                eval_buffer,
+                eval_static_gf,
+                eval_backend,
+                is_context_initialized,
+            ]
+        )
+        return static_vars
 
     def create_static_variable(
         self, var_type: str, name: str, value: str, is_ptr: bool
