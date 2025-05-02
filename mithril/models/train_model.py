@@ -606,7 +606,7 @@ class TrainModel(Model):
                 loss_conn = self.conns.get_connection(loss_key)
                 assert loss_conn is not None
                 model = self.dependency_map.local_output_dependency_map[loss_conn][0]
-                t_list.append([model.class_name])
+                t_list.append([model.default_name])
                 m_name = name_mappings[model]
                 conns = conn_info[m_name][0]
                 shape = shape_info[m_name][0]
@@ -621,7 +621,7 @@ class TrainModel(Model):
                 else:
                     for reduce in loss_dict["reduce_steps"]:
                         axis = reduce.factory_args["axis"]
-                        reduce_str += reduce.class_name
+                        reduce_str += reduce.default_name
                         if axis is None:
                             reduce_str += "()"
                         else:
@@ -654,7 +654,7 @@ class TrainModel(Model):
                     model = self.dependency_map.local_output_dependency_map[conn_data][
                         0
                     ]
-                    r_list.append([model.class_name])
+                    r_list.append([model.default_name])
                     m_name = name_mappings[model]
                     conns = conn_info[m_name][0]
                     shape = shape_info[m_name][0]
@@ -684,7 +684,7 @@ class TrainModel(Model):
                 m_conn = self.conns.get_connection(m_key)
                 assert m_conn is not None
                 model = self.dependency_map.local_output_dependency_map[m_conn][0]
-                m_list.append([model.class_name])
+                m_list.append([model.default_name])
                 m_name = name_mappings[model]
                 conns = conn_info[m_name][0]
                 shape = shape_info[m_name][0]

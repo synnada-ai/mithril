@@ -813,7 +813,7 @@ class Model(BaseModel):
 
         # TODO: Remove name argument from summary method
         if not name and (name := self.name) is None:
-            name = self.class_name
+            name = self.default_name
 
         # construct the table based on relevant information
         table = get_summary(
@@ -1049,18 +1049,16 @@ def define_unique_names(
     model_count_dict: dict[str, int] = {}
 
     for model in models:
-        class_name = model.name or model.class_name
-        if model_count_dict.setdefault(class_name, 0) == 0:
-            single_model_dict[class_name] = model
+        name = model.name or model.default_name
+        if model_count_dict.setdefault(name, 0) == 0:
+            single_model_dict[name] = model
         else:
-            single_model_dict.pop(class_name, None)
-        model_name_dict[model] = (
-            str(class_name) + "_" + str(model_count_dict[class_name])
-        )
-        model_count_dict[class_name] += 1
+            single_model_dict.pop(name, None)
+        model_name_dict[model] = str(name) + "_" + str(model_count_dict[name])
+        model_count_dict[name] += 1
 
     for m in single_model_dict.values():
-        model_name_dict[m] = m.name or str(m.class_name)
+        model_name_dict[m] = m.name or str(m.default_name)
     return model_name_dict
 
 

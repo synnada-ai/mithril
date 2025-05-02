@@ -142,10 +142,10 @@ def double_stream_block_functional(
     )
 
     # Image MLP
-    img_mlp_model = Model(name="img_mlp")
-    img_mlp_model |= Linear(mlp_hidden_dim, name="0").connect(input="input")
-    img_mlp_model += Gelu(approximate=True)
-    img_mlp_model += Linear(hidden_size, name="2").connect(output="output")
+    mlp_out = Linear(mlp_hidden_dim, name="0")(input=IOKey("input"))
+    mlp_out = Gelu(approximate=True)(input=mlp_out)
+    mlp_out = Linear(hidden_size, name="2")(input=mlp_out)
+    img_mlp_model = Model.create(name="img_mlp", output=mlp_out)
     txt_mlp_model = deepcopy(img_mlp_model)
     txt_mlp_model.name = "txt_mlp"
 
