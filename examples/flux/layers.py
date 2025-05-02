@@ -280,9 +280,9 @@ def double_stream_block(
     )
     txt_q, txt_k = block.txt_q_out, block.txt_k_out  # type: ignore[attr-defined]
 
-    block |= Concat(axis=2).connect(input=[txt_q, img_q], output=IOKey("q_concat"))
-    block |= Concat(axis=2).connect(input=[txt_k, img_k], output=IOKey("k_concat"))
-    block |= Concat(axis=2).connect(input=[txt_v, img_v], output=IOKey("v_concat"))
+    block |= Concat(axis=2).connect(input=[txt_q, img_q], output="q_concat")
+    block |= Concat(axis=2).connect(input=[txt_k, img_k], output="k_concat")
+    block |= Concat(axis=2).connect(input=[txt_v, img_v], output="v_concat")
 
     block |= attention().connect(
         q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn"
