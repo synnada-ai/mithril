@@ -4,7 +4,6 @@ repos:
     rev: v19.1.7
     hooks:
     -   id: clang-format
-        exclude_types: [json]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.6.6

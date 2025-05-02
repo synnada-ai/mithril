@@ -1,270 +1,355 @@
 {
-    "test_Linear_2": {
-        "model": {
-            "name": "Linear"
-        },
-        "discard_keys": ["output"],
-        "results": {
-            "output_keys": [],
-            "discard_keys": ["axes", "bias", "input", "output", "output_0", "output_1", "weight"]
-        },
-        "shapes": {
-            "input": [100, 4],
-            "target": [100, 1]
-        }
+  "test_Linear_2": {
+    "model": {
+      "name": "Linear"
     },
-    "test_Linear_3": {
-        "model": {
-            "name": "Linear"
-        },
-        "discard_keys": [],
-        "results": {
-            "output_keys": ["output"],
-            "discard_keys": []
-
-        }
+    "discard_keys": [ "output" ],
+    "results": {
+      "output_keys": [],
+      "discard_keys": [ "axes", "bias", "input", "output", "output_0", "output_1", "weight" ]
     },
-    "test_composite_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "left": "input1",
-                    "right": "input2"
-                },
-                "m2": {
-                    "left": "input2",
-                    "right": {"key": {"connect": [["m1","output"]]}}
-                },
-                "m3": {
-                    "left": {"key": {"connect": [["m2","output"]]}},
-                    "right": {"key": {"connect": [["m2","output"]]}},
-                    "output": "output"
-                }
-            }
-        },
-        "discard_keys": [],
-        "results": {
-            "output_keys": ["output"],
-            "discard_keys": []
-        }
-    },
-    "test_composite_2": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Multiply"
-                },
-                "m2": {
-                    "name": "Multiply"
-                },
-                "m3": {
-                    "name": "Add"
-                }  
-            },
-            "connections" : { 
-                "m1": {
-                    "left": "input1",
-                    "right": "input2"
-                },
-                "m2": {
-                    "left": "input2",
-                    "right": {"key": {"connect": [["m1","output"]]}}
-                },
-                "m3": {
-                    "left": {"key": {"connect": [["m2","output"]]}},
-                    "right": {"key": {"connect": [["m2","output"]]}},
-                    "output": "output"
-                }
-
-
-            }
-        },
-        "discard_keys": ["output"],
-        "results": {
-            "output_keys": [],
-            "discard_keys": ["input1", "input2", "output", "output_0", "output_1"]
-        }
-    },
-    "test_composite_3": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Relu"
-                },
-                "m2": {
-                    "name": "Relu"
-                },
-                "m3": {
-                    "name": "Relu"
-                },
-                "m4": {
-                    "name": "Softplus"
-                },
-                "m5": {
-                    "name": "Relu"
-                },
-                "m6": {
-                    "name": "Relu"
-                },
-                "m7": {
-                    "name": "Softplus"
-                },
-                "m8": {
-                    "name": "Softplus"
-                }   
-            },
-            "connections" : {
-                "m1": {
-                    "input": "input1"
-                },
-                "m2": {
-                    "input": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input": {"key": {"connect": [["m2", "output"]]}}
-                },
-                "m4": {
-                    "input": {"key": {"connect": [["m2", "output"]]}}
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m3", "output"]]}}
-                },
-                "m6": {
-                    "input": {"key": {"connect": [["m5", "output"]]}},
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
-                },
-                "m7": {
-                    "input": {"key": {"connect": [["m4", "output"]]}}
-                },
-                "m8": {
-                    "input": {"key": {"connect": [["m7", "output"]]}},
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
-                }
-            }
-        },
-        "discard_keys": ["output1"],
-        "results": {
-            "output_keys": ["output2"],
-            "discard_keys": ["output1", "output_2", "output_4"]
-        }
-    },
-    "test_Linear_with_loss": {
-        "model": {
-            "name": "Linear"
-        },
-        "discard_keys": ["output"],
-        "results": {
-            "output_keys": ["final_cost"],
-            "discard_keys": []
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        }
-    },
-    "test_Linear_with_loss_2": {
-        "model": {
-            "name": "Linear"
-        },
-        "discard_keys": [],
-        "results": {
-            "output_keys": ["final_cost", "output"],
-            "discard_keys": []
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        }
-    },
-    "test_Linear_with_loss_3": {
-        "model": {
-            "name": "Linear"
-        },
-        "discard_keys": ["final_cost", "output"],
-        "results": {
-            "output_keys": [],
-            "discard_keys": ["axis", "final_cost", "keepdim", "output_2", "output_3", "target"]
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        }
-    },
-    "test_Linear_with_reg_1": {
-        "model": {
-            "name": "Linear"
-        },
-        "regularizations": [
-            {
-                "model": "l1",
-                "coef": {"tensor": 1e-1},
-                "input": "weight"
-            }
-        ],
-        "discard_keys": [],
-        "results": {
-            "output_keys": ["final_cost", "output"],
-            "discard_keys": []
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        }
-    },
-    "test_Linear_with_reg_2": {
-        "model": {
-            "name": "Linear"
-        },
-        "regularizations": [
-            {
-                "model": "l1",
-                "coef": {"tensor": 1e-1},
-                "input": "weight"
-            }
-        ],
-        "discard_keys": ["output"],
-        "results": {
-            "output_keys": ["final_cost"],
-            "discard_keys": []
-        },
-        "output_specs": {
-            "output": {
-                "loss": "SquaredError",
-                "reduce_steps": ["Mean"], 
-                "target_key": "target"
-            }
-        }
+    "shapes": {
+      "input": [ 100, 4 ],
+      "target": [ 100, 1 ]
     }
+  },
+  "test_Linear_3": {
+    "model": {
+      "name": "Linear"
+    },
+    "discard_keys": [],
+    "results": {
+      "output_keys": [ "output" ],
+      "discard_keys": []
+
+    }
+  },
+  "test_composite_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "left": "input1",
+          "right": "input2"
+        },
+        "m2": {
+          "left": "input2",
+          "right": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "left": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "right": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "output": "output"
+        }
+      }
+    },
+    "discard_keys": [],
+    "results": {
+      "output_keys": [ "output" ],
+      "discard_keys": []
+    }
+  },
+  "test_composite_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Multiply"
+        },
+        "m2": {
+          "name": "Multiply"
+        },
+        "m3": {
+          "name": "Add"
+        }
+      },
+      "connections": {
+        "m1": {
+          "left": "input1",
+          "right": "input2"
+        },
+        "m2": {
+          "left": "input2",
+          "right": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "left": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "right": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "output": "output"
+        }
+
+      }
+    },
+    "discard_keys": [ "output" ],
+    "results": {
+      "output_keys": [],
+      "discard_keys": [ "input1", "input2", "output", "output_0", "output_1" ]
+    }
+  },
+  "test_composite_3": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Relu"
+        },
+        "m2": {
+          "name": "Relu"
+        },
+        "m3": {
+          "name": "Relu"
+        },
+        "m4": {
+          "name": "Softplus"
+        },
+        "m5": {
+          "name": "Relu"
+        },
+        "m6": {
+          "name": "Relu"
+        },
+        "m7": {
+          "name": "Softplus"
+        },
+        "m8": {
+          "name": "Softplus"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1"
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          }
+        },
+        "m4": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          }
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m3", "output" ]
+              ]
+            }
+          }
+        },
+        "m6": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m5", "output" ]
+              ]
+            }
+          },
+          "output": {
+            "key": {
+              "name": "output1",
+              "expose": true
+            }
+          }
+        },
+        "m7": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          }
+        },
+        "m8": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m7", "output" ]
+              ]
+            }
+          },
+          "output": {
+            "key": {
+              "name": "output2",
+              "expose": true
+            }
+          }
+        }
+      }
+    },
+    "discard_keys": [ "output1" ],
+    "results": {
+      "output_keys": [ "output2" ],
+      "discard_keys": [ "output1", "output_2", "output_4" ]
+    }
+  },
+  "test_Linear_with_loss": {
+    "model": {
+      "name": "Linear"
+    },
+    "discard_keys": [ "output" ],
+    "results": {
+      "output_keys": [ "final_cost" ],
+      "discard_keys": []
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [ "Mean" ],
+        "target_key": "target"
+      }
+    }
+  },
+  "test_Linear_with_loss_2": {
+    "model": {
+      "name": "Linear"
+    },
+    "discard_keys": [],
+    "results": {
+      "output_keys": [ "final_cost", "output" ],
+      "discard_keys": []
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [ "Mean" ],
+        "target_key": "target"
+      }
+    }
+  },
+  "test_Linear_with_loss_3": {
+    "model": {
+      "name": "Linear"
+    },
+    "discard_keys": [ "final_cost", "output" ],
+    "results": {
+      "output_keys": [],
+      "discard_keys": [ "axis", "final_cost", "keepdim", "output_2", "output_3", "target" ]
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [ "Mean" ],
+        "target_key": "target"
+      }
+    }
+  },
+  "test_Linear_with_reg_1": {
+    "model": {
+      "name": "Linear"
+    },
+    "regularizations": [
+      {
+        "model": "l1",
+        "coef": {
+          "tensor": 1e-1
+        },
+        "input": "weight"
+      }
+    ],
+    "discard_keys": [],
+    "results": {
+      "output_keys": [ "final_cost", "output" ],
+      "discard_keys": []
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [ "Mean" ],
+        "target_key": "target"
+      }
+    }
+  },
+  "test_Linear_with_reg_2": {
+    "model": {
+      "name": "Linear"
+    },
+    "regularizations": [
+      {
+        "model": "l1",
+        "coef": {
+          "tensor": 1e-1
+        },
+        "input": "weight"
+      }
+    ],
+    "discard_keys": [ "output" ],
+    "results": {
+      "output_keys": [ "final_cost" ],
+      "discard_keys": []
+    },
+    "output_specs": {
+      "output": {
+        "loss": "SquaredError",
+        "reduce_steps": [ "Mean" ],
+        "target_key": "target"
+      }
+    }
+  }
 }

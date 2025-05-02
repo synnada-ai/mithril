@@ -72,9 +72,7 @@ Array *create_full_struct(float value, int ndim, int *shape) {
   s->size = total_size;
   s->data = (float *)malloc(total_size * sizeof(float));
 
-  for (size_t i = 0; i < total_size; i++) {
-    s->data[i] = value;
-  }
+  for (size_t i = 0; i < total_size; i++) { s->data[i] = value; }
 
   return s;
 }

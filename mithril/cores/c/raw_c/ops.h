@@ -14,42 +14,36 @@
 
 #ifndef OPS_H
 #define OPS_H
-#include "array.h"
-#include "utils.h"
 #include <assert.h>
 #include <stdbool.h>
+
+#include "array.h"
+#include "utils.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 void add(Array *output, Array *left, Array *right);
 void multiplication(Array *output, Array *left, Array *right);
 void subtract(Array *output, Array *left, Array *right);
-void matrix_multiplication(Array *output, const Array *left,
-                           const Array *right);
+void matrix_multiplication(Array *output, const Array *left, const Array *right);
 void transpose(Array *output, const Array *input, const c_tuple *axes);
-void transpose_grad(const Array *gradient, int idx, Array *output,
-                    const Array *input, const c_tuple *axes,
-                    Array *inputGradient);
-void matrix_multiplication_grad(const Array *gradient, int idx, Array *output,
-                                const Array *left, const Array *right,
-                                Array *leftGradient, Array *rightGradient);
-void add_grad(Array *gradient, int idx, Array *output, Array *left,
-              Array *right, Array *leftGradient, Array *rightGradient);
-void multiplication_grad(Array *gradient, int idx, Array *output, Array *left,
-                         Array *right, Array *leftGradient,
-                         Array *rightGradient);
+void transpose_grad(const Array *gradient, int idx, Array *output, const Array *input,
+                    const c_tuple *axes, Array *inputGradient);
+void matrix_multiplication_grad(const Array *gradient, int idx, Array *output, const Array *left,
+                                const Array *right, Array *leftGradient, Array *rightGradient);
+void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right,
+              Array *leftGradient, Array *rightGradient);
+void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, Array *right,
+                         Array *leftGradient, Array *rightGradient);
 void reduce_sum(const Array *input, Array *output, const c_tuple *axes);
 void relu(Array *output, const Array *input);
-void relu_grad(const Array *outputGradient, int idx, Array *output,
-               Array *input, Array *inputGradient);
+void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input,
+               Array *inputGradient);
 void squared_error(Array *output, Array *input, Array *target);
-void squared_error_grad(Array *outputGradient, int idx, Array *output,
-                        Array *input, Array *target, Array *inputGradient,
-                        Array *targetGradient);
-void reduce_mean(Array *output, Array *input, const c_tuple *axes,
-                 bool keepdim);
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output,
-                      Array *input, const c_tuple *axes, bool keepdim,
-                      Array *inputGradient);
+void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *target,
+                        Array *inputGradient, Array *targetGradient);
+void reduce_mean(Array *output, Array *input, const c_tuple *axes, bool keepdim);
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input,
+                      const c_tuple *axes, bool keepdim, Array *inputGradient);
 
 #endif

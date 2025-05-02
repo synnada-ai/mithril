@@ -17,11 +17,11 @@
 
 #include "array.h"
 
-#define SWAP(a, b)                                                             \
-  do {                                                                         \
-    typeof(a) temp = a;                                                        \
-    a = b;                                                                     \
-    b = temp;                                                                  \
+#define SWAP(a, b)      \
+  do {                  \
+    typeof(a) temp = a; \
+    a = b;              \
+    b = temp;           \
   } while (0)
 
 typedef void (*Op)(float *output, float input);
@@ -35,14 +35,12 @@ int *broadcastStride(const Array *t1, const int *shape, const int ndim);
 size_t loc(size_t idx, const int *shapes, const int *strides, const int ndim);
 void binary_array_iterator(const Array *left, const Array *right, Array *out,
                            float (*op)(float, float));
-void reduce_contiguous_all(const Array *input, Array *out, float init_val,
+void reduce_contiguous_all(const Array *input, Array *out, float init_val, Op op);
+void reduce_contiguous_dim(const float *input_data, float *output_data, const int *reduction_size,
+                           const int *reduction_strides, size_t offset, size_t dim, size_t max_dim,
                            Op op);
-void reduce_contiguous_dim(const float *input_data, float *output_data,
-                           const int *reduction_size,
-                           const int *reduction_strides, size_t offset,
-                           size_t dim, size_t max_dim, Op op);
-void reduce_contiguous(const Array *input, Array *out, const int *axes,
-                       size_t num_axes, float init_val, Op op);
+void reduce_contiguous(const Array *input, Array *out, const int *axes, size_t num_axes,
+                       float init_val, Op op);
 int *pad_shape(const Array *arr, int target_ndim);
 int *compute_strides(const int *shape, int ndim);
 int prod(const int *arr, int len);

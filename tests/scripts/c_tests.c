@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../../mithril/cores/c/raw_c/cbackend.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+
+#include "../../mithril/cores/c/raw_c/cbackend.h"
 
 #define FLOAT_TOLERANCE 1e-6
 
@@ -23,8 +24,7 @@ void assert_array_equal(const Array *result, const float *expected, int size) {
   assert(result->size == size);
   for (int i = 0; i < size; i++) {
     if (fabs(result->data[i] - expected[i]) > FLOAT_TOLERANCE) {
-      printf("Mismatch at index %d: %f vs %f\n", i, result->data[i],
-             expected[i]);
+      printf("Mismatch at index %d: %f vs %f\n", i, result->data[i], expected[i]);
       exit(1);
     }
   }
@@ -188,7 +188,7 @@ void test_add_grad_broadcast() {
   Array *left = create_struct(left_data, 2, left_shape);
   Array *right = create_struct(right_data, 1, right_shape);
   Array *output = create_empty_struct(2, left_shape);
-  add(output, left, right); // Output is 2x3
+  add(output, left, right);  // Output is 2x3
 
   // Gradient of output is all ones
   Array *grad = create_full_struct(1.0f, 2, left_shape);
@@ -203,7 +203,7 @@ void test_add_grad_broadcast() {
   assert_array_equal(left_grad, expected_left_grad, 6);
 
   // right_grad should be summed over the broadcasted dimension (axis 0)
-  float expected_right_grad[] = {2, 2, 2}; // Sum two rows
+  float expected_right_grad[] = {2, 2, 2};  // Sum two rows
   assert_array_equal(right_grad, expected_right_grad, 3);
 
   delete_struct(left);
@@ -272,8 +272,7 @@ void test_transpose_3d() {
   printf("test_transpose_3d\n");
   int input_shape[] = {2, 3, 4};
   float input_data[24];
-  for (int i = 0; i < 24; i++)
-    input_data[i] = i;
+  for (int i = 0; i < 24; i++) input_data[i] = i;
   c_tuple axes = {3, (int[]){2, 0, 1}};
   int output_shape[] = {4, 2, 3};
 
@@ -283,12 +282,12 @@ void test_transpose_3d() {
   transpose(output, input, &axes);
 
   // Verify specific positions
-  assert(fabs(output->data[output->strides[0] * 1 + output->strides[1] * 0 +
-                           output->strides[2] * 0] -
-              1.0) < FLOAT_TOLERANCE);
-  assert(fabs(output->data[output->strides[0] * 2 + output->strides[1] * 1 +
-                           output->strides[2] * 1] -
-              18.0) < FLOAT_TOLERANCE);
+  assert(
+      fabs(output->data[output->strides[0] * 1 + output->strides[1] * 0 + output->strides[2] * 0] -
+           1.0) < FLOAT_TOLERANCE);
+  assert(
+      fabs(output->data[output->strides[0] * 2 + output->strides[1] * 1 + output->strides[2] * 1] -
+           18.0) < FLOAT_TOLERANCE);
 
   delete_struct(input);
   delete_struct(output);
@@ -300,8 +299,7 @@ void test_matrix_multiplication_batched() {
   float left_data[] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
                        13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
   int right_shape[] = {4, 5};
-  float right_data[] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-                        0, 0, 1, 0, 0, 0, 0, 0, 1, 0};
+  float right_data[] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0};
   float expected[] = {1,  2,  3,  4,  0, 5,  6,  7,  8,  0, 9,  10, 11, 12, 0,
                       13, 14, 15, 16, 0, 17, 18, 19, 20, 0, 21, 22, 23, 24, 0};
 
@@ -363,7 +361,7 @@ void test_multiplication_grad_broadcast() {
   Array *left = create_struct(left_data, 2, left_shape);
   Array *right = create_struct(right_data, 1, right_shape);
   Array *output = create_empty_struct(2, left_shape);
-  multiplication(output, left, right); // Element-wise multiplication
+  multiplication(output, left, right);  // Element-wise multiplication
 
   // Gradient of output
   Array *grad = create_full_struct(1.0f, 2, left_shape);
@@ -378,7 +376,7 @@ void test_multiplication_grad_broadcast() {
   assert_array_equal(left_grad, expected_left_grad, 6);
 
   // right_grad should be sum over broadcasted dim (axis 0)
-  float expected_right_grad[] = {1 + 4, 2 + 5, 3 + 6}; // Sum columns
+  float expected_right_grad[] = {1 + 4, 2 + 5, 3 + 6};  // Sum columns
   assert_array_equal(right_grad, expected_right_grad, 3);
 
   delete_struct(left);
@@ -397,7 +395,7 @@ void test_relu_grad() {
 
   // Forward pass
   Array *output = create_empty_struct(1, shape);
-  relu(output, input); // [0,2,0,4]
+  relu(output, input);  // [0,2,0,4]
 
   // Backward pass
   Array *output_grad = create_full_struct(1.0f, 1, shape);
