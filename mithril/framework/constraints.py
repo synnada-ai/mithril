@@ -119,7 +119,7 @@ def to_sequence_helper(
 
     updates |= output.set_value(forward_list)
     if isinstance(backward_list, list | tuple):
-        for arg, val in zip(args, backward_list, strict=False):
+        for arg, val in zip(args, backward_list, strict=True):
             updates |= arg.set_value(val)
     status = all(arg.is_valued for arg in [output, *args])
     return status, updates
@@ -1586,8 +1586,7 @@ def _reduce_sanity_check(
             raise ValueError(
                 f"Shape mismatch, output rank = {len(output_shape)}. "
                 f"Output rank must be exactly {len(input_shape) - len(axes)} "
-                f"where input rank = {len(input_shape)} and axis = {axis_val}. "
-                "Axis numbers printed as their counterparts."
+                f"where input rank = {len(input_shape)} and axis = {axis_val}."
             )
     if not isinstance(axes, ToBeDetermined | None):
         axes = tuple(val for val in axes if not isinstance(val, ToBeDetermined))
@@ -1960,7 +1959,7 @@ def pad_constraints(
     status = True
     pad_status = True
 
-    def prcess_single_pad_shape(
+    def process_single_pad_shape(
         input_uni: Uniadic,
         output_uni: Uniadic,
         pad_value: tuple[int | ToBeDetermined, int | ToBeDetermined],
@@ -2031,8 +2030,9 @@ def pad_constraints(
                         status = True
 
             case (None, None):
-                pass
-                # do nothing as nothing to infer
+                if pad_value == (0, 0):
+                    updates |= input_uni.match(output_uni)
+                    status = True
 
         return input_uni, output_uni, pad_value, status
 
@@ -2059,7 +2059,7 @@ def pad_constraints(
     ):
         if not isinstance(single_pad_value, ToBeDetermined):
             input_uni, output_uni, inferred_pad_value, _status = (
-                prcess_single_pad_shape(
+                process_single_pad_shape(
                     input_uni, output_uni, single_pad_value, updates
                 )
             )
@@ -2244,20 +2244,14 @@ def sliding_window_constraint_helper(
     dilation: int,
     kernel_size: int,
 ) -> int:
-    if isinstance(padding, Sequence):
-        padding = sum(padding)
-        padding_factor = padding
-    else:
-        padding_factor = 2 * padding
-    # TODO: Is Uniadic type kernel_size possible?
-    if (
-        val := (input + padding_factor - (kernel_size - 1) * dilation - 1) // stride + 1
-    ) <= 0:
+    padding = sum(padding) if isinstance(padding, Sequence) else padding * 2
+    output = (input + padding - (kernel_size - 1) * dilation - 1) // stride + 1
+    if output <= 0:
         raise ValueError(
             "Dimension Error: Output dimension calculated to be lesser than zero!"
         )
 
-    return val
+    return output
 
 
 def sliding_window_1d_constraints_helper(

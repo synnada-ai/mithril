@@ -558,7 +558,7 @@ def test_list_of_tensor_type_edge_match_with_list_of_tensor_value_edge():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == set()
     assert updates.shape_updates == set()
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
@@ -597,7 +597,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
@@ -721,7 +721,7 @@ def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 ValueType = Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
@@ -946,7 +946,7 @@ def test_match_two_tensors_in_two_containers():
 
     assert set(edge1.tensors) == {t1}
 
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_match_four_tensors_in_two_nested_containers():
@@ -983,7 +983,7 @@ def test_match_four_tensors_in_two_nested_containers():
 
     assert set(edge1.tensors) == {t1}
 
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_match_four_tensors_in_two_nested_containers_with_tbd():
@@ -1018,7 +1018,7 @@ def test_match_four_tensors_in_two_nested_containers_with_tbd():
 
     assert set(edge1.tensors) == {t1, t4}
 
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_list_of_tensors_with_three_hyperedges():
@@ -1056,7 +1056,7 @@ def test_list_of_tensors_with_three_hyperedges():
 
     assert set(edge1.tensors) == {t1, t3}
 
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
     edge3 = IOHyperEdge(value=[[TBD, t3], TBD])
 

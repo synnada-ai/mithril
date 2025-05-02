@@ -843,7 +843,21 @@ def find_intersection_type(
 
 
 def enhanced_isinstance[T](obj: Any, type_def: type[T]) -> TypeGuard[T]:
-    return bool(find_intersection_type(find_type(obj), type_def))
+    """isinstance that supports generic type checking.
+
+    Since Python does not support generic type checking feature, naive
+    implementation of enhanced_isnstance is introduced
+
+    Examples:
+
+    >>> isinstance((2, 3, 4), tuple[int, int, int]) # python raises error
+    >>> enhanced_isinstance((2, 3, 4), tuple[int, int, int]) # returns True
+
+    NOTE: This functionality will be removed when Python brings support
+    generic type checking feature.
+
+    """
+    return find_intersection_type(find_type(obj), type_def) is not None
 
 
 def is_tensor_type(
@@ -1566,6 +1580,8 @@ class IOHyperEdge:
             # TODO: If any valued edge, set_value only since it sets types as well.
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
+            if self._value != other._value:
+                updates.value_updates.add(self)
             if self._value is not TBD or other._value is not TBD:
                 valued, non_valued = (
                     (other, self) if other._value is not TBD else (self, other)

@@ -1713,7 +1713,7 @@ def test_reduce_forward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 2 where input "
-        "rank = 3 and axis = 1. Axis numbers printed as their counterparts."
+        "rank = 3 and axis = 1."
     )
 
 
@@ -1735,7 +1735,7 @@ def test_reduce_forward_error_2():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 2. Output rank must be exactly 1 where input "
-        "rank = 3 and axis = (1, 2). Axis numbers printed as their counterparts."
+        "rank = 3 and axis = (1, 2)."
     )
 
 
@@ -1754,7 +1754,7 @@ def test_reduce_backward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 2 where input "
-        "rank = 3 and axis = 1. Axis numbers printed as their counterparts."
+        "rank = 3 and axis = 1."
     )
 
 
@@ -1845,7 +1845,7 @@ def test_reduce_forward_backward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 4 where "
-        "input rank = 6 and axis = (-2, 2). Axis numbers printed as their counterparts."
+        "input rank = 6 and axis = (-2, 2)."
     )
 
 
