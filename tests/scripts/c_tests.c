@@ -24,7 +24,8 @@ void assert_array_equal(const Array *result, const float *expected, int size) {
   assert(result->size == size);
   for (int i = 0; i < size; i++) {
     if (fabs(result->data[i] - expected[i]) > FLOAT_TOLERANCE) {
-      printf("Mismatch at index %d: %f vs %f\n", i, result->data[i], expected[i]);
+      printf("Mismatch at index %d: %f vs %f\n", i, result->data[i],
+             expected[i]);
       exit(1);
     }
   }
@@ -282,12 +283,12 @@ void test_transpose_3d() {
   transpose(output, input, &axes);
 
   // Verify specific positions
-  assert(
-      fabs(output->data[output->strides[0] * 1 + output->strides[1] * 0 + output->strides[2] * 0] -
-           1.0) < FLOAT_TOLERANCE);
-  assert(
-      fabs(output->data[output->strides[0] * 2 + output->strides[1] * 1 + output->strides[2] * 1] -
-           18.0) < FLOAT_TOLERANCE);
+  assert(fabs(output->data[output->strides[0] * 1 + output->strides[1] * 0 +
+                           output->strides[2] * 0] -
+              1.0) < FLOAT_TOLERANCE);
+  assert(fabs(output->data[output->strides[0] * 2 + output->strides[1] * 1 +
+                           output->strides[2] * 1] -
+              18.0) < FLOAT_TOLERANCE);
 
   delete_struct(input);
   delete_struct(output);
@@ -299,7 +300,8 @@ void test_matrix_multiplication_batched() {
   float left_data[] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
                        13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
   int right_shape[] = {4, 5};
-  float right_data[] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0};
+  float right_data[] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                        0, 0, 1, 0, 0, 0, 0, 0, 1, 0};
   float expected[] = {1,  2,  3,  4,  0, 5,  6,  7,  8,  0, 9,  10, 11, 12, 0,
                       13, 14, 15, 16, 0, 17, 18, 19, 20, 0, 21, 22, 23, 24, 0};
 

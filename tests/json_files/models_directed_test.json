@@ -1273,7 +1273,8 @@
     }
   },
   "test_mds_2": {
-    "NOTE": "Prove the differences of diagonal entries of input gradient wrt composite-ml is because of linearized models like power, log etc.",
+    "NOTE":
+        "Prove the differences of diagonal entries of input gradient wrt composite-ml is because of linearized models like power, log etc.",
     "model": {
       "name": "MDS",
       "assigned_differentiabilities": [
@@ -1462,7 +1463,8 @@
     }
   },
   "test_tsne_core_3": {
-    "NOTE": "In this test, gradients can not be obtained as in composite-ml. Because P values are given wrong in composite-ml which does not sum to 1.0. We can only use the short gradient formula used in there only when sum(P) = 1.0",
+    "NOTE":
+        "In this test, gradients can not be obtained as in composite-ml. Because P values are given wrong in composite-ml which does not sum to 1.0. We can only use the short gradient formula used in there only when sum(P) = 1.0",
     "model": {
       "name": "TSNECore",
       "args": {
@@ -1870,7 +1872,8 @@
       ]
     },
     "additional_info": {
-      "NOTE": "Below outputs in 'eval' are summed version of each output individually. Unreduced versions are also noted. Unreduced versions triggers an error at combiner function's fromiter operation",
+      "NOTE":
+          "Below outputs in 'eval' are summed version of each output individually. Unreduced versions are also noted. Unreduced versions triggers an error at combiner function's fromiter operation",
       "Unreduced losses": {
         "loss": 2.765421653067172,
         "pred": [
@@ -1947,7 +1950,8 @@
       ]
     },
     "additional_info": {
-      "NOTE": "Below outputs in 'eval' are summed version of each output individually. Unreduced versions are also noted. Unreduced versions triggers an error at combiner function's fromiter operation",
+      "NOTE":
+          "Below outputs in 'eval' are summed version of each output individually. Unreduced versions are also noted. Unreduced versions triggers an error at combiner function's fromiter operation",
       "Unreduced losses": {
         "loss": 2.765421653067172,
         "pred": [
@@ -5689,7 +5693,8 @@
     }
   },
   "test_sum_8": {
-    "NOTE": "Input shape is (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2) and rhs shape is (3,2,1) and expected shape is (1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 2). This is a test for testing broadcast algorithm rather than a numeric test ",
+    "NOTE":
+        "Input shape is (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2) and rhs shape is (3,2,1) and expected shape is (1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 2). This is a test for testing broadcast algorithm rather than a numeric test ",
 
     "model": {
       "name": "Add",
@@ -5851,7 +5856,8 @@
     }
   },
   "test_sum_9": {
-    "NOTE": "Input shape is (2, 2, 1, 1, 1, 1) and rhs shape is (2, 1, 3) and expected shape is (2, 2, 1, 2, 1, 3). This is a test for testing broadcast algorithm rather than a numeric test ",
+    "NOTE":
+        "Input shape is (2, 2, 1, 1, 1, 1) and rhs shape is (2, 1, 3) and expected shape is (2, 2, 1, 2, 1, 3). This is a test for testing broadcast algorithm rather than a numeric test ",
 
     "model": {
       "name": "Add",
@@ -9922,8 +9928,14 @@
     "results": {
       "eval": {
         "output": [
-          [ 0.3132616875182228340489397, 0.1269280110429724964437598915071149807002718272195321675, 0.0485873515737420587588754, 0.6931471805599453 ],
-          [ 0.6931471805599453, 1.31326168751822283404914704536108291919962856900025589503, 2.1269280110429724964434823383377018142328603556866623514, 1.313261687518222834049147 ]
+          [
+            0.3132616875182228340489397, 0.1269280110429724964437598915071149807002718272195321675,
+            0.0485873515737420587588754, 0.6931471805599453
+          ],
+          [
+            0.6931471805599453, 1.31326168751822283404914704536108291919962856900025589503,
+            2.1269280110429724964434823383377018142328603556866623514, 1.313261687518222834049147
+          ]
         ]
       },
       "grad": {
@@ -11161,17 +11173,26 @@
         "output": {
           "jax": [
             [
-              [ -709.396418532264106216811584991213718666567366540526, -704.591038456177979309505385133415447525937055520404530 ]
+              [
+                -709.396418532264106216811584991213718666567366540526,
+                -704.591038456177979309505385133415447525937055520404530
+              ]
             ]
           ],
           "torch": [
             [
-              [ -709.3959691089803906378380681214906365661830676808299040690118894, -704.591038456177979309505385133415447525937055520404530 ]
+              [
+                -709.3959691089803906378380681214906365661830676808299040690118894,
+                -704.591038456177979309505385133415447525937055520404530
+              ]
             ]
           ],
           "numpy": [
             [
-              [ -709.3959691089803906378380681214906365661830676808299040690118894, -704.591038456177979309505385133415447525937055520404530 ]
+              [
+                -709.3959691089803906378380681214906365661830676808299040690118894,
+                -704.591038456177979309505385133415447525937055520404530
+              ]
             ]
           ]
         }
@@ -11548,7 +11569,9 @@
       "grad": {
         "base": [
           [ 0.0 ],
-          [ 2.6494422067830456494626727070578342769220668517896442342632083875646713489594382293556230650365376585602492809663848600694036441316054962143018101466468388523103155742568140908731216503912613033423051394246710020933425593223230870218134328967168e+245 ]
+          [
+            2.6494422067830456494626727070578342769220668517896442342632083875646713489594382293556230650365376585602492809663848600694036441316054962143018101466468388523103155742568140908731216503912613033423051394246710020933425593223230870218134328967168e+245
+          ]
         ],
         "exponent": [
           [ 0.0 ],
@@ -11972,11 +11995,14 @@
       "is_list": true
     },
     "output_grads": {
-      "output": [ -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, 7.0, 8.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0 ]
+      "output": [
+        -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, 7.0, 8.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0
+      ]
     },
     "results": {
       "eval": {
-        "output": [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 ]
+        "output":
+            [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 ]
       },
       "grad": {
         "input": [
@@ -16317,16 +16343,28 @@
           ]
         ],
         "w_f": [
-          [ 0.0036810658812818846616798264267652548336548530698349297724757622, 0.0036810658812818846616798264267652548336548530698349297724757622 ]
+          [
+            0.0036810658812818846616798264267652548336548530698349297724757622,
+            0.0036810658812818846616798264267652548336548530698349297724757622
+          ]
         ],
         "w_i": [
-          [ 0.0036628621038035730994374021886306326845489700375767001273684931, 0.0036628621038035730994374021886306326845489700375767001273684931 ]
+          [
+            0.0036628621038035730994374021886306326845489700375767001273684931,
+            0.0036628621038035730994374021886306326845489700375767001273684931
+          ]
         ],
         "w_c": [
-          [ 0.0007657746786692736350977147871730964671900110964263243607840487, 0.0007657746786692736350977147871730964671900110964263243607840487 ]
+          [
+            0.0007657746786692736350977147871730964671900110964263243607840487,
+            0.0007657746786692736350977147871730964671900110964263243607840487
+          ]
         ],
         "w_o": [
-          [ 0.0432013057765465594688185447651810387681971824774879466850648197, 0.0432013057765465594688185447651810387681971824774879466850648197 ]
+          [
+            0.0432013057765465594688185447651810387681971824774879466850648197,
+            0.0432013057765465594688185447651810387681971824774879466850648197
+          ]
         ],
         "w_out": [
           [ 0.0 ]

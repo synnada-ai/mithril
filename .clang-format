@@ -1,29 +1,11 @@
 ---
 # Common settings
 BasedOnStyle: Google
-IndentWidth: 2
-TabWidth: 2
-UseTab: Never
-ColumnLimit: 100
 
-# Prevent overly aggressive line breaking for arrays and objects
-AllowShortBlocksOnASingleLine: true
-AllowShortFunctionsOnASingleLine: All
-AllowShortIfStatementsOnASingleLine: true
-AllowShortLoopsOnASingleLine: true
 
 # For JSON specifically (language-specific options)
 ---
 Language: Json
-ColumnLimit: 0  # No column limit for JSON
 BreakArrays: false  # Don't automatically break after [ in arrays
-BraceWrapping:
-  AfterControlStatement: false
-  AfterEnum: false
-  AfterFunction: false
-  AfterStruct: false
-  AfterUnion: false
-  BeforeCatch: false
-  BeforeElse: false
-DisableFormat: false  # Keep formatting enabled
+
 --- 

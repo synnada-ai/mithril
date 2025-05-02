@@ -169,7 +169,8 @@
     "32bit_relative_tolerance": 1e-5
   },
   "test_mds_core_1": {
-    "note": "ideally, distance should be run on zero_diag:true setting. However, Since differences in jax's and torch's grad handling at zero values, I set zero_diag is false for now",
+    "note":
+        "ideally, distance should be run on zero_diag:true setting. However, Since differences in jax's and torch's grad handling at zero values, I set zero_diag is false for now",
     "model": {
       "name": "MDSCore",
       "randomized_args": {
@@ -509,7 +510,8 @@
     "32bit_relative_tolerance": 5e-4
   },
   "test_sum": {
-    "NOTE": "The threshold in the test is heuristically determined. It does not pass in regular threshold (1e-14). We except it to pass from the threshold that is determined",
+    "NOTE":
+        "The threshold in the test is heuristically determined. It does not pass in regular threshold (1e-14). We except it to pass from the threshold that is determined",
     "model": {
       "name": "Add",
       "types": {

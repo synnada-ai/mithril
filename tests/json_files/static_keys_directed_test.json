@@ -888,11 +888,10 @@
             }
           },
           "output": {
-            "key":
-                {
-                  "name": "output2",
-                  "expose": true
-                }
+            "key": {
+              "name": "output2",
+              "expose": true
+            }
           }
         }
       }
@@ -1014,11 +1013,10 @@
           "input1": "input1",
           "input2": "input1",
           "output": {
-            "key":
-                {
-                  "name": "output1",
-                  "expose": true
-                }
+            "key": {
+              "name": "output1",
+              "expose": true
+            }
           }
         },
         "m4": {
@@ -1041,11 +1039,10 @@
             }
           },
           "output": {
-            "key":
-                {
-                  "name": "output2",
-                  "expose": true
-                }
+            "key": {
+              "name": "output2",
+              "expose": true
+            }
           }
         }
       }
@@ -1162,11 +1159,10 @@
           "input1": "input1",
           "input2": "input1",
           "output": {
-            "key":
-                {
-                  "name": "output1",
-                  "expose": true
-                }
+            "key": {
+              "name": "output1",
+              "expose": true
+            }
           }
         },
         "m4": {
@@ -1189,11 +1185,10 @@
             }
           },
           "output": {
-            "key":
-                {
-                  "name": "output2",
-                  "expose": true
-                }
+            "key": {
+              "name": "output2",
+              "expose": true
+            }
           }
         }
       }

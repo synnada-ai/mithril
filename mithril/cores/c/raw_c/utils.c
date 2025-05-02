@@ -72,33 +72,38 @@ void binary_array_iterator(const Array *left, const Array *right, Array *out,
 
 /* If the input Array  is contiguous, and the reduction type is all, reduce the
  * array directly */
-void reduce_contiguous_all(const Array *input, Array *out, float init_val, Op op) {
+void reduce_contiguous_all(const Array *input, Array *out, float init_val,
+                           Op op) {
   const float *input_data = input->data;
   float *output_data = out->data;
   *output_data = init_val;
 
-  for (size_t i = 0; i < input->size; i++) { op(output_data, input_data[i]); }
+  for (size_t i = 0; i < input->size; i++) {
+    op(output_data, input_data[i]);
+  }
 }
 
-void reduce_contiguous_dim(const float *input_data, float *output_data, const int *reduction_size,
-                           const int *reduction_strides, size_t offset, size_t dim, size_t max_dim,
-                           Op op) {
+void reduce_contiguous_dim(const float *input_data, float *output_data,
+                           const int *reduction_size,
+                           const int *reduction_strides, size_t offset,
+                           size_t dim, size_t max_dim, Op op) {
   if (dim == max_dim - 1) {
     for (size_t i = 0; i < reduction_size[dim]; i++) {
       op(output_data, input_data[offset + i * reduction_strides[dim]]);
     }
   } else {
     for (size_t i = 0; i < reduction_size[dim]; i++) {
-      reduce_contiguous_dim(input_data, output_data, reduction_size, reduction_strides,
-                            offset + i * reduction_strides[dim], dim + 1, max_dim, op);
+      reduce_contiguous_dim(
+          input_data, output_data, reduction_size, reduction_strides,
+          offset + i * reduction_strides[dim], dim + 1, max_dim, op);
     }
   }
 }
 
 /* If the input Array is contiguous, and reduction only some of the axes will be
  * reduced */
-void reduce_contiguous(const Array *input, Array *out, const int *axes, size_t num_axes,
-                       float init_val, Op op) {
+void reduce_contiguous(const Array *input, Array *out, const int *axes,
+                       size_t num_axes, float init_val, Op op) {
   const int *in_shapes = input->shape;
   const int *in_strides = input->strides;
 
@@ -122,8 +127,8 @@ void reduce_contiguous(const Array *input, Array *out, const int *axes, size_t n
 
   for (size_t i = 0; i < out->size; i++, output_data++) {
     *output_data = init_val;
-    reduce_contiguous_dim(input->data, output_data, reduction_size, reduction_strides, i, 0,
-                          num_axes, op);
+    reduce_contiguous_dim(input->data, output_data, reduction_size,
+                          reduction_strides, i, 0, num_axes, op);
   }
 
   free(reduction_size);
@@ -135,10 +140,14 @@ int *pad_shape(const Array *arr, int target_ndim) {
   int offset = target_ndim - arr->ndim;
 
   // Initialize leading dimensions to 1 for broadcasting
-  for (int i = 0; i < offset; i++) { shape[i] = 1; }
+  for (int i = 0; i < offset; i++) {
+    shape[i] = 1;
+  }
 
   // Copy original dimensions
-  for (int i = 0; i < arr->ndim; i++) { shape[offset + i] = arr->shape[i]; }
+  for (int i = 0; i < arr->ndim; i++) {
+    shape[offset + i] = arr->shape[i];
+  }
   return shape;
 }
 
@@ -146,28 +155,40 @@ int *pad_shape(const Array *arr, int target_ndim) {
 int *compute_strides(const int *shape, int ndim) {
   int *strides = (int *)malloc(ndim * sizeof(int));
   strides[ndim - 1] = 1;
-  for (int i = ndim - 2; i >= 0; i--) { strides[i] = strides[i + 1] * shape[i + 1]; }
+  for (int i = ndim - 2; i >= 0; i--) {
+    strides[i] = strides[i + 1] * shape[i + 1];
+  }
   return strides;
 }
 
 int prod(const int *arr, int len) {
   int p = 1;
-  for (int i = 0; i < len; i++) { p *= arr[i]; }
+  for (int i = 0; i < len; i++) {
+    p *= arr[i];
+  }
   return p;
 }
 
 void invert_permutation(const int *axes, int *inv_axes, int ndim) {
-  for (int i = 0; i < ndim; i++) { inv_axes[axes[i]] = i; }
+  for (int i = 0; i < ndim; i++) {
+    inv_axes[axes[i]] = i;
+  }
 }
 
 void scalar_add(Array *output, Array *input, float scalar) {
-  for (int i = 0; i < input->size; i++) { output->data[i] = input->data[i] + scalar; }
+  for (int i = 0; i < input->size; i++) {
+    output->data[i] = input->data[i] + scalar;
+  }
 }
 
 void scalar_multiply(Array *output, Array *input, float scalar) {
-  for (int i = 0; i < input->size; i++) { output->data[i] = input->data[i] * scalar; }
+  for (int i = 0; i < input->size; i++) {
+    output->data[i] = input->data[i] * scalar;
+  }
 }
 
 void scalar_subtract(Array *output, Array *input, float scalar) {
-  for (int i = 0; i < input->size; i++) { output->data[i] = input->data[i] - scalar; }
+  for (int i = 0; i < input->size; i++) {
+    output->data[i] = input->data[i] - scalar;
+  }
 }

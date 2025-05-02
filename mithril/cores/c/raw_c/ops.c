@@ -76,13 +76,15 @@ void transpose(Array *output, const Array *input, const c_tuple *axes) {
   }
 }
 
-void matrix_multiplication(Array *output, const Array *left, const Array *right) {
+void matrix_multiplication(Array *output, const Array *left,
+                           const Array *right) {
   int max_ndim = MAX(left->ndim, right->ndim);
   int *lshape = pad_shape(left, max_ndim);
   int *rshape = pad_shape(right, max_ndim);
 
   int *out_shape = (int *)malloc(max_ndim * sizeof(int));
-  for (int i = 0; i < max_ndim - 2; i++) out_shape[i] = MAX(lshape[i], rshape[i]);
+  for (int i = 0; i < max_ndim - 2; i++)
+    out_shape[i] = MAX(lshape[i], rshape[i]);
   out_shape[max_ndim - 2] = lshape[max_ndim - 2];  // M
   out_shape[max_ndim - 1] = rshape[max_ndim - 1];  // N
   const int M = out_shape[max_ndim - 2];
@@ -99,7 +101,8 @@ void matrix_multiplication(Array *output, const Array *left, const Array *right)
   }
 
   size_t batch_size = 1;
-  for (int i = 0; i < max_ndim - 2; i++) batch_size *= MAX(lshape[i], rshape[i]);
+  for (int i = 0; i < max_ndim - 2; i++)
+    batch_size *= MAX(lshape[i], rshape[i]);
 
 #pragma omp parallel for
   for (size_t b = 0; b < batch_size; b++) {
@@ -110,8 +113,10 @@ void matrix_multiplication(Array *output, const Array *left, const Array *right)
       for (int j = 0; j < N; j++) {
         float sum = 0.0f;
         for (int k = 0; k < K; k++) {
-          size_t left_idx = l_offset + i * lstrides[max_ndim - 2] + k * lstrides[max_ndim - 1];
-          size_t right_idx = r_offset + k * rstrides[max_ndim - 2] + j * rstrides[max_ndim - 1];
+          size_t left_idx = l_offset + i * lstrides[max_ndim - 2] +
+                            k * lstrides[max_ndim - 1];
+          size_t right_idx = r_offset + k * rstrides[max_ndim - 2] +
+                             j * rstrides[max_ndim - 1];
           sum += left->data[left_idx] * right->data[right_idx];
         }
         output->data[b * M * N + i * N + j] = sum;
@@ -127,16 +132,22 @@ void matrix_multiplication(Array *output, const Array *left, const Array *right)
 
 void reduce_sum(const Array *input, Array *output, const c_tuple *axes) {
   // Initialize output to zero
-  for (size_t i = 0; i < output->size; i++) { output->data[i] = 0.0f; }
+  for (size_t i = 0; i < output->size; i++) {
+    output->data[i] = 0.0f;
+  }
   // Create reduction mask (1=reduce, 0=keep)
   int *reduce_mask = (int *)calloc(input->ndim, sizeof(int));
   if (axes == NULL) {
     // Reduce all dimensions when axes is NULL
-    for (int d = 0; d < input->ndim; d++) { reduce_mask[d] = 1; }
+    for (int d = 0; d < input->ndim; d++) {
+      reduce_mask[d] = 1;
+    }
   } else {
     // Mark specified axes for reduction
     for (int i = 0; i < axes->size; i++) {
-      if (axes->data[i] >= 0 && axes->data[i] < input->ndim) { reduce_mask[axes->data[i]] = 1; }
+      if (axes->data[i] >= 0 && axes->data[i] < input->ndim) {
+        reduce_mask[axes->data[i]] = 1;
+      }
     }
   }
 
@@ -166,27 +177,34 @@ void relu(Array *output, const Array *input) {
   const float *input_data = input->data;
   float *output_data = output->data;
 
-  for (size_t i = 0; i < output->size; i++) { output_data[i] = MAX(0.0f, input_data[i]); }
+  for (size_t i = 0; i < output->size; i++) {
+    output_data[i] = MAX(0.0f, input_data[i]);
+  }
 }
 
 void squared_error(Array *output, Array *input, Array *target) {
   binary_array_iterator(input, target, output, squared_diff);
 }
 
-void reduce_mean(Array *output, Array *input, const c_tuple *axes, bool keepdim) {
+void reduce_mean(Array *output, Array *input, const c_tuple *axes,
+                 bool keepdim) {
   size_t N = 1;
   if (axes == NULL) {
     N = input->size;
   } else {
-    for (int i = 0; i < axes->size; i++) { N *= input->shape[axes->data[i]]; }
+    for (int i = 0; i < axes->size; i++) {
+      N *= input->shape[axes->data[i]];
+    }
   }
   // TODO: Keepdim
   reduce_sum(input, output, axes);
-  for (size_t i = 0; i < output->size; i++) { output->data[i] /= N; }
+  for (size_t i = 0; i < output->size; i++) {
+    output->data[i] /= N;
+  }
 }
 
-void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right,
-              Array *leftGradient, Array *rightGradient) {
+void add_grad(Array *gradient, int idx, Array *output, Array *left,
+              Array *right, Array *leftGradient, Array *rightGradient) {
   if (idx == 0) {
     // Determine broadcasted dimensions for left
     int ndim_diff = gradient->ndim - left->ndim;
@@ -194,7 +212,9 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
       add(leftGradient, gradient, leftGradient);
     } else {
       int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
-      for (int i = 0; i < ndim_diff; i++) { reduce_axes[i] = i; }
+      for (int i = 0; i < ndim_diff; i++) {
+        reduce_axes[i] = i;
+      }
       c_tuple *axes = (c_tuple *)malloc(ndim_diff * sizeof(c_tuple));
       axes->size = ndim_diff;
       axes->data = reduce_axes;
@@ -209,7 +229,9 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
       add(rightGradient, gradient, rightGradient);
     } else {
       int *reduce_axes = (int *)malloc(ndim_diff * sizeof(int));
-      for (int i = 0; i < ndim_diff; i++) { reduce_axes[i] = i; }
+      for (int i = 0; i < ndim_diff; i++) {
+        reduce_axes[i] = i;
+      }
       c_tuple *axes = (c_tuple *)malloc(ndim_diff * sizeof(c_tuple));
       axes->size = ndim_diff;
       axes->data = reduce_axes;
@@ -220,8 +242,9 @@ void add_grad(Array *gradient, int idx, Array *output, Array *left, Array *right
   }
 }
 
-void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, Array *right,
-                         Array *leftGradient, Array *rightGradient) {
+void multiplication_grad(Array *gradient, int idx, Array *output, Array *left,
+                         Array *right, Array *leftGradient,
+                         Array *rightGradient) {
   Array *temp;
   if (idx == 0) {
     temp = create_full_struct(0.0f, gradient->ndim, gradient->shape);
@@ -268,8 +291,9 @@ void multiplication_grad(Array *gradient, int idx, Array *output, Array *left, A
   free(temp);
 }
 
-void transpose_grad(const Array *gradient, int idx, Array *output, const Array *input,
-                    const c_tuple *axes, Array *inputGradient) {
+void transpose_grad(const Array *gradient, int idx, Array *output,
+                    const Array *input, const c_tuple *axes,
+                    Array *inputGradient) {
   if (axes == NULL) {
     // For the standard 2D transpose, the gradient is just the transpose.
     transpose(inputGradient, gradient, axes);
@@ -284,10 +308,11 @@ void transpose_grad(const Array *gradient, int idx, Array *output, const Array *
   }
 }
 
-void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input,
-               Array *inputGradient) {
+void relu_grad(const Array *outputGradient, int idx, Array *output,
+               Array *input, Array *inputGradient) {
   // Compute the broadcasted strides for input relative to output_grad's shape
-  int *input_b_strides = broadcastStride(input, outputGradient->shape, outputGradient->ndim);
+  int *input_b_strides =
+      broadcastStride(input, outputGradient->shape, outputGradient->ndim);
   const float *input_data = input->data;
   const float *output_grad_data = outputGradient->data;
   float *input_grad_data = inputGradient->data;
@@ -295,24 +320,30 @@ void relu_grad(const Array *outputGradient, int idx, Array *output, Array *input
   // Iterate over each element in the output gradient
   for (size_t i = 0; i < outputGradient->size; i++) {
     // Find the corresponding index in the input array
-    size_t input_idx = loc(i, outputGradient->shape, input_b_strides, outputGradient->ndim);
+    size_t input_idx =
+        loc(i, outputGradient->shape, input_b_strides, outputGradient->ndim);
 
     // If input element was positive, accumulate the gradient
-    if (input_data[input_idx] > 0.0f) { input_grad_data[input_idx] += output_grad_data[i]; }
+    if (input_data[input_idx] > 0.0f) {
+      input_grad_data[input_idx] += output_grad_data[i];
+    }
   }
 
   free(input_b_strides);
 }
 
-void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *input, Array *target,
-                        Array *inputGradient, Array *targetGradient) {
+void squared_error_grad(Array *outputGradient, int idx, Array *output,
+                        Array *input, Array *target, Array *inputGradient,
+                        Array *targetGradient) {
   float sign = (idx == 0) ? 1.0f : -1.0f;
   float factor = 2.0f * sign;
 
   // Compute broadcasted strides for input and target relative to output_grad's
   // shape
-  int *input_b_strides = broadcastStride(input, outputGradient->shape, outputGradient->ndim);
-  int *target_b_strides = broadcastStride(target, outputGradient->shape, outputGradient->ndim);
+  int *input_b_strides =
+      broadcastStride(input, outputGradient->shape, outputGradient->ndim);
+  int *target_b_strides =
+      broadcastStride(target, outputGradient->shape, outputGradient->ndim);
 
   // Validate allocations
   if (!input_b_strides || !target_b_strides) {
@@ -331,8 +362,10 @@ void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *in
   // Iterate over each element in the output gradient
   for (size_t i = 0; i < outputGradient->size; ++i) {
     // Get broadcasted indices for input and target
-    size_t input_idx = loc(i, outputGradient->shape, input_b_strides, outputGradient->ndim);
-    size_t target_idx = loc(i, outputGradient->shape, target_b_strides, outputGradient->ndim);
+    size_t input_idx =
+        loc(i, outputGradient->shape, input_b_strides, outputGradient->ndim);
+    size_t target_idx =
+        loc(i, outputGradient->shape, target_b_strides, outputGradient->ndim);
 
     // Compute gradient contribution
     float diff = input_data[input_idx] - target_data[target_idx];
@@ -347,8 +380,9 @@ void squared_error_grad(Array *outputGradient, int idx, Array *output, Array *in
   free(target_b_strides);
 }
 
-void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *input,
-                      const c_tuple *axes, bool keepdim, Array *inputGradient) {
+void reduce_mean_grad(Array *outputGradient, int idx, Array *output,
+                      Array *input, const c_tuple *axes, bool keepdim,
+                      Array *inputGradient) {
   if (idx != 0) return;
 
   size_t N = 1;
@@ -357,23 +391,28 @@ void reduce_mean_grad(Array *outputGradient, int idx, Array *output, Array *inpu
   } else {
     for (int i = 0; i < axes->size; i++) {
       // Ensure axes are valid before accessing shape
-      if (axes->data[i] < 0 || axes->data[i] >= input->ndim) { return; }
+      if (axes->data[i] < 0 || axes->data[i] >= input->ndim) {
+        return;
+      }
       N *= input->shape[axes->data[i]];
     }
   }
 
-  int *bcast_strides = broadcastStride(outputGradient, input->shape, input->ndim);
+  int *bcast_strides =
+      broadcastStride(outputGradient, input->shape, input->ndim);
 
   for (size_t i = 0; i < input->size; i++) {
     size_t grad_idx = loc(i, input->shape, bcast_strides, input->ndim);
-    inputGradient->data[i] += outputGradient->data[grad_idx] /
-                              (float)N;  // Explicit cast to float for clarity if data is float
+    inputGradient->data[i] +=
+        outputGradient->data[grad_idx] /
+        (float)N;  // Explicit cast to float for clarity if data is float
   }
   free(bcast_strides);
 }
 
-void matrix_multiplication_grad(const Array *gradient, int idx, Array *output, const Array *left,
-                                const Array *right, Array *leftGradient, Array *rightGradient) {
+void matrix_multiplication_grad(const Array *gradient, int idx, Array *output,
+                                const Array *left, const Array *right,
+                                Array *leftGradient, Array *rightGradient) {
   // Get batch dimensions.
   int left_batch_ndim = left->ndim - 2;
   int right_batch_ndim = right->ndim - 2;
@@ -386,15 +425,21 @@ void matrix_multiplication_grad(const Array *gradient, int idx, Array *output, c
   int N = right->shape[right->ndim - 1];
 
   if (K != K2) {
-    fprintf(stderr, "Dimension mismatch in matmul backward: A's K (%d) != B's K (%d)\n", K, K2);
+    fprintf(stderr,
+            "Dimension mismatch in matmul backward: A's K (%d) != B's K (%d)\n",
+            K, K2);
     exit(EXIT_FAILURE);
   }
 
   // Zero out gradients leftGradient and rightGradient.
   if (idx == 0) {
-    for (size_t i = 0; i < leftGradient->size; i++) { leftGradient->data[i] = 0.0f; }
+    for (size_t i = 0; i < leftGradient->size; i++) {
+      leftGradient->data[i] = 0.0f;
+    }
   } else {
-    for (size_t i = 0; i < rightGradient->size; i++) { rightGradient->data[i] = 0.0f; }
+    for (size_t i = 0; i < rightGradient->size; i++) {
+      rightGradient->data[i] = 0.0f;
+    }
   }
 
   // Total number of broadcasted batches in gradient.
@@ -403,9 +448,12 @@ void matrix_multiplication_grad(const Array *gradient, int idx, Array *output, c
 #pragma omp parallel for
   // Iterate over each broadcasted batch.
   for (int b = 0; b < batch_size; b++) {
-    size_t left_base_offset = loc(b, left->shape, left->strides, left_batch_ndim);
-    size_t right_base_offset = loc(b, right->shape, right->strides, right_batch_ndim);
-    size_t gradient_base_offset = loc(b, gradient->shape, gradient->strides, gradient_batch_ndim);
+    size_t left_base_offset =
+        loc(b, left->shape, left->strides, left_batch_ndim);
+    size_t right_base_offset =
+        loc(b, right->shape, right->strides, right_batch_ndim);
+    size_t gradient_base_offset =
+        loc(b, gradient->shape, gradient->strides, gradient_batch_ndim);
 
     if (idx == 0) {
       // --- Compute gradient for Left ---
@@ -414,13 +462,16 @@ void matrix_multiplication_grad(const Array *gradient, int idx, Array *output, c
         for (int k = 0; k < K; k++) {
           float grad = 0.0f;
           for (int j = 0; j < N; j++) {
-            size_t gradient_idx = gradient_base_offset + i * gradient->strides[gradient->ndim - 2] +
+            size_t gradient_idx = gradient_base_offset +
+                                  i * gradient->strides[gradient->ndim - 2] +
                                   j * gradient->strides[gradient->ndim - 1];
-            size_t right_idx = right_base_offset + k * right->strides[right->ndim - 2] +
+            size_t right_idx = right_base_offset +
+                               k * right->strides[right->ndim - 2] +
                                j * right->strides[right->ndim - 1];
             grad += gradient->data[gradient_idx] * right->data[right_idx];
           }
-          size_t leftGradient_idx = left_base_offset + i * left->strides[left->ndim - 2] +
+          size_t leftGradient_idx = left_base_offset +
+                                    i * left->strides[left->ndim - 2] +
                                     k * left->strides[left->ndim - 1];
           leftGradient->data[leftGradient_idx] += grad;
         }
@@ -432,14 +483,17 @@ void matrix_multiplication_grad(const Array *gradient, int idx, Array *output, c
         for (int k = 0; k < K; k++) {
           float grad = 0.0f;
           for (int i = 0; i < M; i++) {
-            size_t gradient_idx = gradient_base_offset + i * gradient->strides[gradient->ndim - 2] +
+            size_t gradient_idx = gradient_base_offset +
+                                  i * gradient->strides[gradient->ndim - 2] +
                                   j * gradient->strides[gradient->ndim - 1];
-            size_t A_idx = left_base_offset + i * left->strides[left->ndim - 2] +
+            size_t A_idx = left_base_offset +
+                           i * left->strides[left->ndim - 2] +
                            k * left->strides[left->ndim - 1];
             grad += left->data[A_idx] * gradient->data[gradient_idx];
           }
           // Here, we treat B as if its shape is [N, K]
-          size_t rightGradient_idx = right_base_offset + k * right->strides[right->ndim - 2] +
+          size_t rightGradient_idx = right_base_offset +
+                                     k * right->strides[right->ndim - 2] +
                                      j * right->strides[right->ndim - 1];
           rightGradient->data[rightGradient_idx] += grad;
         }
