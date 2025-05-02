@@ -145,7 +145,6 @@ class ConnectionData:
 
     @property
     def is_exposed(self) -> bool:
-        # TODO: get this from self.model model is set.
         if self.model is not None:
             m = self.model._get_outermost_parent()
             con = m.conns.get_extracted_connection(self)
@@ -642,6 +641,8 @@ class BaseModel:
                     and (existing_conn := self.conns.get_connection(given_key))
                     and given_connection.metadata not in self.conns.metadata_dict
                 ):
+                    # TODO: Last if condition should be removed After solving
+                    # provisional model issue, which sets model of connection to None.
                     updates |= self._match_hyper_edges(
                         existing_conn.metadata, given_connection.metadata
                     )
