@@ -144,7 +144,7 @@ class ConnectionData:
         self.model: BaseModel | None = None
 
     @property
-    def is_exposed(self) -> bool | None:
+    def is_exposed(self) -> bool:
         # TODO: get this from self.model model is set.
         if self.model is not None:
             m = self.model._get_outermost_parent()
