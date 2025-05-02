@@ -1,72 +1,72 @@
 {
-  "test_accumulate_grads_1": {
-      "kwargs": {
-          "gradient": [[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]],
-          "input_shape": [1,3]
-      },
-      "result": [[3.0,6.0,9.0]]
-  },
-  "test_accumulate_grads_2": {
-      "kwargs": {
-          "gradient": [[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]],
-          "input_shape": [1,1]
-      },
-      "result": [[18.0]]
-  },    
-  "test_accumulate_grads_3": {
-      "kwargs": {
-          "gradient": [[[[[[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]]]]]],
-          "input_shape": [1,1,1,1]
-      },
-      "result": [[[[18.0]]]]
-  },
-  "test_accumulate_grads_4": {
-      "kwargs": {
-          "gradient": [[[[[[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]]]]]],
-          "input_shape": [1,1,1,1,3,1]
-      },
-      "result": [[[[[[6.0],[6.0],[6.0]]]]]]
-  }, 
-  "test_accumulate_grads_5": {
-      "kwargs": {
-          "gradient": [[[[[[[7.0]]]]]]],
-          "input_shape": [1,1]
-      },
-      "result": [[7.0]]
-  },
-  "test_accumulate_grads_6": {
-      "kwargs": {
-          "gradient": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]],
-          "input_shape": [1,2,1]
-      },
-      "result": [[[25.0], [37.0]]]
-  },
-  "test_accumulate_grads_7": {
-      "kwargs": {
-          "gradient": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]],
-          "input_shape": [3,1,1]
-      },
-      "result": [[[21.0]], [[15.0]], [[26.0]]]
-  },
-  "test_accumulate_grads_8": {
-      "kwargs": {
-          "gradient": [[1.0], [2.0], [3.0], [4.0], [5.0]],
-          "input_shape": [5,1]
-      },
-      "result": [[1.0], [2.0], [3.0], [4.0], [5.0]]
-  },
-  "test_accumulate_grads_9": {
-      "kwargs": {
-          "gradient": [[[[[[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]]]]]],
-          "input_shape": [1,1,1]
-      },
-      "result": [[[18.0]]]
-  },
-  "test_accumulate_grads_10": {
-      "kwargs": {
-          "gradient": [[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]],
-          "input_shape": [1]
-      },
-      "result": [18.0]
-  }
+    "test_accumulate_grads_1": {
+        "kwargs": {
+            "gradient": [[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]],
+            "input_shape": [1,3]
+        },
+        "result": [[3.0,6.0,9.0]]
+    },
+    "test_accumulate_grads_2": {
+        "kwargs": {
+            "gradient": [[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]],
+            "input_shape": [1,1]
+        },
+        "result": [[18.0]]
+    },    
+    "test_accumulate_grads_3": {
+        "kwargs": {
+            "gradient": [[[[[[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]]]]]],
+            "input_shape": [1,1,1,1]
+        },
+        "result": [[[[18.0]]]]
+    },
+    "test_accumulate_grads_4": {
+        "kwargs": {
+            "gradient": [[[[[[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]]]]]],
+            "input_shape": [1,1,1,1,3,1]
+        },
+        "result": [[[[[[6.0],[6.0],[6.0]]]]]]
+    }, 
+    "test_accumulate_grads_5": {
+        "kwargs": {
+            "gradient": [[[[[[[7.0]]]]]]],
+            "input_shape": [1,1]
+        },
+        "result": [[7.0]]
+    },
+    "test_accumulate_grads_6": {
+        "kwargs": {
+            "gradient": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]],
+            "input_shape": [1,2,1]
+        },
+        "result": [[[25.0], [37.0]]]
+    },
+    "test_accumulate_grads_7": {
+        "kwargs": {
+            "gradient": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]],
+            "input_shape": [3,1,1]
+        },
+        "result": [[[21.0]], [[15.0]], [[26.0]]]
+    },
+    "test_accumulate_grads_8": {
+        "kwargs": {
+            "gradient": [[1.0], [2.0], [3.0], [4.0], [5.0]],
+            "input_shape": [5,1]
+        },
+        "result": [[1.0], [2.0], [3.0], [4.0], [5.0]]
+    },
+    "test_accumulate_grads_9": {
+        "kwargs": {
+            "gradient": [[[[[[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]]]]]],
+            "input_shape": [1,1,1]
+        },
+        "result": [[[18.0]]]
+    },
+    "test_accumulate_grads_10": {
+        "kwargs": {
+            "gradient": [[1.0,2.0,3.0],[1.0,2.0,3.0],[1.0,2.0,3.0]],
+            "input_shape": [1]
+        },
+        "result": [18.0]
+    }
 }
