@@ -192,11 +192,12 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
         block |= Split(split_size=3, axis=-1).connect(
             input=modulation[1], output=IOKey("mod_2")
         )
-        block.expose_keys("mod_2")
     else:
         block |= Split(split_size=3, axis=-1).connect(lin_out, IOKey("mod_1"))
 
     block.expose_keys("mod_1")
+    if double:
+        block.expose_keys("mod_2")
     return block
 
 
@@ -207,6 +208,7 @@ def rearrange(num_heads: int, *, name: str | None = None):
     B, L = input_shaepe[0], input_shaepe[1]
     block |= Reshape().connect(input, shape=(B, L, 3, num_heads, -1))
     block += Transpose(axes=(2, 0, 3, 1, 4)).connect(output=IOKey("output"))
+    block.expose_keys("output")
     return block
 
 
@@ -330,8 +332,9 @@ def double_stream_block(
     )
     txt = txt + block.txt_mod_2[2] * block.txt_mlp  # type: ignore[attr-defined]
 
-    block |= Buffer().connect(img, output=IOKey("img_out"))
-    block |= Buffer().connect(txt, output=IOKey("txt_out"))
+    block |= Buffer().connect(img, output="img_out")
+    block |= Buffer().connect(txt, output="txt_out")
+    block.expose_keys("img_out", "txt_out")
     return block
 
 
