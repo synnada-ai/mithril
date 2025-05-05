@@ -70,7 +70,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             self._create_parallel(device_mesh)
 
         self.array_creation_funcs = ops.array_creation_funcs
-        self.primitive_function_dict = ops.primitive_func_dict
+        self.op_function_dict = ops.primitive_func_dict
         self.dtype_map = core_utils.dtype_map
 
         self._generator = torch.Generator(device=self.device).manual_seed(0)

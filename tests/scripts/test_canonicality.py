@@ -142,8 +142,9 @@ def test_canonical_output_6():
 
 def test_canonical_output_8():
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cin("in2")
     modelsub.set_cout("out2")
 
@@ -165,8 +166,9 @@ def test_canonical_output_8():
 
 def test_canonical_output_9():
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cin("in2")
     modelsub.set_cout("out2")
 
@@ -189,8 +191,9 @@ def test_canonical_output_9():
 def test_canonical_output_10():
     # Canonical output is None
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cin("in2")
     modelsub.set_cout("out2")
 
@@ -211,8 +214,9 @@ def test_canonical_output_10():
 def test_canonical_output_11():
     # Canonical input is None
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cin("in2")
     modelsub.set_cout("out2")
 
@@ -231,8 +235,9 @@ def test_canonical_output_11():
 def test_canonical_output_14():
     # Canonical output is NOT_AVAILABLE for a while then redetermined
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cin("in2")
     modelsub.set_cout("out2")
 
@@ -354,25 +359,29 @@ def test_canonical_input_5():
 def test_canonical_input_7():
     model = Model()
     model_1 = Model()
-    model_1 |= Relu().connect(input="input1", output=IOKey(name="output1"))
-    model_1 |= Sigmoid().connect(input="input2", output=IOKey(name="output2"))
+    model_1 |= Relu().connect(input="input1", output="output1")
+    model_1 |= Sigmoid().connect(input="input2", output="output2")
+    model_1.expose_keys("output1", "output2")
     model_1.set_cin("input2")
     model_1.set_cout("output2")
-    gelu5 = Gelu()
 
     model_2 = Model()
-    model_2 |= Tanh().connect(input="input1", output=IOKey(name="output1"))
-    model_2 |= Sine().connect(input="input2", output=IOKey(name="output2"))
+    model_2 |= Tanh().connect(input="input1", output="output1")
+    model_2 |= Sine().connect(input="input2", output="output2")
+    model_2.expose_keys("output1", "output2")
     model_1.set_cin("input2")
     model_1.set_cout("output2")
+
+    gelu5 = Gelu()
     model |= gelu5.connect()
     model |= model_1.connect(input1="input", output1=gelu5.input)
     model |= model_2.connect(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
         input1=model_1.output2,  # type: ignore
-        output1=IOKey(name="output"),
+        output1="output",
     )
+    model.expose_keys("output")
 
     assert model.conns.cins == set()
     assert model.conns.couts == {
@@ -393,18 +402,18 @@ def test_canonical_input_8():
 def test_canonical_input_9():
     # Canonical input is NOT_AVAILABLE for a while then redetermined
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cin("in2")
     modelsub.set_cout("out2")
 
     model = Model()
-    model |= modelsub.connect(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
+    model |= modelsub.connect(in1="in1", in2="in2", out1="out1", out2="out2")
     model |= Sigmoid().connect(input="out1", output="in2")
 
     model |= (relu := Relu()).connect(input="input", output="output")
+    model.expose_keys("out1", "out2")
 
     assert model.conns.cins == {
         model.conns.get_con_by_metadata(relu.input.metadata),
@@ -702,17 +711,18 @@ def test_new_connection_exposed_internal_output():
     model = Model()
     assert model.conns.couts == set()
 
-    model |= Relu().connect(input="input1", output=IOKey("output1", expose=True))
+    model |= Relu().connect(input="input1", output="output1")
+    model.expose_keys("output1")
     assert model.conns.couts == {model.output1}  # type: ignore
 
-    model |= Relu().connect(input="input2", output=IOKey("input1", expose=True))
-    assert model.conns.couts == {model.output1, model.input1}  # type: ignore
+    model |= Relu().connect(input="input2", output=IOKey("input1"))
+    model.expose_keys("input1")
+    assert model.conns.couts == {model.output1}  # type: ignore
 
-    model |= Relu().connect(input="input3", output=IOKey("input2", expose=True))
+    model |= Relu().connect(input="input3", output="input2")
+    model.expose_keys("input2")
     assert model.conns.couts == {
         model.output1,  # type: ignore
-        model.input1,  # type: ignore
-        model.input2,  # type: ignore
     }
 
 
@@ -751,13 +761,15 @@ def test_unexposed_canonical_output_connection_after_extension():
 def test_new_connection_multi_output_exposed_noncanonical_output():
     submodel1 = Model()
     submodel1 |= (l1 := LogisticRegression()).connect(
-        probs_output=IOKey("output1", expose=True)
+        probs_output="output1",
     )
+    submodel1.expose_keys("output1")
 
     submodel2 = Model()
     submodel2 |= (l2 := LogisticRegression()).connect(
-        probs_output=IOKey("output1", expose=True)
+        probs_output="output1",
     )
+    submodel2.expose_keys("output1")
 
     bigger_model = Model()
     bigger_model += submodel1
@@ -772,15 +784,17 @@ def test_new_connection_multi_output_exposed_noncanonical_output():
 def test_new_connection_multi_output_expose_false_canonical_output():
     submodel1 = Model()
     submodel1 |= (l1 := LogisticRegression()).connect(
-        probs_output=IOKey("output1", expose=True),
-        output=IOKey("output2", expose=False),
+        probs_output="output1",
+        output="output2",
     )
+    submodel1.expose_keys("output1")
 
     submodel2 = Model()
     submodel2 |= (l2 := LogisticRegression()).connect(
-        probs_output=IOKey("output1", expose=True),
-        output=IOKey("output2", expose=False),
+        probs_output="output1",
+        output="output2",
     )
+    submodel2.expose_keys("output1")
 
     bigger_model = Model()
     bigger_model += submodel1

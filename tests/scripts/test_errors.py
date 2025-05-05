@@ -18,7 +18,7 @@ import pytest
 
 import mithril
 from mithril import NumpyBackend
-from mithril.models import Add, Buffer, IOKey, Model, Relu, Sigmoid, TrainModel
+from mithril.models import Add, Buffer, Model, Relu, Sigmoid, TrainModel
 from tests.scripts.helper import evaluate_case
 
 error_cases_path = "tests/json_files/error_test.json"
@@ -103,9 +103,8 @@ def test_cyclic_extension_4_error():
 def test_loss_key_error_3():
     model = Model()
     sum1 = Add()
-    model += sum1.connect(
-        left="input", right="target3", output=IOKey(name="loss", expose=True)
-    )
+    model += sum1.connect(left="input", right="target3", output="loss")
+    model.expose_keys("loss")
     with pytest.raises(KeyError) as err_info:
         TrainModel(model)
     assert (

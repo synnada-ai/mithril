@@ -41,6 +41,11 @@ class TorchCodeGen(PythonCodeGen[torch.Tensor]):
         output_key: str,
         formula_key: str,
     ) -> tuple[ast.Assign, set[str]]:
+        # Torch backend has to handle parallel tensor creation
+
+        if formula_key == "tensor":
+            self.add_partial_function(formula_key)
+
         generated_fn, used_keys = self.create_primitive_call(
             fn, l_input_keys, g_input_keys
         )

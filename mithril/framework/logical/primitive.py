@@ -60,5 +60,5 @@ class PrimitiveModel(OperatorModel):
         name: str | None = None,
         **kwargs: BaseKey,
     ) -> None:
-        model = Operator(formula_key, self.class_name, **kwargs)
+        model = Operator(formula_key, self.default_name, **kwargs)
         super().__init__(model=model, name=name)

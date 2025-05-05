@@ -32,7 +32,6 @@ class Operator(BaseModel):
     building blocks of composite models.
     """
 
-    _model_name: str = ""
     output_key: str = "output"
     cache_name: str = "cache"
 
@@ -124,10 +123,6 @@ class Operator(BaseModel):
     def formula_key(self) -> str:
         assert self._formula_key is not None
         return self._formula_key
-
-    @property
-    def class_name(self) -> str:
-        return self._model_name
 
     def extend(
         self,

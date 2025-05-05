@@ -287,7 +287,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     # This method is used to insert an operator into the graph at a specific position
     # The output of inserted operator will replace the output of the previous operator
-    def insert_operator(
+    def insert_operator_before(
         self,
         new_op: Operator,
         keys: dict[str, str],
@@ -297,15 +297,17 @@ class FlatGraph(GenericDataType[DataType]):
         output_key = keys[Operator.output_key]
 
         if base_op not in self.model_table:
-            raise ValueError(f"Base operator {base_op} must already be in the graph")
+            raise ValueError(
+                f"Base operator `{base_op.formula_key}` must already be in the graph"
+            )
 
         if inserted_key not in keys.values():
             raise ValueError(
-                f"Inserted key {inserted_key} must be in the keys dictionary"
+                f"Inserted key `{inserted_key}` must be in the keys dictionary"
             )
 
         if output_key in self.all_keys:
-            raise ValueError(f"Output key {output_key} must not be in the graph")
+            raise ValueError(f"Output key `{output_key}` must not be in the graph")
 
         # Add the new operator to the graph
         self.add_value(new_op, keys)
@@ -324,6 +326,46 @@ class FlatGraph(GenericDataType[DataType]):
         self.connections[inserted_key].target_keys.remove(base_op_out_conn.key)
         self.connections[output_key].target_keys.append(base_op_out_conn.key)
         self.all_source_keys.add(output_key)
+
+    def insert_operator_after(
+        self,
+        new_op: Operator,
+        keys: dict[str, str],
+        new_source_key: str,
+        base_op: Operator,
+        target_key: str,
+    ) -> None:
+        if base_op not in self.model_table:
+            raise ValueError(
+                f"Base operator `{base_op.formula_key}` must already be in the graph"
+            )
+
+        if target_key not in keys.values():
+            raise ValueError(
+                f"Inserted key `{target_key}` must be in the keys dictionary"
+            )
+
+        if new_source_key in self.all_keys:
+            raise ValueError(
+                f"Source key `{new_source_key}` must be in the keys dictionary"
+            )
+
+        # Rename the base operator output key to the source key
+        base_op_out_conn = self.model_table[base_op]
+        base_op_out_conn.key = new_source_key
+
+        # Cache the target keys and source keys of the inserted key
+        cache_target_keys = self.connections[target_key].target_keys
+        cache_source_keys = self.connections[target_key].source_keys
+
+        # Add the new operator to the graph
+        self.add_value(new_op, keys)
+        self.connections[target_key].target_keys = cache_target_keys
+
+        # Update target and source keys
+        self.connections[new_source_key].target_keys = [target_key]
+        self.connections[new_source_key].source_keys = cache_source_keys
+        self.all_target_keys.add(target_key)
 
     def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
@@ -650,8 +692,7 @@ class FlatGraph(GenericDataType[DataType]):
                 # TODO: Move this outside of while loop
                 # after CBackend is completely implemented.
                 fn_dict = (
-                    self.backend.primitive_function_dict
-                    | self.backend.registered_primitives
+                    self.backend.op_function_dict | self.backend.registered_primitives
                 )
 
                 static_value: DataType | MainValueType
@@ -981,7 +1022,7 @@ class FlatGraph(GenericDataType[DataType]):
                     "shape": self.all_data[key],
                     "output": self.all_data[shape_out_key],
                 }
-                self.insert_operator(
+                self.insert_operator_before(
                     Operator("broadcast_to", name="Broadcast_to", **kwargs),
                     _mappings,
                     op,

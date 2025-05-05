@@ -93,9 +93,7 @@ class TrainModel(Model):
         # TODO: If we add inputs as IOKey, we get multi-write error. Fix this.
         key_mappings = model.generate_keys(symbolic=False, include_internals=True)
         extend_kwargs: dict[str, ConnectionType] = {
-            key: key_mappings.get(
-                key, IOKey(name=key) if key in model.conns.output_keys else key
-            )
+            key: key_mappings.get(key, key if key in model.conns.output_keys else key)
             for key in model.input_keys | model.conns.output_keys
         }
 
@@ -107,8 +105,14 @@ class TrainModel(Model):
             raise KeyError(
                 f"'{FinalCost}' could not be used as an external key in TrainModel!"
             )
+        # Hold model's original output keys (not outputs coming from couts)
+        # in order to set them also outputs of the TrainModel.
+        exposed_keys = model.output_keys
         # TODO: We can use _extend instead of extend in TrainModel.
         self._extend(model, extend_kwargs)
+        # Set model's output keys also outputs for TrainModel.
+        if exposed_keys:
+            self.expose_keys(*exposed_keys)
         # self.loss_keys: dict[str, Connection] = {}
         self.loss_keys: dict[str, str] = {}
         self.regularization_keys: list[str] = []
@@ -261,9 +265,10 @@ class TrainModel(Model):
                 # self.extend(m, **{in_key: prev_out_key.conn, out_key: key_name})
                 info: dict[str, ConnectionDataType] = {
                     in_key: prev_out_key,
-                    out_key: IOKey(key_name),
+                    out_key: key_name,
                 }
                 self._extend(m, info)
+                self.expose_keys(key_name)
             else:
                 self._extend(m, {in_key: prev_out_key})
             # Save all reduce inputs for geo-mean
@@ -279,11 +284,13 @@ class TrainModel(Model):
             kwargs = {
                 "left": prev_out_key,
                 "right": coef,
-                "output": IOKey(name=key_name),
+                "output": key_name,
             }
             if key_name is None:
                 kwargs.pop("output")
             self._extend(m := Multiply(), kwargs)
+            if key_name is not None:
+                self.expose_keys(key_name)
             prev_out_key = self.get_single_output(m)
 
         if (loss_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
@@ -404,7 +411,7 @@ class TrainModel(Model):
             if key_name is not None:
                 out = self.get_single_output(model)
                 # kwargs[out.key] = key_name
-                kwargs[out.key] = IOKey(name=key_name)
+                kwargs[out.key] = key_name
 
             keywords: dict[str, ConnectionType] = {}
             for key, value in model.connect(**kwargs).connections.items():
@@ -414,6 +421,9 @@ class TrainModel(Model):
                     keywords[key] = value
 
             self._extend(model, keywords)
+            if key_name is not None:
+                self.expose_keys(key_name)
+
             if isinstance(outer_key := kwargs[reg_str], Connection):
                 outer_key = outer_key.key
 
@@ -606,7 +616,7 @@ class TrainModel(Model):
                 loss_conn = self.conns.get_connection(loss_key)
                 assert loss_conn is not None
                 model = self.dependency_map.local_output_dependency_map[loss_conn][0]
-                t_list.append([model.class_name])
+                t_list.append([model.default_name])
                 m_name = name_mappings[model]
                 conns = conn_info[m_name][0]
                 shape = shape_info[m_name][0]
@@ -621,7 +631,7 @@ class TrainModel(Model):
                 else:
                     for reduce in loss_dict["reduce_steps"]:
                         axis = reduce.factory_args["axis"]
-                        reduce_str += reduce.class_name
+                        reduce_str += reduce.default_name
                         if axis is None:
                             reduce_str += "()"
                         else:
@@ -654,7 +664,7 @@ class TrainModel(Model):
                     model = self.dependency_map.local_output_dependency_map[conn_data][
                         0
                     ]
-                    r_list.append([model.class_name])
+                    r_list.append([model.default_name])
                     m_name = name_mappings[model]
                     conns = conn_info[m_name][0]
                     shape = shape_info[m_name][0]
@@ -684,7 +694,7 @@ class TrainModel(Model):
                 m_conn = self.conns.get_connection(m_key)
                 assert m_conn is not None
                 model = self.dependency_map.local_output_dependency_map[m_conn][0]
-                m_list.append([model.class_name])
+                m_list.append([model.default_name])
                 m_name = name_mappings[model]
                 conns = conn_info[m_name][0]
                 shape = shape_info[m_name][0]

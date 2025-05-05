@@ -54,7 +54,7 @@ class MlxBackend(Backend[mx.array]):
 
         self.dtype_map = core_utils.dtype_map
         self.array_creation_funcs = ops.array_creation_funcs
-        self.primitive_function_dict = ops.primitive_func_dict
+        self.op_function_dict = ops.primitive_func_dict
         self.prng_key = mx.random.key(self.seed)
 
         for key, value in core_utils.dtype_map.items():
