@@ -1,2207 +1,3356 @@
-
 {
   "test_linear": {
-      "model": {
-          "name": "Linear",
-          "randomized_args": { 
-              "dimension": [1,11]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,10],[4,10]],
-              "mean": 0.0,
-              "std_dev": 1.0
+    "model": {
+      "name": "Linear",
+      "randomized_args": {
+        "dimension": [ 1, 11 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 4, 10 ]
+        ],
+        "mean": 0.0,
+        "std_dev": 1.0
 
-          }
-      },
-      "iterations": 20
-      
+      }
+    },
+    "iterations": 20
+
   },
   "test_logistic_regression": {
-      "model": {
-          "name": "LogisticRegression"
-      },
-      
-      "input_info": {
-          "input": {
-              "shapes": [[1,10],[4,10]],
-              "mean": 0.0,
-              "std_dev": 1.0
+    "model": {
+      "name": "LogisticRegression"
+    },
 
-          }
-      },
-      "iterations": 20     
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 4, 10 ]
+        ],
+        "mean": 0.0,
+        "std_dev": 1.0
+
+      }
+    },
+    "iterations": 20
   },
   "test_RBFKernel": {
-      "model": {
-          "name": "RBFKernel"
+    "model": {
+      "name": "RBFKernel"
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 2, 8 ],
+          [ 3, 3 ]
+        ]
       },
-      "input_info": {
-          "input1": {
-              "shapes": [[2, 8],[3, 3]]
-          },
-          "input2": {
-              "shapes": [[2, 8],[3, 3]]
-          },
-          "l_scale": {
-              "shapes": [[1, 1]]
-          },
-          "sigma": {
-              "shapes": [[1, 1]]
-          }
+      "input2": {
+        "shapes": [
+          [ 2, 8 ],
+          [ 3, 3 ]
+        ]
       },
-      "iterations":20
+      "l_scale": {
+        "shapes": [
+          [ 1, 1 ]
+        ]
+      },
+      "sigma": {
+        "shapes": [
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_kernelizedSVM": {
-      "model": {
-          "name": "KernelizedSVM",
-          "regular_args": {
-              "kernel": "RBFKernel"
-          }
+    "model": {
+      "name": "KernelizedSVM",
+      "regular_args": {
+        "kernel": "RBFKernel"
+      }
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 5, 5 ]
+        ]
       },
-      "input_info": {
-          "input1": {
-              "shapes": [[1, 20],[5, 5]]
-          },
-          "input2": {
-              "shapes": [[1, 20],[5, 5]]
-          }
+      "input2": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 5, 5 ]
+        ]
+      }
 
-      },
-      "iterations":20
+    },
+    "iterations": 20
   },
   "test_mlp": {
-      "model": {
-          "name": "MLP",
-          "randomized_args": { 
-              "dimensions": [[2, 4], [2, 4], [2, 4]],
-              "activations": [["relu", "sigmoid", "softplus", "tanh"], ["relu", "sigmoid"], ["sigmoid"]]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,5],[1,5]]
-          }
-      },
-      "iterations": 10
-      
+    "model": {
+      "name": "MLP",
+      "randomized_args": {
+        "dimensions": [
+          [ 2, 4 ],
+          [ 2, 4 ],
+          [ 2, 4 ]
+        ],
+        "activations": [
+          [ "relu", "sigmoid", "softplus", "tanh" ],
+          [ "relu", "sigmoid" ],
+          [ "sigmoid" ]
+        ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 10
+
   },
   "test_distance_matrix_1": {
-      "model": {
-          "name": "EncoderDistanceMatrix",
-          "randomized_args": {
-              "get_final_distance": [false, true]
-          }
+    "model": {
+      "name": "EncoderDistanceMatrix",
+      "randomized_args": {
+        "get_final_distance": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 3, 3 ]
+        ]
       },
-      "input_info": {
-          "input1": {
-              "shapes": [[1,10],[3,3]]
-          },
-          "input2": {
-              "shapes": [[1,10],[3,3]]
-          }
-      },
-      "iterations": 20,
-      "32bit_relative_tolerance": 1e-5
-      
+      "input2": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "iterations": 20,
+    "32bit_relative_tolerance": 1e-5
+
   },
   "test_distance_matrix_2": {
-      "model": {
-          "name": "EncoderDistanceMatrix",
-          "randomized_args": {
-              "get_final_distance": [false, true]
-          }
+    "model": {
+      "name": "EncoderDistanceMatrix",
+      "randomized_args": {
+        "get_final_distance": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 1 ]
+        ]
       },
-      "input_info": {
-          "input1": {
-              "shapes": [[1,10],[1,1]]
-          },
-          "input2": {
-              "shapes": [[1,10],[1,1]]
-          }
-      },
-      "iterations": 20,
-      "32bit_relative_tolerance": 1e-5
+      "input2": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 20,
+    "32bit_relative_tolerance": 1e-5
   },
   "test_mds_core_1": {
-      "note": "ideally, distance should be run on zero_diag:true setting. However, Since differences in jax's and torch's grad handling at zero values, I set zero_diag is false for now",
-      "model": {
-          "name": "MDSCore",
-          "randomized_args": {
-              "exact_distances": [false,false]
-          }
-      },
-      "input_info": {
-          "distances": {
-              "shapes": [[5,5],[5,5]],
-              "zero_diag": false,
-              "is_positive": true,
-              "is_symmetric": true,
-              "mean": 100,
-              "std_dev": 1.0
-          }
-      },
-      "iterations": 20
+    "note": "ideally, distance should be run on zero_diag:true setting. However, Since differences in jax's and torch's grad handling at zero values, I set zero_diag is false for now",
+    "model": {
+      "name": "MDSCore",
+      "randomized_args": {
+        "exact_distances": [ false, false ]
+      }
+    },
+    "input_info": {
+      "distances": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 5, 5 ]
+        ],
+        "zero_diag": false,
+        "is_positive": true,
+        "is_symmetric": true,
+        "mean": 100,
+        "std_dev": 1.0
+      }
+    },
+    "iterations": 20
   },
 
-
-  "test_poly_features":{
-      "model": { 
-          "name": "PolynomialFeatures",
-          "randomized_args": { 
-              "degree": [1,5]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,4],[1,4]]
-          }
-      },
-      "iterations": 20,
-      "32bit_tolerance": 1e-5,
-      "32bit_relative_tolerance": 1e-5
+  "test_poly_features": {
+    "model": {
+      "name": "PolynomialFeatures",
+      "randomized_args": {
+        "degree": [ 1, 5 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 20,
+    "32bit_tolerance": 1e-5,
+    "32bit_relative_tolerance": 1e-5
   },
 
   "test_polynomial_regression": {
-      "model": {
-          "name": "PolynomialRegression",
-          
-          "randomized_args": { 
-              "degree": [1,5],
-              "dimension": [1,3]       
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,4],[1,4]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "PolynomialRegression",
+
+      "randomized_args": {
+        "degree": [ 1, 5 ],
+        "dimension": [ 1, 3 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_conv1d": {
-      "model": {
-          "name": "Convolution1D",
-          "regular_args": {
-              "kernel_size": 3,
-              "out_channels": 3
-          },
-          "randomized_args": {
-              "stride": [1, 3],
-              "padding": [0, 2]     
-          }
+    "model": {
+      "name": "Convolution1D",
+      "regular_args": {
+        "kernel_size": 3,
+        "out_channels": 3
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1,5], [2,2], [10,15]]
-          },
-          "weight": {
-              "shapes": [[3,3], [2,2], [3,3]]
-          }
+      "randomized_args": {
+        "stride": [ 1, 3 ],
+        "padding": [ 0, 2 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 2, 2 ],
+          [ 10, 15 ]
+        ]
       },
-      "iterations": 30,
-      "32bit_tolerance": 1e-5,
-      "32bit_relative_tolerance": 1e-5
+      "weight": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 2, 2 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "iterations": 30,
+    "32bit_tolerance": 1e-5,
+    "32bit_relative_tolerance": 1e-5
   },
   "test_conv2d": {
-      "model": {
-          "name": "Convolution2D",
-          "regular_args": {
-              "kernel_size": 3,
-              "out_channels": 3
-          },
-          "randomized_args": {
-              "stride": [1, 3],
-              "padding": [0, 2]     
-          }
+    "model": {
+      "name": "Convolution2D",
+      "regular_args": {
+        "kernel_size": 3,
+        "out_channels": 3
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1,5], [2,2], [10,20], [10,20]]
-          },
-          "weight": {
-              "shapes": [[3,3], [2,2], [3,3],[3,3]]
-          }
+      "randomized_args": {
+        "stride": [ 1, 3 ],
+        "padding": [ 0, 2 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 2, 2 ],
+          [ 10, 20 ],
+          [ 10, 20 ]
+        ]
       },
-      "iterations": 30,
-      "32bit_tolerance": 1e-5,
-      "32bit_relative_tolerance": 1e-5
+      "weight": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 2, 2 ],
+          [ 3, 3 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "iterations": 30,
+    "32bit_tolerance": 1e-5,
+    "32bit_relative_tolerance": 1e-5
   },
   "test_tsne_core": {
-      "model": {
-          "name": "TSNECore",
-          "randomized_args": {
-              "exact_distances": [false,true]
-          }
-      }, 
-      "static_input_info": {
-          "distances": {
-              "shapes": [[3,3],[3,3]],
-              "zero_diag": true,
-              "is_positive": true,
-              "is_symmetric": true,
-              "mean": 0.0,
-              "std_dev": 1.0
-              
-          }, 
-          "p_joint": {
-              "shapes": [[3,3],[3,3]],
-              "zero_diag": true,
-              "is_positive": true,
-              "is_symmetric": true,
-              "normalize": true,
-              "mean": 0.0,
-              "std_dev": 1.0
+    "model": {
+      "name": "TSNECore",
+      "randomized_args": {
+        "exact_distances": [ false, true ]
+      }
+    },
+    "static_input_info": {
+      "distances": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 3, 3 ]
+        ],
+        "zero_diag": true,
+        "is_positive": true,
+        "is_symmetric": true,
+        "mean": 0.0,
+        "std_dev": 1.0
 
-          }
       },
-      "iterations": 10
+      "p_joint": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 3, 3 ]
+        ],
+        "zero_diag": true,
+        "is_positive": true,
+        "is_symmetric": true,
+        "normalize": true,
+        "mean": 0.0,
+        "std_dev": 1.0
+
+      }
+    },
+    "iterations": 10
   },
   "test_tsne": {
-      "model": {
-          "name": "TSNE",
-          "randomized_args": {
-              "prediction_dim": [1,15]
-          },
-          "regular_args": {
-              "input_type": "points"
-          }
+    "model": {
+      "name": "TSNE",
+      "randomized_args": {
+        "prediction_dim": [ 1, 15 ]
       },
-      "static_input_info": {
-          "input": {
-              "shapes": [[20, 20], [20, 20]]
-          },
-          "p_joint": { 
-              "shapes": [[20,20],[20,20]],
-              "zero_diag": true,
-              "is_positive": true,
-              "is_symmetric": true,
-              "normalize": true
-          } 
+      "regular_args": {
+        "input_type": "points"
+      }
+    },
+    "static_input_info": {
+      "input": {
+        "shapes": [
+          [ 20, 20 ],
+          [ 20, 20 ]
+        ]
       },
-      "iterations": 10
+      "p_joint": {
+        "shapes": [
+          [ 20, 20 ],
+          [ 20, 20 ]
+        ],
+        "zero_diag": true,
+        "is_positive": true,
+        "is_symmetric": true,
+        "normalize": true
+      }
+    },
+    "iterations": 10
   },
   "test_maxpool1d": {
-      "model": {
-          "name": "MaxPool1D",
-          "randomized_args": {
-              "kernel_size": [1,3]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,3],[7, 13], [6, 8]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "MaxPool1D",
+      "randomized_args": {
+        "kernel_size": [ 1, 3 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 3 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_maxpool2d": {
-      "model": {
-          "name": "MaxPool2D",
-          "randomized_args": {
-              "kernel_size": [1,3]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,3], [1,3], [7, 13], [6, 8]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "MaxPool2D",
+      "randomized_args": {
+        "kernel_size": [ 1, 3 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 3 ],
+          [ 1, 3 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
 
   "test_avgpool2d": {
-      "model": {
-          "name": "AvgPool2D",
-          "randomized_args": {
-              "kernel_size": [1,3]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,3], [1,3], [7, 13], [6, 8]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "AvgPool2D",
+      "randomized_args": {
+        "kernel_size": [ 1, 3 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 3 ],
+          [ 1, 3 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_buffer": {
-      "model": {
-          "name": "Buffer",
-          "types": {
-              "input": "tensor"
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,5],[2,2],[6,10],[6,10]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Buffer",
+      "types": {
+        "input": "tensor"
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 2, 2 ],
+          [ 6, 10 ],
+          [ 6, 10 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_mult": {
-      "model": {
-          "name": "Multiply",
-          "types": {
-              "left": "tensor",
-              "right": "tensor"
-          }
+    "model": {
+      "name": "Multiply",
+      "types": {
+        "left": "tensor",
+        "right": "tensor"
+      }
+    },
+    "input_info": {
+      "left": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
       },
-      "input_info": {
-          "left": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          },
-          "right": {
-              "shapes": [[1, 10],[1, 10], [1, 1], [1, 1], [1, 1]]
-          }
-      },
-      "iterations": 10
+      "right": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
 
   "test_div": {
-      "model": {
-          "name": "Divide",
-          "types": {
-              "numerator": "tensor",
-              "denominator": "tensor"
-          }
+    "model": {
+      "name": "Divide",
+      "types": {
+        "numerator": "tensor",
+        "denominator": "tensor"
+      }
+    },
+    "input_info": {
+      "numerator": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
       },
-      "input_info": {
-          "numerator": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          },
-          "denominator": {
-              "shapes": [[1, 10],[1, 10], [1, 1], [1, 1], [1, 1]]
-          }
-      },
-      "iterations": 10,
-      "64bit_relative_tolerance": 1e-9,
-      "32bit_relative_tolerance": 5e-4
+      "denominator": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10,
+    "64bit_relative_tolerance": 1e-9,
+    "32bit_relative_tolerance": 5e-4
   },
   "test_sum": {
-      "NOTE": "The threshold in the test is heuristically determined. It does not pass in regular threshold (1e-14). We except it to pass from the threshold that is determined",
-      "model": {
-          "name": "Add",
-          "types": {
-              "left": "tensor",
-              "right": "tensor"
-          }
+    "NOTE": "The threshold in the test is heuristically determined. It does not pass in regular threshold (1e-14). We except it to pass from the threshold that is determined",
+    "model": {
+      "name": "Add",
+      "types": {
+        "left": "tensor",
+        "right": "tensor"
+      }
+    },
+    "input_info": {
+      "left": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
       },
-      "input_info": {
-          "left": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          },
-          "right": {
-              "shapes": [[1, 10],[1, 10], [1, 1], [1, 1], [1, 1]]
-          }
-      },
-      "iterations": 10,
-      "64bit_relative_tolerance": 1e-9,
-      "32bit_tolerance": 5e-5,
-      "32bit_relative_tolerance": 5e-5
+      "right": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10,
+    "64bit_relative_tolerance": 1e-9,
+    "32bit_tolerance": 5e-5,
+    "32bit_relative_tolerance": 5e-5
   },
   "test_subtract": {
-      "model": {
-          "name": "Subtract",
-          "types": {
-              "left": "tensor",
-              "right": "tensor"
-          }
+    "model": {
+      "name": "Subtract",
+      "types": {
+        "left": "tensor",
+        "right": "tensor"
+      }
+    },
+    "input_info": {
+      "left": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
       },
-      "input_info": {
-          "left": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          },
-          "right": {
-              "shapes": [[1, 10],[1, 10], [1, 1], [1, 1], [1, 1]]
-          }
-      },
-      "iterations": 10,
-      "64bit_relative_tolerance": 1e-9,
-      "32bit_tolerance": 5e-5,
-      "32bit_relative_tolerance": 5e-5
+      "right": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10,
+    "64bit_relative_tolerance": 1e-9,
+    "32bit_tolerance": 5e-5,
+    "32bit_relative_tolerance": 5e-5
   },
   "test_power": {
-      "model": {
-          "name": "Power",
-          "regular_args": {
-              "robust": false
-          },
-          "types": {
-              "base": "tensor",
-              "exponent": "tensor"
-          }
+    "model": {
+      "name": "Power",
+      "regular_args": {
+        "robust": false
       },
-      "input_info": {
-          "base": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          },
-          "exponent": {
-              "shapes": [[1, 10],[1, 10], [1, 1], [1, 1], [1, 1]]
-          }
+      "types": {
+        "base": "tensor",
+        "exponent": "tensor"
+      }
+    },
+    "input_info": {
+      "base": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
       },
-      "iterations": 10,
-      "64bit_relative_tolerance": 1e-9,
-      "32bit_relative_tolerance": 5e-5
+      "exponent": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10,
+    "64bit_relative_tolerance": 1e-9,
+    "32bit_relative_tolerance": 5e-5
   },
   "test_robust_power": {
-      "model": {
-          "name": "Power",
-          "regular_args": {
-              "robust": true
-          },
-          "static_input_info": {
-              "threshold": [1, 1]
-          },
-          "types": {
-              "base": "tensor",
-              "exponent": "tensor",
-              "threshold": "tensor"
-          }
-          
+    "model": {
+      "name": "Power",
+      "regular_args": {
+        "robust": true
       },
-      "input_info": {
-          "base": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          },
-          "exponent": {
-              "shapes": [[1, 10],[1, 10], [1, 1], [1, 1], [1, 1]]
-          }
+      "static_input_info": {
+        "threshold": [ 1, 1 ]
       },
-      "iterations": 10,
-      "64bit_relative_tolerance": 1e-9,
-      "32bit_relative_tolerance": 5e-5
+      "types": {
+        "base": "tensor",
+        "exponent": "tensor",
+        "threshold": "tensor"
+      }
+
+    },
+    "input_info": {
+      "base": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      },
+      "exponent": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10,
+    "64bit_relative_tolerance": 1e-9,
+    "32bit_relative_tolerance": 5e-5
   },
   "test_exp": {
-      "model": {
-          "name": "Exponential"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1] ,[1, 1], [1, 10], [1, 10]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Exponential"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_abs": {
-      "model": {
-          "name": "Absolute"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[3,6],[1,3],[1,3],[7, 13], [6, 8]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Absolute"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 3, 6 ],
+          [ 1, 3 ],
+          [ 1, 3 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_sin": {
-      "model": {
-          "name": "Sine"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 8], [7, 13], [6, 8]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Sine"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 8 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_cos": {
-      "model": {
-          "name": "Cosine"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 8], [7, 13], [6, 8]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Cosine"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 8 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_var": {
-      "model": {
-          "name": "Variance",
-          "randomized_args": {
-              "keepdim": [false, true],
-              "correction": [0,2],
-              "axis": [0,2]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[5, 8], [7, 13], [6, 8], [8, 10]]
-          }
-      },
-      "iterations": 10,
-      "32bit_tolerance": 5e-4
+    "model": {
+      "name": "Variance",
+      "randomized_args": {
+        "keepdim": [ false, true ],
+        "correction": [ 0, 2 ],
+        "axis": [ 0, 2 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 5, 8 ],
+          [ 7, 13 ],
+          [ 6, 8 ],
+          [ 8, 10 ]
+        ]
+      }
+    },
+    "iterations": 10,
+    "32bit_tolerance": 5e-4
   },
   "test_concat_axis_none_5_inputs": {
-      "model": {
-          "name": "Model",
-          "submodels": {
-              "m1": {
-                  "name": "ToList",
-                  "args" : {
-                      "n": 5
-                  }
-              },
-              "m2": {
-                  "name": "Concat",
-                  "args" : {
-                      "axis": null
-                  }
-              }
-          },
-          "connections": {
-              "m1": {
-                  "input1": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input2": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input3": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input4": {"key": {"name": "input4", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input5": {"key": {"name": "input5", "type": {"Tensor": ["int", "float", "bool"]}}}
-              },
-              "m2": {
-                  "input": {"key": {"connect": [["m1", "output"]]}},
-                  "output": "output"
-              }
-          },
-          "exposed_keys": ["output"]
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "ToList",
+          "args": {
+            "n": 5
+          }
+        },
+        "m2": {
+          "name": "Concat",
+          "args": {
+            "axis": null
+          }
+        }
       },
-      "input_info": {
+      "connections": {
+        "m1": {
           "input1": {
-              "shapes": [[3, 6], [1, 3], [1, 3], [7, 13], [6, 8]]
+            "key": {
+              "name": "input1",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input2": {
-              "shapes": [[3, 6], [1, 3], [1, 3], [7, 13], [6, 8], [1, 10]]
+            "key": {
+              "name": "input2",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input3": {
-              "shapes": [[1,100]]
+            "key": {
+              "name": "input3",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input4": {
-              "shapes": [[1, 4], [1, 3]]
+            "key": {
+              "name": "input4",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input5": {
-              "shapes": [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
+            "key": {
+              "name": "input5",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           }
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "output": "output"
+        }
       },
-      "iterations": 10
+      "exposed_keys": [ "output" ]
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 3, 6 ],
+          [ 1, 3 ],
+          [ 1, 3 ],
+          [ 7, 13 ],
+          [ 6, 8 ]
+        ]
+      },
+      "input2": {
+        "shapes": [
+          [ 3, 6 ],
+          [ 1, 3 ],
+          [ 1, 3 ],
+          [ 7, 13 ],
+          [ 6, 8 ],
+          [ 1, 10 ]
+        ]
+      },
+      "input3": {
+        "shapes": [
+          [ 1, 100 ]
+        ]
+      },
+      "input4": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 3 ]
+        ]
+      },
+      "input5": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_concat_axis": {
-      "model": {
-          "name": "Model",
-          "submodels": {
-              "m1": {
-                  "name": "ToList",
-                  "args" : {
-                      "n": 5
-                  }
-              },
-              "m2": {
-                  "name": "Concat",
-                  "args" : {
-                      "axis": 3
-                  }
-              }
-          },
-          "connections": {
-              "m1": {
-                  "input1": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input2": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input3": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input4": {"key": {"name": "input4", "type": {"Tensor": ["int", "float", "bool"]}}},
-                  "input5": {"key": {"name": "input5", "type": {"Tensor": ["int", "float", "bool"]}}}
-              },
-              "m2": {
-                  "input": {"key": {"connect": [["m1", "output"]]}},
-                  "output": "output"
-              }
-          },
-          "exposed_keys": ["output"]
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "ToList",
+          "args": {
+            "n": 5
+          }
+        },
+        "m2": {
+          "name": "Concat",
+          "args": {
+            "axis": 3
+          }
+        }
       },
-      "input_info": {
+      "connections": {
+        "m1": {
           "input1": {
-              "shapes": [[5, 5], [3, 3], [4, 4], [7, 13], [2, 2]]
+            "key": {
+              "name": "input1",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input2": {
-              "shapes": [[5, 5], [3, 3], [4, 4], [9, 13], [2, 2]]
+            "key": {
+              "name": "input2",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input3": {
-              "shapes": [[5, 5], [3, 3], [4, 4], [1, 17], [2, 2]]
+            "key": {
+              "name": "input3",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input4": {
-              "shapes": [[5, 5], [3, 3], [4, 4], [1, 1], [2, 2]]
+            "key": {
+              "name": "input4",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           },
           "input5": {
-              "shapes": [[5, 5], [3, 3], [4, 4], [101, 111], [2, 2]]
+            "key": {
+              "name": "input5",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
           }
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "output": "output"
+        }
       },
-      "iterations": 10
+      "exposed_keys": [ "output" ]
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 3, 3 ],
+          [ 4, 4 ],
+          [ 7, 13 ],
+          [ 2, 2 ]
+        ]
+      },
+      "input2": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 3, 3 ],
+          [ 4, 4 ],
+          [ 9, 13 ],
+          [ 2, 2 ]
+        ]
+      },
+      "input3": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 3, 3 ],
+          [ 4, 4 ],
+          [ 1, 17 ],
+          [ 2, 2 ]
+        ]
+      },
+      "input4": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 3, 3 ],
+          [ 4, 4 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "input5": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 3, 3 ],
+          [ 4, 4 ],
+          [ 101, 111 ],
+          [ 2, 2 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_transpose": {
-      "model": {
-          "name": "Transpose"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 10], [1, 10], [1, 10], [1, 10], [1, 10], [1,10]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Transpose"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_transpose_with_axes": {
-      "model": {
-          "name": "Transpose",
-          "regular_args": {
-              "axes": [0,3,2,5,4,1]
-          },
-          "tuples": ["axes"]
+    "model": {
+      "name": "Transpose",
+      "regular_args": {
+        "axes": [ 0, 3, 2, 5, 4, 1 ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 10], [1, 10], [1, 10], [1, 10], [1, 10], [1,10]]
-          }
-      },
-      "iterations": 10
+      "tuples": [ "axes" ]
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_tanh": {
-      "model": {
-          "name": "Tanh"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5], [1, 5], [1, 5], [1,5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Tanh"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_sigmoid": {
-      "model": {
-          "name": "Sigmoid"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5], [1, 5], [1, 5], [1,5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Sigmoid"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_softplus": {
-      "model": {
-          "name": "Softplus"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5], [1, 5], [1, 5], [1,5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Softplus"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_permute_tensor": {
-      "model": {
-          "name": "PermuteTensor"
-      },
+    "model": {
+      "name": "PermuteTensor"
+    },
 
-      "input_info": {
-          "input": {
-              "shapes": [[5, 5], [1, 10], [1, 10], [1, 10], [1, 10]]
-          }
-      },
-      "static_input_info": {
-          "indices": [[0, 0], [3, 3], [2, 2], [4, 4], [1, 1]]
-      },
-      "iterations": 20
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "indices": [
+        [ 0, 0 ],
+        [ 3, 3 ],
+        [ 2, 2 ],
+        [ 4, 4 ],
+        [ 1, 1 ]
+      ]
+    },
+    "iterations": 20
   },
   "test_squared_error": {
-      "model": {
-          "name": "SquaredError"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 10], [1, 10], [1, 10],[1, 10],[1, 10]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "SquaredError"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_hinge_loss": {
-      "model": {
-          "name": "HingeLoss"
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 10], [1, 1]],
-              "interval": [[-1, -1], [1, 1]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "HingeLoss"
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ -1, -1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_absolute_error": {
-      "model": {
-          "name": "AbsoluteError"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 10], [1, 1]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "AbsoluteError"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_cross_entropy_1": {
-      "model": {
-          "name": "CrossEntropy",
-          "regular_args":{
-              "input_type": "logits",
-              "weights": [1.0,0.2,1.0,1.0,1.0,1.0,0.7,1.0,1.0,1.0,1.0,0.1,1.0,1.0,1.0]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[15, 15], [15, 15], [15, 15], [15, 15]]
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[15, 15], [15, 15], [15, 15]],
-              "interval": [[0, 0], [9, 9]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "CrossEntropy",
+      "regular_args": {
+        "input_type": "logits",
+        "weights": [ 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 0.7, 1.0, 1.0, 1.0, 1.0, 0.1, 1.0, 1.0, 1.0 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 9, 9 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_cross_entropy_2": {
-      "model": {
-          "name": "CrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[15, 15], [15, 15], [15, 15], [15, 15]],
-              "is_positive": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[15, 15], [15, 15], [15, 15]],
-              "interval": [[0, 0], [9, 9]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "CrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "weights": [ 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 0.7, 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 9, 9 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_cross_entropy_3": {
-      "model": {
-          "name": "CrossEntropy",
-          "regular_args":{
-              "input_type": "log_probs",
-              "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[15, 15], [15, 15], [15, 15], [15, 15]]
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[15, 15], [15, 15], [15, 15]],
-              "interval": [[0, 0], [9, 9]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "CrossEntropy",
+      "regular_args": {
+        "input_type": "log_probs",
+        "weights": [ 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 0.7, 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 9, 9 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_cross_entropy_4": {
-      "model": {
-          "name": "CrossEntropy",
-          "regular_args":{
-              "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0],
-              "categorical": false
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[15, 15], [15, 15], [15,15]]
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[15, 15], [15,15], [15,15]],
-              "is_positive": true
-          }
-      },
-      "iterations": 20,
-      "64bit_relative_tolerance": 1e-12
+    "model": {
+      "name": "CrossEntropy",
+      "regular_args": {
+        "weights": [ 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 0.7, 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0 ],
+        "categorical": false
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true
+      }
+    },
+    "iterations": 20,
+    "64bit_relative_tolerance": 1e-12
   },
   "test_cross_entropy_5": {
-      "model": {
-          "name": "CrossEntropy",
-          "regular_args": {
-              "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0],
-              "input_type": "probs",
-              "robust": true,
-              "categorical": false
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[15, 15], [15, 15], [15, 15]],
-              "is_positive": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[15, 15], [15,15], [15, 15]],
-              "is_positive": true
-          }
-      },
-      "iterations": 20,
-      "64bit_relative_tolerance": 1e-12
+    "model": {
+      "name": "CrossEntropy",
+      "regular_args": {
+        "weights": [ 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 0.7, 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0 ],
+        "input_type": "probs",
+        "robust": true,
+        "categorical": false
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true
+      }
+    },
+    "iterations": 20,
+    "64bit_relative_tolerance": 1e-12
   },
   "test_cross_entropy_6": {
-      "model": {
-          "name": "CrossEntropy",
-          "regular_args": {
-              "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0],
-              "input_type": "log_probs",
-              "categorical": false
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[15, 15], [15, 15], [15, 15]]
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[15, 15], [15,15], [15, 15]],
-              "is_positive": true
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "CrossEntropy",
+      "regular_args": {
+        "weights": [ 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 0.7, 1.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0 ],
+        "input_type": "log_probs",
+        "categorical": false
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 15, 15 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true
+      }
+    },
+    "iterations": 20
   },
   "test_binary_cross_entropy_probs_1": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "pos_weight": 0.625,
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 20], [1, 1]],
-              "interval": [[0, 0], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "pos_weight": 0.625,
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_probs_2": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "pos_weight": "auto",
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 20], [1, 1]],
-              "interval": [[0, 0], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "pos_weight": "auto",
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_probs_3": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 20], [1, 1]],
-              "interval": [[0, 0], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_probs_4": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "pos_weight": 0.625,
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 20], [1, 1]],
-              "interval": [[0, 0], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "pos_weight": 0.625,
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_probs_5": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "pos_weight": "auto",
-              "robust": false
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 20], [1, 1]],
-              "interval": [[0, 0], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "pos_weight": "auto",
+        "robust": false
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_probs_6": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "input_type": "probs",
-              "robust": false
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 20], [1, 1]],
-              "interval": [[0, 0], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "input_type": "probs",
+        "robust": false
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_logits_1": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[1, 20], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_logits_2": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "pos_weight": "auto",
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[1, 20], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "pos_weight": "auto",
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_logits_3": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "pos_weight": 0.625,
-              "robust": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[1, 20], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "pos_weight": 0.625,
+        "robust": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_logits_4": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "robust": false
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[1, 20], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "robust": false
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_logits_5": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "pos_weight": "auto",
-              "robust": false
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[1, 20], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "pos_weight": "auto",
+        "robust": false
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_binary_cross_entropy_logits_6": {
-      "model": {
-          "name": "BinaryCrossEntropy",
-          "regular_args":{
-              "pos_weight": 0.625,
-              "robust": false
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[1, 20], [1, 1]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "BinaryCrossEntropy",
+      "regular_args": {
+        "pos_weight": 0.625,
+        "robust": false
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 1, 20 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_quantile_loss": {
-      "model": {
-          "name": "QuantileLoss"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1, 120], [1, 15], [1,30]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "QuantileLoss"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 120 ],
+          [ 1, 15 ],
+          [ 1, 30 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_quad_hinge_loss": {
-      "model": {
-          "name": "QuadHingeLoss"
-      },
-      "static_input_info": {
-          "target": {
-              "mode": "int",
-              "shapes": [[1, 200], [1, 1]],
-              "interval": [[-1, -1], [1, 1]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "QuadHingeLoss"
+    },
+    "static_input_info": {
+      "target": {
+        "mode": "int",
+        "shapes": [
+          [ 1, 200 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ -1, -1 ],
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_kl_div": {
-      "model": {
-          "name": "KLDivergence"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[120, 120], [15, 15]],
-              "is_positive": true,
-              "normalize": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[120, 120], [15, 15]],
-              "is_positive": true,
-              "normalize": true
+    "model": {
+      "name": "KLDivergence"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 120, 120 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true,
+        "normalize": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 120, 120 ],
+          [ 15, 15 ]
+        ],
+        "is_positive": true,
+        "normalize": true
 
-          }
-      },
-      "iterations": 20
+      }
+    },
+    "iterations": 20
   },
   "test_kl_div_5d": {
-      "model": {
-          "name": "KLDivergence"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[12, 12], [3, 3], [3, 3],[1, 1], [1, 1]],
-              "is_positive": true,
-              "normalize": true
-          }
-      },
-      "static_input_info": {
-          "target": {
-              "shapes": [[12, 12], [3, 3], [3, 3],[1, 1], [1, 1]],
-              "is_positive": true,
-              "normalize": true
+    "model": {
+      "name": "KLDivergence"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 12, 12 ],
+          [ 3, 3 ],
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ],
+        "is_positive": true,
+        "normalize": true
+      }
+    },
+    "static_input_info": {
+      "target": {
+        "shapes": [
+          [ 12, 12 ],
+          [ 3, 3 ],
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 1, 1 ]
+        ],
+        "is_positive": true,
+        "normalize": true
 
-          }
-      },
-      "iterations": 20
+      }
+    },
+    "iterations": 20
   },
   "test_relu": {
-      "model": {
-          "name": "Relu"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Relu"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_leaky_relu": {
-      "model": {
-          "name": "LeakyRelu"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "LeakyRelu"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_gelu": {
-      "model": {
-          "name": "Gelu"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]
-          }
-      },
-      "iterations": 20,
-      "64bit_relative_tolerance": 1e-12
+    "model": {
+      "name": "Gelu"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20,
+    "64bit_relative_tolerance": 1e-12
 
   },
   "test_stop_gradient": {
-      "model": {
-          "name": "StopGradient"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]
-          }
-      },
-      "iterations": 20,
-      "64bit_relative_tolerance": 1e-12
+    "model": {
+      "name": "StopGradient"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20,
+    "64bit_relative_tolerance": 1e-12
 
   },
   "test_softmax_2d_1": {
-      "model": {
-          "name": "Softmax"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Softmax"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_softmax_2d_2": {
-      "model": {
-          "name": "Softmax",
-          "regular_args":{
-              "axis": 0
-          }
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Softmax",
+      "regular_args": {
+        "axis": 0
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_softmax_5d_1": {
-      "model": {
-          "name": "Softmax"
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Softmax"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ],
+          [ 1, 10 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_sqrt": {
-      "model": {
-          "name": "Sqrt",
-          "randomized_args": {"robust": [false, true]}
-      },
-      "input_info": {
-          "input" : {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Sqrt",
+      "randomized_args": {
+        "robust": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
-  
+
   "test_stable_reciprocal": {
-      "model": {
-          "name": "StableReciprocal"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "StableReciprocal"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_transposed_diag": {
-      "model": {
-          "name": "TransposedDiagonal"
-      },
-      "static_input_info": {
-          "input": {
-              "shapes": [[3, 3], [3,3]]
-          }
-      },
-      "inference": true,
-      "iterations": 5
+    "model": {
+      "name": "TransposedDiagonal"
+    },
+    "static_input_info": {
+      "input": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "inference": true,
+    "iterations": 5
   },
   "test_squeeze": {
-      "model": {
-          "name": "Squeeze"
-      },
-      "static_input_info": {
-          "input": {
-              "shapes": [[1,3], [1,5], [1,2], [1,5], [1,2]]
-          }
-      },
-      "inference": true,
-      "iterations": 5
+    "model": {
+      "name": "Squeeze"
+    },
+    "static_input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 3 ],
+          [ 1, 5 ],
+          [ 1, 2 ],
+          [ 1, 5 ],
+          [ 1, 2 ]
+        ]
+      }
+    },
+    "inference": true,
+    "iterations": 5
   },
   "test_log": {
-      "model": {
-          "name": "Log",
-          "randomized_args": {
-              "robust": [false, true]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Log",
+      "randomized_args": {
+        "robust": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_sum_axis_none": {
-      "model": {
-          "name": "Sum",
-          "randomized_args": { 
-              "keepdim": [false, true]
-          }
-          
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Sum",
+      "randomized_args": {
+        "keepdim": [ false, true ]
+      }
+
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_sum": {
-      "model": {
-          "name": "Sum",
-          "regular_args": {
-              "axis": [0, 1, 3, 7, 5]
-          },
-          "randomized_args": { 
-              "keepdim": [false, true]
-          },
-          "tuples": ["axis"]
+    "model": {
+      "name": "Sum",
+      "regular_args": {
+        "axis": [ 0, 1, 3, 7, 5 ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4]]
-          }
+      "randomized_args": {
+        "keepdim": [ false, true ]
       },
-      "iterations": 20
+      "tuples": [ "axis" ]
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_mean_axis_none": {
-      "model": {
-          "name": "Mean",
-          "randomized_args": { 
-              "keepdim": [false, true]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Mean",
+      "randomized_args": {
+        "keepdim": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_mean": {
-      "model": {
-          "name": "Mean",
-          "regular_args": {
-              "axis": [0, 1, 3, 7, 5]
-          },
-          "randomized_args": { 
-              "keepdim": [false, true]
-          },
-          "tuples": ["axis"]
+    "model": {
+      "name": "Mean",
+      "regular_args": {
+        "axis": [ 0, 1, 3, 7, 5 ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4]]
-          }
+      "randomized_args": {
+        "keepdim": [ false, true ]
       },
-      "iterations": 20
+      "tuples": [ "axis" ]
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_max_axis_none": {
-      "model": {
-          "name": "Max",
-          "randomized_args": { 
-              "keepdim": [false, true]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Max",
+      "randomized_args": {
+        "keepdim": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_max": {
-      "model": {
-          "name": "Max",
-          "regular_args": {
-              "axis": [0, 1, 3, 7, 5]
-          },
-          "randomized_args": { 
-              "keepdim": [false, true]
-          },
-          "tuples": ["axis"]
+    "model": {
+      "name": "Max",
+      "regular_args": {
+        "axis": [ 0, 1, 3, 7, 5 ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4]]
-          }
+      "randomized_args": {
+        "keepdim": [ false, true ]
       },
-      "iterations": 20
+      "tuples": [ "axis" ]
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_min_axis_none": {
-      "model": {
-          "name": "Min",
-          "randomized_args": { 
-              "keepdim": [false, true]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Min",
+      "randomized_args": {
+        "keepdim": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_reduce_min": {
-      "model": {
-          "name": "Min",
-          "regular_args": {
-              "axis": [0, 1, 3, 7, 5]
-          },
-          "randomized_args": { 
-              "keepdim": [false, true]
-          },
-          "tuples": ["axis"]
+    "model": {
+      "name": "Min",
+      "regular_args": {
+        "axis": [ 0, 1, 3, 7, 5 ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4]]
-          }
+      "randomized_args": {
+        "keepdim": [ false, true ]
       },
-      "iterations": 20
+      "tuples": [ "axis" ]
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_scaled_dot_product_attention_1": {
-      "model": {
-          "name": "ScaledDotProduct"
+    "model": {
+      "name": "ScaledDotProduct"
+    },
+    "input_info": {
+      "query": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
       },
-      "input_info": {
-          "query": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          },
-          "key": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          },
-          "value": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          }
+      "key": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
+      },
+      "value": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
+      }
 
-      },
-      "iterations": 5
+    },
+    "iterations": 5
   },
   "test_scaled_dot_product_attention_2": {
-      "model": {
-          "name": "ScaledDotProduct",
-          "regular_args":{
-              "use_attn_mask": true,
-              "is_causal": false
-          }
+    "model": {
+      "name": "ScaledDotProduct",
+      "regular_args": {
+        "use_attn_mask": true,
+        "is_causal": false
+      }
+    },
+    "input_info": {
+      "query": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
       },
-      "input_info": {
-          "query": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          },
-          "key": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          },
-          "value": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          }
-          
+      "key": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
       },
-      "static_input_info": {
-          "attn_mask": {
-              "shapes": [[16,16], [16, 16]]
-          }
-      },
-      "iterations": 5
+      "value": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
+      }
+
+    },
+    "static_input_info": {
+      "attn_mask": {
+        "shapes": [
+          [ 16, 16 ],
+          [ 16, 16 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_scaled_dot_product_attention_3": {
-      "model": {
-          "name": "ScaledDotProduct",
-          "regular_args":{
-              "scale": 0.5
-          }
+    "model": {
+      "name": "ScaledDotProduct",
+      "regular_args": {
+        "scale": 0.5
+      }
+    },
+    "input_info": {
+      "query": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
       },
-      "input_info": {
-          "query": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          },
-          "key": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          },
-          "value": {
-              "shapes": [[4,4], [8,8], [16,16], [32, 32]]
-          }
+      "key": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
+      },
+      "value": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 8, 8 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
+      }
 
-      },
-      "iterations": 5
+    },
+    "iterations": 5
   },
   "test_embedding": {
-      "model": {
-          "name": "Embedding",
-          "regular_args":{
-              "num_embeddings": 10,
-              "dim": 5
-          }
-      },
-      "input_info": {
-          "weight": {
-              "shapes": [[10,10], [5,5]]
-          }
-      },
-      "static_input_info": {
-          "input": {
-              "mode": "int",
-              "shapes": [[15, 15], [1, 1]],
-              "interval": [[0, 0], [9, 9]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Embedding",
+      "regular_args": {
+        "num_embeddings": 10,
+        "dim": 5
+      }
+    },
+    "input_info": {
+      "weight": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 5, 5 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "input": {
+        "mode": "int",
+        "shapes": [
+          [ 15, 15 ],
+          [ 1, 1 ]
+        ],
+        "interval": [
+          [ 0, 0 ],
+          [ 9, 9 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_prod_axis_none": {
-      "model": {
-          "name": "Prod"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 20
+    "model": {
+      "name": "Prod"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_prod": {
-      "model": {
-          "name": "Prod",
-          "regular_args": {
-              "axis": [0, 1, 3, 7, 5]
-          },
-          "tuples": ["axis"]
+    "model": {
+      "name": "Prod",
+      "regular_args": {
+        "axis": [ 0, 1, 3, 7, 5 ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4], [1, 4]]
-          }
-      },
-      "iterations": 20
+      "tuples": [ "axis" ]
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ],
+          [ 1, 4 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_layernorm": {
-      "model": {
-          "name": "LayerNorm",
-          
-          "randomized_args": { 
-              "use_scale": [false, true],
-              "use_bias": [false, true]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,10],[4,10], [5,10]]
-          }
-      },
-      "iterations": 20,
-      "32bit_relative_tolerance": 5e-6,
-      "64bit_relative_tolerance": 1e-12
+    "model": {
+      "name": "LayerNorm",
+
+      "randomized_args": {
+        "use_scale": [ false, true ],
+        "use_bias": [ false, true ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 10 ],
+          [ 4, 10 ],
+          [ 5, 10 ]
+        ]
+      }
+    },
+    "iterations": 20,
+    "32bit_relative_tolerance": 5e-6,
+    "64bit_relative_tolerance": 1e-12
   },
   "test_many_to_one_rnn": {
-      "model": {
-          "name": "ManytoOne",
-          "regular_args": {
-              "cell_type": "RNNCell"
-          },
-          "randomized_args" : {
-              "max_sequence_length" : [2, 2]
-          }
+    "model": {
+      "name": "ManytoOne",
+      "regular_args": {
+        "cell_type": "RNNCell"
       },
-      "input_info": {
-          "input0": {
-              "shapes": [[7,7], [1,1], [15,15]]
-          },
-          "input1": {
-              "shapes": [[6,6], [1,1], [15,15]]
-          },
-          "initial_hidden": {
-              "shapes": [[7,7], [1,1], [8,8]]
-          },
-          "w_hh": {
-              "shapes": [[8, 8], [8, 8]]
-          },
-          "w_ho": {
-              "shapes": [[10, 10], [8, 8]]
-          }
+      "randomized_args": {
+        "max_sequence_length": [ 2, 2 ]
+      }
+    },
+    "input_info": {
+      "input0": {
+        "shapes": [
+          [ 7, 7 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
       },
-      "iterations": 20
+      "input1": {
+        "shapes": [
+          [ 6, 6 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
+      },
+      "initial_hidden": {
+        "shapes": [
+          [ 7, 7 ],
+          [ 1, 1 ],
+          [ 8, 8 ]
+        ]
+      },
+      "w_hh": {
+        "shapes": [
+          [ 8, 8 ],
+          [ 8, 8 ]
+        ]
+      },
+      "w_ho": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 8, 8 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_many_to_one_lstm": {
-      "model": {
-          "name": "ManytoOne",
-          "regular_args": {
-              "cell_type": "LSTMCell"
-          },
-          "randomized_args" : {
-              "max_sequence_length" : [2, 2]
-          }
+    "model": {
+      "name": "ManytoOne",
+      "regular_args": {
+        "cell_type": "LSTMCell"
       },
-      "input_info": {
-          "input0": {
-              "shapes": [[10, 10], [1,1], [2,2]]
-          },
-          "input1": {
-              "shapes": [[5, 5], [1,1], [2,2]]
-          },
-          "initial_hidden": {
-              "shapes": [[10,10], [1,1], [2,2]]
-          },
-          "w_f": {
-              "shapes": [[2, 2], [4, 4]]
-          },
-          "w_i": {
-              "shapes": [[2, 2], [4, 4]]
-          },
-          "w_c": {
-              "shapes": [[2, 2], [4, 4]]
-          },
-          "w_o": {
-              "shapes": [[2, 2], [4, 4]]
-          },
-          "bias_f": {
-              "shapes": [[2, 2]]
-          },
-          "bias_c": {
-              "shapes": [[2, 2]]
-          },
-          "bias_i": {
-              "shapes": [[2, 2]]
-          },
-          "bias_o": {
-              "shapes": [[2, 2]]
-          },
-          "w_out": {
-              "shapes": [[3,3], [2,2]]
-          }
+      "randomized_args": {
+        "max_sequence_length": [ 2, 2 ]
+      }
+    },
+    "input_info": {
+      "input0": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
       },
-      "iterations": 20
+      "input1": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "initial_hidden": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "w_f": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 4, 4 ]
+        ]
+      },
+      "w_i": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 4, 4 ]
+        ]
+      },
+      "w_c": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 4, 4 ]
+        ]
+      },
+      "w_o": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 4, 4 ]
+        ]
+      },
+      "bias_f": {
+        "shapes": [
+          [ 2, 2 ]
+        ]
+      },
+      "bias_c": {
+        "shapes": [
+          [ 2, 2 ]
+        ]
+      },
+      "bias_i": {
+        "shapes": [
+          [ 2, 2 ]
+        ]
+      },
+      "bias_o": {
+        "shapes": [
+          [ 2, 2 ]
+        ]
+      },
+      "w_out": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 2, 2 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_one_to_many_rnn": {
-      "model": {
-          "name": "OneToMany",
-          "assigned_differentiabilities": [
-              ["input", true], 
-              ["initial_hidden", true]
-          ],
-          "regular_args": {
-              "max_sequence_length": 4,
-              "cell_type": "RNNCell"
-          }
+    "model": {
+      "name": "OneToMany",
+      "assigned_differentiabilities": [
+        [ "input", true ],
+        [ "initial_hidden", true ]
+      ],
+      "regular_args": {
+        "max_sequence_length": 4,
+        "cell_type": "RNNCell"
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 9, 9 ],
+          [ 1, 1 ],
+          [ 8, 8 ]
+        ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[9, 9], [1,1], [8, 8]]
-          },
-          "initial_hidden": {
-              "shapes": [[9, 9], [1,1], [15, 15]]
-          },
-          "target1": {
-              "shapes": [[3, 3], [1,1], [8, 8]]
-          },
-          "target2": {
-              "shapes": [[3, 3], [1,1], [8, 8]]
-          },
-          "target3": {
-              "shapes": [[3, 3], [1,1], [8, 8]]
-          }
+      "initial_hidden": {
+        "shapes": [
+          [ 9, 9 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
       },
-      "iterations": 20
+      "target1": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 8, 8 ]
+        ]
+      },
+      "target2": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 8, 8 ]
+        ]
+      },
+      "target3": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 8, 8 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_one_to_many_lstm": {
-      "model": {
-          "name": "OneToMany",
-          "regular_args": {
-              "cell_type": "LSTMCell"
-          },
-          "randomized_args" : {
-              "max_sequence_length" : [3, 3]
-          }
+    "model": {
+      "name": "OneToMany",
+      "regular_args": {
+        "cell_type": "LSTMCell"
       },
-      "input_info": {
-          "input": {
-              "shapes": [[10, 10], [1,1], [2,2]]
-          },
-          "target1": {
-              "shapes": [[8, 8], [1,1], [2,2]]
-          },
-          "target2": {
-              "shapes": [[8, 8], [1,1], [2,2]]
-          },
-          "initial_hidden": {
-              "shapes": [[10,10], [1,1], [4,4]]
-          },
-          "w_f": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "w_i": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "w_c": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "w_o": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "bias_f": {
-              "shapes": [[4, 4]]
-          },
-          "bias_c": {
-              "shapes": [[4, 4]]
-          },
-          "bias_i": {
-              "shapes": [[4, 4]]
-          },
-          "bias_o": {
-              "shapes": [[4, 4]]
-          },
-          "w_out": {
-              "shapes": [[2,2], [4,4]]
-          }
+      "randomized_args": {
+        "max_sequence_length": [ 3, 3 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
       },
-      "iterations": 20
+      "target1": {
+        "shapes": [
+          [ 8, 8 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "target2": {
+        "shapes": [
+          [ 8, 8 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "initial_hidden": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 4, 4 ]
+        ]
+      },
+      "w_f": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "w_i": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "w_c": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "w_o": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "bias_f": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "bias_c": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "bias_i": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "bias_o": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "w_out": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 4, 4 ]
+        ]
+      }
+    },
+    "iterations": 20
   },
   "test_one_to_many_rnn_with_teacher_forcing": {
-      "model": {
-          "name": "OneToMany",
-          "regular_args": {
-              "max_sequence_length": 5,
-              "cell_type": "RNNCell",
-              "teacher_forcing": true
-          }
+    "model": {
+      "name": "OneToMany",
+      "regular_args": {
+        "max_sequence_length": 5,
+        "cell_type": "RNNCell",
+        "teacher_forcing": true
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 20, 20 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[20,20], [1,1], [15,15]]
-          },
-          "initial_hidden": {
-              "shapes": [[20,20], [1,1], [8,8]]
-          },
-          "target0": {
-              "shapes": [[17, 17], [1,1], [15 , 15]]
-          },
-          "target1": {
-              "shapes": [[17, 17], [1,1], [15 , 15]]
-          },
-          "target2": {
-              "shapes": [[13, 13], [1,1], [15 , 15]]
-          },
-          "target3": {
-              "shapes": [[9, 9], [1,1], [15 , 15]]
-          },
-          "target4": {
-              "shapes": [[4, 4], [1,1], [15 , 15]]
-          },
-          "w_ho": {
-              "shapes": [[15, 15], [8,8]]
-          }
-  },
+      "initial_hidden": {
+        "shapes": [
+          [ 20, 20 ],
+          [ 1, 1 ],
+          [ 8, 8 ]
+        ]
+      },
+      "target0": {
+        "shapes": [
+          [ 17, 17 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
+      },
+      "target1": {
+        "shapes": [
+          [ 17, 17 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
+      },
+      "target2": {
+        "shapes": [
+          [ 13, 13 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
+      },
+      "target3": {
+        "shapes": [
+          [ 9, 9 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
+      },
+      "target4": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 1, 1 ],
+          [ 15, 15 ]
+        ]
+      },
+      "w_ho": {
+        "shapes": [
+          [ 15, 15 ],
+          [ 8, 8 ]
+        ]
+      }
+    },
 
-  "iterations": 20 
+    "iterations": 20
 
   },
   "test_encoder_decoder_rnn": {
-      "model": {
-          "name": "EncoderDecoder",
-          "regular_args": {
-              "max_target_sequence_length": 4,
-              "max_input_sequence_length": 3,
-              "cell_type": "RNNCell",
-              "teacher_forcing": false
-          }
+    "model": {
+      "name": "EncoderDecoder",
+      "regular_args": {
+        "max_target_sequence_length": 4,
+        "max_input_sequence_length": 3,
+        "cell_type": "RNNCell",
+        "teacher_forcing": false
+      }
+    },
+    "input_info": {
+      "input0": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
       },
-      "input_info": {
-          "input0": {
-              "shapes": [[10,10], [1,1], [3,3]]
-          },
-          "input1": {
-              "shapes": [[6,6], [1,1], [3,3]]
-          },
-          "input2": {
-              "shapes": [[2,2], [1,1], [3,3]]
-          },
-          "initial_hidden": {
-              "shapes": [[10,10], [1,1], [4,4]]
-          },
-          "decoder_input": {
-              "shapes": [[10,10], [1,1], [3,3]]
-          },
-          "target1": {
-              "shapes": [[6, 6], [1,1], [3,3]]
-          },
-          "target2": {
-              "shapes": [[3, 3], [1,1], [3,3]]
-          },
-          "target3": {
-              "shapes": [[1, 1], [1,1], [3,3]]
-          }
+      "input1": {
+        "shapes": [
+          [ 6, 6 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
       },
-      "static_input_info": {
-          "indices": [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9]]
+      "input2": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
       },
-      "iterations": 20
+      "initial_hidden": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 4, 4 ]
+        ]
+      },
+      "decoder_input": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target1": {
+        "shapes": [
+          [ 6, 6 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target2": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target3": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "indices": [
+        [ 0, 0 ],
+        [ 1, 1 ],
+        [ 2, 2 ],
+        [ 3, 3 ],
+        [ 4, 4 ],
+        [ 5, 5 ],
+        [ 6, 6 ],
+        [ 7, 7 ],
+        [ 8, 8 ],
+        [ 9, 9 ]
+      ]
+    },
+    "iterations": 20
   },
   "test_encoder_decoder_lstm_with_teacher_forcing": {
-      "model": {
-          "name": "EncoderDecoder",            
-          "regular_args": {
-              "max_target_sequence_length": 2,
-              "max_input_sequence_length": 2,
-              "cell_type": "LSTMCell",
-              "teacher_forcing": true
-          }
+    "model": {
+      "name": "EncoderDecoder",
+      "regular_args": {
+        "max_target_sequence_length": 2,
+        "max_input_sequence_length": 2,
+        "cell_type": "LSTMCell",
+        "teacher_forcing": true
+      }
+    },
+    "input_info": {
+      "input0": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
       },
-      "input_info": {
-          "input0": {
-              "shapes": [[10, 10], [1,1], [2,2]]
-          },
-          "input1": {
-              "shapes": [[5, 5], [1,1], [2,2]]
-          },
-          "target0": {
-              "shapes": [[10, 10], [1,1], [2,2]]
-          },
-          "target1": {
-              "shapes": [[4, 4], [1,1], [2,2]]
-          },
-          "initial_hidden": {
-              "shapes": [[10,10], [1,1], [4,4]]
-          },
-          "decoder_input": {
-              "shapes": [[10,10], [1,1], [2,2]]
-          },
-          "w_f": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "w_i": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "w_c": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "w_o": {
-              "shapes": [[4, 4], [6, 6]]
-          },
-          "bias_f": {
-              "shapes": [[4, 4]]
-          },
-          "bias_c": {
-              "shapes": [[4, 4]]
-          },
-          "bias_i": {
-              "shapes": [[4, 4]]
-          },
-          "bias_o": {
-              "shapes": [[4, 4]]
-          },
-          "w_out": {
-              "shapes": [[2,2], [4,4]]
-          },
-          "decoder_w_out": {
-              "shapes": [[4,4], [4,4]]
-          }
+      "input1": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
       },
-      "static_input_info": {
-          "indices": [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9]]
+      "target0": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
       },
-      "iterations": 20
+      "target1": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "initial_hidden": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 4, 4 ]
+        ]
+      },
+      "decoder_input": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 2, 2 ]
+        ]
+      },
+      "w_f": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "w_i": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "w_c": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "w_o": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 6, 6 ]
+        ]
+      },
+      "bias_f": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "bias_c": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "bias_i": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "bias_o": {
+        "shapes": [
+          [ 4, 4 ]
+        ]
+      },
+      "w_out": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 4, 4 ]
+        ]
+      },
+      "decoder_w_out": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 4, 4 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "indices": [
+        [ 0, 0 ],
+        [ 1, 1 ],
+        [ 2, 2 ],
+        [ 3, 3 ],
+        [ 4, 4 ],
+        [ 5, 5 ],
+        [ 6, 6 ],
+        [ 7, 7 ],
+        [ 8, 8 ],
+        [ 9, 9 ]
+      ]
+    },
+    "iterations": 20
   },
   "test_encoder_decoder_rnn_with_teacher_forcing": {
-      "model": {
-          "name": "EncoderDecoder",
-          "regular_args": {
-              "max_target_sequence_length": 4,
-              "max_input_sequence_length": 3,
-              "cell_type": "RNNCell",
-              "teacher_forcing": true
-          }
+    "model": {
+      "name": "EncoderDecoder",
+      "regular_args": {
+        "max_target_sequence_length": 4,
+        "max_input_sequence_length": 3,
+        "cell_type": "RNNCell",
+        "teacher_forcing": true
+      }
+    },
+    "input_info": {
+      "input0": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
       },
-      "input_info": {
-          "input0": {
-              "shapes": [[10,10], [1,1], [3,3]]
-          },
-          "input1": {
-              "shapes": [[6,6], [1,1], [3,3]]
-          },
-          "input2": {
-              "shapes": [[2,2], [1,1], [3,3]]
-          },
-          "initial_hidden": {
-              "shapes": [[10,10], [1,1], [4,4]]
-          },
-          "decoder_input": {
-              "shapes": [[10,10], [1,1], [3,3]]
-          },
-          "target0": {
-              "shapes": [[10, 10], [1,1], [3,3]]
-          },
-          "target1": {
-              "shapes": [[6, 6], [1,1], [3,3]]
-          },
-          "target2": {
-              "shapes": [[3, 3], [1,1], [3,3]]
-          },
-          "target3": {
-              "shapes": [[1, 1], [1,1], [3,3]]
-          },
-          "w_ho": {
-              "shapes": [[3, 3], [4,4]]
-          },
-          "decoder_w_ho": {
-              "shapes": [[3, 3], [4,4]]
-          }
+      "input1": {
+        "shapes": [
+          [ 6, 6 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
       },
-      "static_input_info": {
-          "indices": [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9]]
+      "input2": {
+        "shapes": [
+          [ 2, 2 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
       },
-      "iterations": 20 
+      "initial_hidden": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 4, 4 ]
+        ]
+      },
+      "decoder_input": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target0": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target1": {
+        "shapes": [
+          [ 6, 6 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target2": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "target3": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 1 ],
+          [ 3, 3 ]
+        ]
+      },
+      "w_ho": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 4, 4 ]
+        ]
+      },
+      "decoder_w_ho": {
+        "shapes": [
+          [ 3, 3 ],
+          [ 4, 4 ]
+        ]
+      }
+    },
+    "static_input_info": {
+      "indices": [
+        [ 0, 0 ],
+        [ 1, 1 ],
+        [ 2, 2 ],
+        [ 3, 3 ],
+        [ 4, 4 ],
+        [ 5, 5 ],
+        [ 6, 6 ],
+        [ 7, 7 ],
+        [ 8, 8 ],
+        [ 9, 9 ]
+      ]
+    },
+    "iterations": 20
   },
   "test_l1": {
-      "model": {
-          "name": "L1"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "L1"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_l2": {
-      "model": {
-          "name": "L2"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "L2"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_elementwiseaffine": {
-      "model": {
-          "name": "ElementWiseAffine",
-          
-          "types": {
-              "input": "tensor",
-              "weight": "tensor",
-              "bias": "tensor"
-          }
+    "model": {
+      "name": "ElementWiseAffine",
+
+      "types": {
+        "input": "tensor",
+        "weight": "tensor",
+        "bias": "tensor"
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          },
-          "weight": {
-              "shapes": [[1, 1]]
-          },
-          "bias": {
-              "shapes": [[1, 1]]
-          }
+      "weight": {
+        "shapes": [
+          [ 1, 1 ]
+        ]
       },
-      "iterations": 5
+      "bias": {
+        "shapes": [
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_matrixmultply": {
-      "model": {
-          "name": "MatrixMultiply"
+    "model": {
+      "name": "MatrixMultiply"
+    },
+    "input_info": {
+      "left": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 1 ],
+          [ 1, 5 ],
+          [ 32, 32 ],
+          [ 16, 16 ]
+        ]
       },
-      "input_info": {
-          "left": {
-              "shapes": [[1, 5], [1, 1], [1, 5], [32, 32], [16, 16]]
-          },
-          "right": {
-              "shapes": [[1, 1], [1, 5], [1, 1], [16, 16], [32, 32]]
-          }
-      },
-      "iterations": 5
+      "right": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 1, 5 ],
+          [ 1, 1 ],
+          [ 16, 16 ],
+          [ 32, 32 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_square": {
-      "model": {
-          "name": "Square"
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1, 5], [1, 5], [1, 5]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "Square"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_distance_matrix": {
-      "model": {
-          "name": "DistanceMatrix"
+    "model": {
+      "name": "DistanceMatrix"
+    },
+    "static_input_info": {
+      "norm": {
+        "shapes": []
+      }
+    },
+    "input_info": {
+      "left": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 3, 3 ]
+        ]
       },
-      "static_input_info": {
-          "norm": {
-              "shapes": []
-          }
-      },
-      "input_info": {
-          "left": {
-              "shapes": [[10, 10], [3, 3]]
-          },
-          "right": {
-              "shapes": [[10, 10], [3, 3]]
-          }
-      },
-      "64bit_relative_tolerance": 1e-13,
-      "iterations": 5
+      "right": {
+        "shapes": [
+          [ 10, 10 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "64bit_relative_tolerance": 1e-13,
+    "iterations": 5
   },
   "test_swapaxes": {
-      "model": {
-          "name": "SwapAxes",
-          "randomized_args": { 
-              "axis1": [0, 0],
-              "axis2": [2, 2]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[5, 5], [5,5], [3,3], [5,5], [5,5]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "SwapAxes",
+      "randomized_args": {
+        "axis1": [ 0, 0 ],
+        "axis2": [ 2, 2 ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 5, 5 ],
+          [ 3, 3 ],
+          [ 5, 5 ],
+          [ 5, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_flatten": {
-      "model": {
-          "name": "Flatten",
-          "regular_args": { 
-              "start_dim": 2,
-              "end_dim": 3
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[5, 5], [5,5], [5,5], [5,5], [5,5]]
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "Flatten",
+      "regular_args": {
+        "start_dim": 2,
+        "end_dim": 3
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 5, 5 ],
+          [ 5, 5 ],
+          [ 5, 5 ],
+          [ 5, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_cartesian_differnece": {
-      "model": {
-          "name": "CartesianDifference"
+    "model": {
+      "name": "CartesianDifference"
+    },
+    "input_info": {
+      "left": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 5, 5 ]
+        ]
       },
-      "input_info": {
-          "left": {
-              "shapes": [[1, 5], [5, 5]]
-          },
-          "right": {
-              "shapes": [[1, 5], [5, 5]]
-          }
-      },
-      "iterations": 5
+      "right": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 5, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_mds": {
-      "model": {
-          "name": "MDS",
-          
-          "regular_args":{
-              "prediction_dim": 3,
-              "input_type": "points"
-          }
+    "model": {
+      "name": "MDS",
+
+      "regular_args": {
+        "prediction_dim": 3,
+        "input_type": "points"
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 4, 4 ]
+        ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[4,4], [4,4]]
-          },
-          "coords": {
-              "shapes": [[4,4], [3,3]]
-          }
-      },
-      "iterations": 5,
-      "32bit_tolerance": 5e-4,
-      "32bit_relative_tolerance": 5e-4,
-      "64bit_relative_tolerance": 1e-12
+      "coords": {
+        "shapes": [
+          [ 4, 4 ],
+          [ 3, 3 ]
+        ]
+      }
+    },
+    "iterations": 5,
+    "32bit_tolerance": 5e-4,
+    "32bit_relative_tolerance": 5e-4,
+    "64bit_relative_tolerance": 1e-12
   },
   "test_polynomial_kernel": {
-      "model": {
-          "name": "PolynomialKernel",
-          "assigned_differentiabilities": [
-              ["input1", true], 
-              ["input2", true]
-          ],
-          "assigned_types": [
-              ["poly_coef", {"Tensor": ["int", "float", "bool"]}]
-          ]
-      },
-      "static_input_info": {
-          "poly_coef": {
-              "shapes": []
-          }, 
-          "degree": {
-              "shapes": []
+    "model": {
+      "name": "PolynomialKernel",
+      "assigned_differentiabilities": [
+        [ "input1", true ],
+        [ "input2", true ]
+      ],
+      "assigned_types": [
+        [
+          "poly_coef",
+          {
+            "Tensor": [ "int", "float", "bool" ]
           }
+        ]
+      ]
+    },
+    "static_input_info": {
+      "poly_coef": {
+        "shapes": []
       },
-      "input_info": {
-          "input1": {
-              "shapes": [[5,10],[5,5]]
-          },
-          "input2": {
-              "shapes": [[5,10],[5,5]]
-          }
+      "degree": {
+        "shapes": []
+      }
+    },
+    "input_info": {
+      "input1": {
+        "shapes": [
+          [ 5, 10 ],
+          [ 5, 5 ]
+        ]
       },
-      "32bit_tolerance": 5e-4,
-      "32bit_relative_tolerance": 5e-4,
-      "64bit_relative_tolerance": 1e-12,
-      "iterations": 5
+      "input2": {
+        "shapes": [
+          [ 5, 10 ],
+          [ 5, 5 ]
+        ]
+      }
+    },
+    "32bit_tolerance": 5e-4,
+    "32bit_relative_tolerance": 5e-4,
+    "64bit_relative_tolerance": 1e-12,
+    "iterations": 5
   },
   "test_linear_svm": {
-      "model": {
-          "name": "LinearSVM"
+    "model": {
+      "name": "LinearSVM"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 5, 10 ],
+          [ 5, 5 ]
+        ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[5,10],[5,5]]
-          },
-          "weight": {
-              "shapes": [[1,1], [5,5]]
-          },
-          "bias": {
-              "shapes": [[1,1]]
-          }
+      "weight": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 5, 5 ]
+        ]
       },
-      "iterations": 5
+      "bias": {
+        "shapes": [
+          [ 1, 1 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_layer": {
-      "model": {
-          "name": "Layer",
-          "randomized_args": { 
-              "dimension": [1, 10],
-              "activation": ["relu", "sigmoid", "softplus", "tanh"]
-          }
-      },
-      "input_info": {
-          "input": {
-              "shapes": [[1,5],[1,5]]
-          }
-      },
-      "iterations": 10
+    "model": {
+      "name": "Layer",
+      "randomized_args": {
+        "dimension": [ 1, 10 ],
+        "activation": [ "relu", "sigmoid", "softplus", "tanh" ]
+      }
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 5 ],
+          [ 1, 5 ]
+        ]
+      }
+    },
+    "iterations": 10
   },
   "test_quadratic_form_regularizer": {
-      "model": {
-          "name": "QuadraticFormRegularizer"
+    "model": {
+      "name": "QuadraticFormRegularizer"
+    },
+    "input_info": {
+      "input": {
+        "shapes": [
+          [ 1, 1 ],
+          [ 5, 5 ]
+        ]
       },
-      "input_info": {
-          "input": {
-              "shapes": [[1,1], [5,5]]
-          },
-          "kernel": {
-              "shapes": [[5,5],[5,5]]
-          }
-      },
-      "iterations": 5
+      "kernel": {
+        "shapes": [
+          [ 5, 5 ],
+          [ 5, 5 ]
+        ]
+      }
+    },
+    "iterations": 5
   },
   "test_where": {
-      "model": {
-          "name": "Where"
+    "model": {
+      "name": "Where"
+    },
+    "random_shapes": {
+      "shape1": [
+        [ 5, 10 ],
+        [ 10, 20 ]
+      ]
+    },
+    "static_input_info": {
+      "cond": {
+        "shapes": "shape1",
+        "bool": true
+      }
+    },
+    "input_info": {
+      "input1": {
+        "shapes": "shape1"
       },
-      "random_shapes": {
-          "shape1": [[5,10],[10,20]]
-      },
-      "static_input_info":{
-          "cond": {
-              "shapes": "shape1",
-              "bool": true
-          }
-      },
-      "input_info": {
-          "input1": {
-              "shapes": "shape1"
-          },
-          "input2": {
-              "shapes": "shape1"
-          }
-      },
-      "iterations": 5
+      "input2": {
+        "shapes": "shape1"
+      }
+    },
+    "iterations": 5
   },
   "test_norm_modifier": {
-      "model": {
-          "name": "NormModifier"
-      },
-      "input_info": {
-          "input": {
-              "shapes": []
-          }
-      },
-      "iterations": 5
+    "model": {
+      "name": "NormModifier"
+    },
+    "input_info": {
+      "input": {
+        "shapes": []
+      }
+    },
+    "iterations": 5
   },
   "test_eye": {
-      "model": {
-          "name": "Eye",
-          "randomized_args": {
-              "N": [2, 12],
-              "M": [3, 40]
-          }
-      },
-      "inference": true,
-      "iterations": 5
+    "model": {
+      "name": "Eye",
+      "randomized_args": {
+        "N": [ 2, 12 ],
+        "M": [ 3, 40 ]
+      }
+    },
+    "inference": true,
+    "iterations": 5
   },
   "test_ones": {
-      "model": {
-          "name": "Ones",
-          "randomized_args": {
-              "shape": [[2, 12], [3, 40]]
-          }
-      },
-      "inference": true,
-      "iterations": 5
+    "model": {
+      "name": "Ones",
+      "randomized_args": {
+        "shape": [
+          [ 2, 12 ],
+          [ 3, 40 ]
+        ]
+      }
+    },
+    "inference": true,
+    "iterations": 5
   },
   "test_eye_complement": {
-      "model": {
-          "name": "EyeComplement",
-          "randomized_args": {
-              "N": [2, 12],
-              "M": [3, 40]
-          }
-      },
-      "inference": true,
-      "iterations": 5
+    "model": {
+      "name": "EyeComplement",
+      "randomized_args": {
+        "N": [ 2, 12 ],
+        "M": [ 3, 40 ]
+      }
+    },
+    "inference": true,
+    "iterations": 5
   }
 }
