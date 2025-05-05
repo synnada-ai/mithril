@@ -451,7 +451,7 @@ def test_constant_numpy():
         model |= other_model.connect(input=model.rhs, axis=model.axis)  # type: ignore
     assert (
         str(err_info.value)
-        == "Input rank is 0. Minimum rank 1 input is required for axis = (0,)."
+        == "Input rank is 0. Minimum rank 1 input is required for axis = 0."
     )
 
 
@@ -478,7 +478,7 @@ def test_constant_numpy_set_values():
         model |= other_model.connect(input=model.rhs, axis=model.axis)  # type: ignore
     assert (
         str(err_info.value)
-        == "Input rank is 0. Minimum rank 1 input is required for axis = (0,)."
+        == "Input rank is 0. Minimum rank 1 input is required for axis = 0."
     )
 
 

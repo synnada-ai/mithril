@@ -842,6 +842,24 @@ def find_intersection_type(
     return None
 
 
+def enhanced_isinstance[T](obj: Any, type_def: type[T]) -> TypeGuard[T]:
+    """isinstance that supports generic type checking.
+
+    Since Python does not support generic type checking feature, naive
+    implementation of enhanced_isnstance is introduced
+
+    Examples:
+
+    >>> isinstance((2, 3, 4), tuple[int, int, int]) # python raises error
+    >>> enhanced_isinstance((2, 3, 4), tuple[int, int, int]) # returns True
+
+    NOTE: This functionality will be removed when Python brings support
+    generic type checking feature.
+
+    """
+    return find_intersection_type(find_type(obj), type_def) is not None
+
+
 def is_tensor_type(
     typ: type | UnionType | GenericAlias | type[Tensor[int | float | bool]] | None,
 ) -> TypeGuard[type[Tensor[int | float | bool]]]:
@@ -1425,6 +1443,9 @@ class IOHyperEdge:
             updated_tensors = {}
 
         match (value, self_value):
+            case (val1, val2) if val1 == val2:
+                return val1
+
             case (Tensor(), Tensor()):
                 # check if Tensors are already updated in previous iterations.
                 # If yes, replace them with updated ones.
@@ -1457,17 +1478,15 @@ class IOHyperEdge:
                 }
 
             case (val, ToBeDetermined()) | (ToBeDetermined(), val):
-                # add value to updates to inform constraints later on
-                updates.add(self, UpdateType.VALUE)
-                updates.value_updates.add(self)
+                if self_value is TBD:
+                    # add value to updates to inform constraints later on
+                    updates.add(self, UpdateType.VALUE)
+                    updates.value_updates.add(self)
 
                 # if val is a tensor (or a container that includes Tensor)
                 # update Tensor's IOHyperEdge referees and also return
                 # updated tensors
                 return self.update_tensor_values(val, updates, updated_tensors)
-
-            case (val1, val2) if val1 == val2:
-                return val1
 
             case _:
                 raise ValueError(
@@ -1561,6 +1580,8 @@ class IOHyperEdge:
             # TODO: If any valued edge, set_value only since it sets types as well.
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
+            if self._value != other._value:
+                updates.value_updates.add(self)
             if self._value is not TBD or other._value is not TBD:
                 valued, non_valued = (
                     (other, self) if other._value is not TBD else (self, other)

@@ -6133,7 +6133,13 @@ def test_cartesian_call():
         model_3_input_2: [3, 4],
         "output": [3, 4],
     }
-    physical_ref = {"input_0": [3, 4], "input_1": [3, 4], "output": [3, 4]}
+    physical_ref = {
+        "input_0": [3, 4],
+        "output1_0": [3, 4],
+        "input_1": [3, 4],
+        "output1_1": [3, 4],
+        "output": [3, 4],
+    }
     assert_shapes(model3, logical_ref, physical_ref)
 
 
@@ -10554,3 +10560,15 @@ def test_index_with_list_of_tuple_ints():
         "output2": [3, 6, 1, 1, 1, 5],
     }
     check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_partial_shape_propagation():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model.connect(input="input", output="output1")
+    model.set_shapes(input=["u1", "u2", 3, 4])
+    shp_1 = model.cout.shape[-1]
+    shp_2 = model.cout.shape[-2]
+    out = shp_1 * shp_2
+    model |= Buffer().connect(input=out, output="output2")
+    assert model.cout.metadata.value == 12

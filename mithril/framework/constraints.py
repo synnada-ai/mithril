@@ -23,14 +23,9 @@ from typing import Any, Literal, get_args, get_origin
 from ..common import PaddingType
 from ..types import Constant
 from ..utils.type_utils import (
-    is_axis_reduce_type,
-    is_axis_reverse_type,
     is_generic_alias_type,
     is_list_int,
-    is_list_int_or_none,
-    is_padding_type,
     is_tuple_int,
-    is_tuple_int_or_none,
     is_tuple_of_two_ints,
     is_union_type,
 )
@@ -52,10 +47,12 @@ from .common import (
     VariableSequenceType,
     Variadic,
     _TensorTypes,
+    enhanced_isinstance,
     find_intersection_type,
     find_type,
     is_index_type,
     is_tensor_type,
+    is_valued,
     process_value,
     squash_tensor_types,
 )
@@ -68,8 +65,10 @@ __all__ = [
     "slice_constraints",
     "bcast",
     "bcast_matrix_mult",
-    "sliding_window_1d_constraints",
-    "sliding_window_2d_constraints",
+    "pool_1d_constraints",
+    "conv_1d_constraints",
+    "conv_2d_constraints",
+    "pool_2d_constraints",
     "flatten_constrains",
     "concat_constraints",
     "reduce_constraints",
@@ -97,18 +96,33 @@ __all__ = [
     "padding_2d_constraint",
     "stride_constraint",
     "tuple_converter_constraint",
-    "conv_1d_constraints",
-    "conv_2d_constraints",
     "pad_constraints",
     "randn_constraints",
     "buffer_constraint",
-    "relational_operator_type_constraint",
     "polynomial_kernel_constraint",
     "general_forward_constraint",
     "general_type_constraint",
     "sum_fn",
     "distance_matrix_const",
 ]
+
+
+def to_sequence_helper(
+    type_def: type[list[Any]] | type[tuple[Any, ...]],
+    output: IOHyperEdge,
+    *args: IOHyperEdge,
+) -> ConstrainResultType:
+    updates = Updates()
+    forward_list = type_def([arg._value for arg in args])
+    backward_list = output._value
+    assert isinstance(backward_list, type_def | ToBeDetermined)
+
+    updates |= output.set_value(forward_list)
+    if isinstance(backward_list, list | tuple):
+        for arg, val in zip(args, backward_list, strict=True):
+            updates |= arg.set_value(val)
+    status = all(arg.is_valued for arg in [output, *args])
+    return status, updates
 
 
 def generate_nested_list_type(
@@ -1550,258 +1564,222 @@ def bcast_mat_mul_check(
     return bcast_error_check(output, left, right, index=2)
 
 
+def _reduce_sanity_check(
+    input_shape: ShapeRepr,
+    output_shape: ShapeRepr,
+    axis_val: int | tuple[int | ToBeDetermined, ...] | ToBeDetermined | None,
+    keepdim_val: bool | ToBeDetermined,
+) -> None:
+    axes = (axis_val,) if isinstance(axis_val, int) else axis_val
+    if input_shape.root is output_shape.root:
+        if keepdim_val is True:
+            if len(input_shape) != len(output_shape):
+                raise ValueError(
+                    f"Input shape {input_shape} and output shape {output_shape} "
+                    f"must have same length when keepdim is True in reduce model"
+                )
+        elif (
+            keepdim_val is False
+            and not isinstance(axes, ToBeDetermined | None)
+            and (len(input_shape) != len(output_shape) + len(axes))
+        ):
+            raise ValueError(
+                f"Shape mismatch, output rank = {len(output_shape)}. "
+                f"Output rank must be exactly {len(input_shape) - len(axes)} "
+                f"where input rank = {len(input_shape)} and axis = {axis_val}."
+            )
+    if not isinstance(axes, ToBeDetermined | None):
+        axes = tuple(val for val in axes if not isinstance(val, ToBeDetermined))
+        if input_shape.root is not None and output_shape.root is not None:
+            pos_axes = list(axes)
+        else:
+            if input_shape.root is None:
+                input_len = len(input_shape)
+            else:
+                input_len = len(output_shape.prefix) + len(axes)
+            pos_axes = [idx if idx >= 0 else idx + input_len for idx in axes]
+            if (max_axis := (max(pos_axes, default=-1) + 1)) > input_len:
+                raise ValueError(
+                    f"Input rank is {input_len}. "
+                    f"Minimum rank {max_axis} input is required for "
+                    f"axis = {axis_val}."
+                )
+        seen_axes: set[int] = set()
+        for val in pos_axes:
+            if val in seen_axes:
+                raise ValueError(f"Dim {val} appears multiple times in the reduce axes")
+            seen_axes.add(val)
+
+
 def reduce_constraints(
     output: IOHyperEdge, input: IOHyperEdge, axis: IOHyperEdge, keepdim: IOHyperEdge
 ) -> ConstrainResultType:
-    updates = Updates()
-    assert input._temp_shape is not None, "Input shape of reduce is not set!"
-    assert output._temp_shape is not None, "Output shape of reduce is not set!"
-    input_shape: ShapeRepr = input._temp_shape
-    output_shape: ShapeRepr = output._temp_shape
-    axis_val = axis.value
+    output_shape = output._temp_shape
+    input_shape = input._temp_shape
+    axis_value = axis.value
     keepdim_val = keepdim.value
-    assert axis_val is TBD or is_axis_reduce_type(
-        axis_val
-    ), f"given axis value {axis_val} is not valid!"
-    assert isinstance(
-        keepdim_val, bool | ToBeDetermined
-    ), f"given keepdim value {keepdim_val} is not valid!"
-    replacement = Uniadic(1) if keepdim_val else None
 
-    if axis_val is not TBD:
-        if isinstance(axis_val, int):
-            axis_val = (axis_val,)
-        elif axis_val is None:
-            if keepdim_val is False:
-                updates |= input_shape.update_uniadics(input_shape.prefix, [])
-                updates |= output_shape.update_uniadics(output_shape.reverse, [])
-                if output_shape.root is not None:
-                    updates |= output_shape.remove_variadic([])
-        elif not isinstance(axis_val, tuple):
-            raise ValueError("Requires valid axis type!")
+    assert input_shape is not None
+    assert output_shape is not None
+    assert isinstance(axis_value, int | ToBeDetermined | None) or enhanced_isinstance(
+        axis_value, tuple[int | ToBeDetermined, ...]
+    )
+    assert isinstance(keepdim_val, bool | ToBeDetermined)
+    _reduce_sanity_check(input_shape, output_shape, axis_value, keepdim_val)
 
-        if isinstance(axis_val, tuple):
-            if len(axis_val) != len(set(axis_val)):
-                raise ValueError("Duplicate value in reduce 'axis'")
-            if (
-                input_shape.root is not None
-                and output_shape.root is not None
-                and input_shape.root != output_shape.root
-            ):
-                positive_axes = [val for val in axis_val if val >= 0]
-                negative_axes = [val for val in axis_val if val not in positive_axes]
-                pos_idx = max(positive_axes) + 1 if positive_axes else None
-                neg_idx = abs(min(negative_axes)) if negative_axes else None
-                # If input already has corresponding axes as uniadics, simply match
-                # corresponding part of input shape_map with output shape_map.
-                if (
-                    (pos_idx is None or len(input_shape.prefix) >= pos_idx)
-                    and (neg_idx is None or len(input_shape.suffix) >= neg_idx)
-                    and keepdim_val is not TBD
-                ):  # pos_idx and neg_idx can not be None at the same time.
-                    repr_prefix: list[Uniadic] = []
-                    repr_suffix: list[Uniadic] = []
-                    for idx, uni in enumerate(input_shape.prefix):
-                        if idx not in positive_axes:
-                            repr_prefix.append(uni)
-                        elif keepdim_val:
-                            repr_prefix.append(Uniadic(1))
+    updates = Updates()
 
-                    for idx, uni in enumerate(input_shape.reverse):
-                        if -(idx + 1) not in negative_axes:
-                            repr_suffix.append(uni)
-                        elif keepdim_val:
-                            repr_suffix.append(Uniadic(1))
+    if isinstance(axis_value, int | tuple):
+        _axis_value = (axis_value,) if isinstance(axis_value, int) else axis_value
+        is_axis_valued = is_valued(_axis_value)
+        _axis_value = tuple(val for val in _axis_value if val is not TBD)
 
-                    repr_suffix = repr_suffix[::-1]
+        pos_vals = {val for val in _axis_value if val >= 0}
+        neg_vals = {val for val in _axis_value if val < 0}
 
-                    repr_root = input_shape.root
-                    updates |= output_shape.inner_match(
-                        prefix=repr_prefix, root=repr_root, suffix=repr_suffix
-                    )
+        max_pos_val = max(pos_vals, default=-1) + 1
+        max_neg_val = abs(min(neg_vals, default=0))
 
+        if input_shape.root is not None and output_shape.root is not None:
+            # try to infer minimum input rank from axis values.
+            min_input_rank = max(max_pos_val, abs(max_neg_val))
+            while True:
+                # look if any overlapping axis values. If any,
+                # increment minimum input rank
+                # (e.g, minimum input rank cannot be 2 when axis values are
+                # (0, 1, -1). It is because values 1 and -1 would overlap.
+                # In this case, increment minimum input rank to 3 so that
+                # no axis values would overlap)
+                for pos_val in pos_vals:
+                    neg_counterpart = pos_val - min_input_rank
+                    if neg_counterpart in neg_vals:
+                        min_input_rank += 1
+                        break
                 else:
+                    break
+
+            # calculate additional rank to be added to input shape
+            additional_rank = min_input_rank - len(input_shape)
+            prefix: list[Uniadic] = input_shape.prefix[:]
+            suffix: list[Uniadic] = input_shape.suffix[::-1]
+
+            for _ in range(additional_rank):
+                # add all additional ranks to prefix
+                if len(prefix) < max_pos_val:
+                    prefix.append(Uniadic())
+                else:
+                    suffix.append(Uniadic())
+
+            updates |= input_shape.inner_match(
+                prefix=prefix, root=Variadic(), suffix=suffix[::-1]
+            )
+
+        if keepdim_val is not TBD and is_axis_valued:
+            match (input_shape.root, output_shape.root):
+                case (Variadic(), Variadic()):
                     prefix = []
                     suffix = []
+                    root = input_shape.root
 
-                    if pos_idx is not None and len(input_shape.prefix) < pos_idx:
-                        prefix = input_shape.prefix + [
-                            Uniadic() for _ in range(pos_idx - len(input_shape.prefix))
-                        ]
-                        if len(input_shape.suffix) < (
-                            amount := max(
-                                pos_idx, neg_idx if neg_idx is not None else 0
-                            )
-                            - pos_idx
-                        ):
-                            suffix = [
-                                Uniadic() for _ in range(amount)
-                            ] + input_shape.suffix
-                    elif neg_idx is not None and len(input_shape.suffix) < neg_idx:
-                        suffix = [
-                            Uniadic() for _ in range(neg_idx - len(input_shape.suffix))
-                        ] + input_shape.suffix
-                        prefix = []
-
-                    # Determine minimum length for given axis values such that they
-                    # are guaranteed not to coincide.
-                    for ax in negative_axes:
-                        # Check positive counterpart exists in axis.
-                        if (len(prefix) + len(suffix) + ax) in axis_val:
-                            suffix.insert(0, Uniadic())
-
-                    # Align input shape structure with minimum requirements using
-                    # prefix and suffix.
-                    if prefix or suffix:
-                        updates |= input_shape.inner_match(
-                            prefix=prefix, root=Variadic(), suffix=suffix
-                        )
-
-                    if keepdim_val is not TBD:
-                        # Try to infer output shape structure from input shape
-                        # structure. First initialize out_prefix and out_suffix
-                        # with the Uniadics which may be transferred to the output.
-                        out_prefix: list[Uniadic] = []
-                        for idx, uni in enumerate(input_shape.prefix):
-                            if idx not in axis_val:
-                                if not neg_idx or idx < (len(input_shape) - neg_idx):
-                                    out_prefix.append(uni)
-                                else:
-                                    out_prefix.append(Uniadic())
-                            elif replacement:
-                                out_prefix.append(replacement)
-
-                        out_suffix: list[Uniadic] = []
-                        for idx, uni in enumerate(input_shape.suffix):
-                            if (idx - len(input_shape.suffix)) not in axis_val:
-                                if not positive_axes or (
-                                    idx + len(input_shape.prefix)
-                                ) > max(positive_axes):
-                                    out_suffix.append(uni)
-                                else:
-                                    out_suffix.append(Uniadic())
-                            elif replacement:
-                                out_suffix.append(replacement)
-
-                        # Now remove residual uniadics from input shape structure
-                        # in order to guarantee min length of output shape.
-                        if not keepdim_val and (
-                            diff := (
-                                (len(out_prefix) + len(out_suffix))
-                                - (len(input_shape) - len(axis_val))
-                            )
-                        ):
-                            for _ in range(diff):
-                                if out_prefix:
-                                    out_prefix.pop()
-                                else:
-                                    out_suffix.pop(0)
-
-                        pos_len = pos_idx if pos_idx is not None else 0
-                        neg_len = neg_idx if neg_idx is not None else 0
-                        if (
-                            len(input_shape.prefix) >= pos_len
-                            and len(input_shape.suffix) >= neg_len
-                        ):
-                            var = input_shape.root
-                        else:
-                            var = Variadic()
-                        updates |= output_shape.inner_match(
-                            prefix=out_prefix, root=var, suffix=out_suffix
-                        )
-
-        if input_shape.root is None and keepdim_val is not TBD:
-            if axis_val is None:
-                axis_val = tuple([idx for idx in range(len(input_shape.prefix))])
-            # Min rank of input must be  max(axis) + 1.
-            if len(axis_val) > 0 and (in_rank := len(input_shape)) < (
-                max_axis := max(axis_val) + 1
-            ):
-                raise ValueError(
-                    f"Input rank is {in_rank}. Minimum rank {max_axis} input is "
-                    f"required for axis = {axis_val}."
-                )
-            # Convert all negative axis values into corresponding positive ones.
-            axis_list: list[int] = list()
-            for idx in axis_val:
-                real_idx = idx if idx >= 0 else idx + in_rank
-                if real_idx not in axis_list:
-                    axis_list.append(real_idx)
-                else:
-                    raise ValueError(
-                        f"Dim {real_idx} appears multiple times in the reduce axes"
-                    )
-            axis_val = tuple(axis_list)
-            if output_shape.root is not None:
-                var_replacement = [
-                    input_shape.prefix[idx] if idx not in axis_val else replacement
-                    for idx in range(len(input_shape.prefix))
-                ]
-                filtered_var_replacement: list[Uniadic] = list(
-                    filter(None, var_replacement)
-                )
-                updates |= output_shape.update_uniadics(
-                    output_shape.prefix, filtered_var_replacement
-                )
-                updates |= output_shape.update_uniadics(
-                    output_shape.reverse, filtered_var_replacement[::-1]
-                )
-                updates |= output_shape.remove_variadic(filtered_var_replacement)
-            # Transfer available values using input and output.
-            elif keepdim_val is not TBD:
-                # Check rank consistency.
-                if (in_rank := len(input_shape)) != (
-                    (out_rank := len(output_shape))
-                    + (0 if keepdim_val else len(axis_val))
-                ):
-                    # axis_val = None if len(axis_val) == len(input_shape) else axis_val
-                    raise ValueError(
-                        f"Shape mismatch, output rank = {out_rank}. Output rank must "
-                        f"be exactly {in_rank - len(axis_val)} where "
-                        f"input rank = {in_rank} "
-                        f"and axis = {axis_val}. Axis numbers printed as their "
-                        "counterparts."
-                    )
-                if out_rank != 0:
-                    # Create an iterator for output.
-                    out_iter = iter(output_shape.prefix)
-                    for idx, in_uni in enumerate(input_shape.prefix):
-                        # Transfer uniadics if applicable.
-                        if idx not in axis_val:
-                            out_uni = next(out_iter)
-                            updates |= in_uni.match(out_uni)
+                    for idx, uni in enumerate(input_shape.prefix):
+                        if idx not in pos_vals:
+                            if idx < len(input_shape) - max_neg_val:
+                                # check if negative axis values can overlap with
+                                # positive shape values. If it is not possible,
+                                # directly add Uniadic to output prefix.
+                                prefix.append(uni)
+                            else:
+                                # create new uniadic and add it since
+                                # there is a possibility of overlap
+                                prefix.append(Uniadic())
                         elif keepdim_val:
-                            out_uni = next(out_iter)
-                            if in_uni.value is not None and out_uni.set_value(1):
-                                updates.add(out_uni)
+                            prefix.append(Uniadic(1))
 
-        elif (
-            output_shape.root is None
-            and axis_val is not None
-            and keepdim_val is not TBD
-        ):
-            # Convert all negative axis values into corresponding positive ones.
-            in_rank = (
-                len(output_shape) if keepdim_val else len(axis_val) + len(output_shape)
-            )
-            axis_val = tuple([idx if idx > 0 else idx + in_rank for idx in axis_val])
-            out_iter = iter(output_shape.prefix)
-            input_uniadics: list[Uniadic] = []
-            for idx in range(in_rank):
-                if idx in axis_val:
-                    input_uniadics.append(Uniadic())
-                    if keepdim_val:
-                        assert isinstance(replacement, Uniadic)
-                        updates |= next(out_iter).match(replacement)
-                else:
-                    input_uniadics.append(next(out_iter))
-            updates |= input_shape.update_uniadics(input_shape.prefix, input_uniadics)
-            updates |= input_shape.update_uniadics(
-                input_shape.reverse, input_uniadics[::-1]
-            )
-            updates |= input_shape.remove_variadic(input_uniadics)
+                    for idx, uni in enumerate(input_shape.suffix[::-1]):
+                        if -(idx + 1) not in neg_vals:
+                            if idx < len(input_shape) - max_pos_val:
+                                suffix.append(uni)
+                            else:
+                                suffix.append(Uniadic())
+                        elif keepdim_val:
+                            suffix.append(Uniadic(1))
 
-    return input_shape.root == output_shape.root, updates
+                    for idx in _axis_value:
+                        # check if axis value is in the range of input shape
+                        # if not in range, remove last uniadic (closest to
+                        # Variadic) from output prefix or suffix.
+                        if idx >= len(input_shape.prefix) or idx < -len(
+                            input_shape.suffix
+                        ):
+                            root = Variadic()
+                            if not keepdim_val:
+                                prefix.pop() if prefix else suffix.pop()
+
+                    updates |= output_shape.inner_match(
+                        prefix=prefix,
+                        root=root,
+                        suffix=suffix[::-1],
+                    )
+
+                case (None, Variadic()) | (None, None):
+                    # forward reduce inference. directly infer
+                    # all shapes symbolically
+                    pos_axes = [
+                        idx if idx >= 0 else len(input_shape.prefix) + idx
+                        for idx in _axis_value
+                    ]
+                    output_unis: list[Uniadic] = []
+                    for idx, uni in enumerate(input_shape.prefix):
+                        if idx not in pos_axes:
+                            output_unis.append(uni)
+                        elif keepdim_val:
+                            output_unis.append(Uniadic(1))
+                    updates |= output_shape.inner_match(output_unis)
+
+                case (Variadic(), None):
+                    # Backward reduce inference. insert dimensions to
+                    # input shape to specified axes.
+                    in_rank = (
+                        len(_axis_value) + len(output_shape.prefix)
+                        if not keepdim_val
+                        else len(output_shape.prefix)
+                    )
+                    input_unis = output_shape.prefix[:]
+                    output_unis = output_shape.prefix[:]
+                    sorted_axis = sorted(
+                        idx if idx > 0 else idx + in_rank for idx in _axis_value
+                    )
+                    for _axis in sorted_axis:
+                        if keepdim_val:
+                            input_unis[_axis] = Uniadic()
+                            output_unis[_axis] = Uniadic(1)
+                        else:
+                            input_unis[_axis:_axis] = [Uniadic()]
+                    updates |= input_shape.inner_match(input_unis)
+                    updates |= output_shape.inner_match(output_unis)
+
+        return input_shape.root == output_shape.root, updates
+
+    elif axis_value is None and keepdim_val is not TBD:
+        if keepdim_val:
+            # case where keepdim is True and axis is None
+            # output shape rank will be the same as input rank
+            # and all dimensions will be 1 in output
+            output_prefix = [Uniadic(1) for _ in range(len(input_shape.prefix))]
+            output_suffix = [Uniadic(1) for _ in range(len(input_shape.suffix))]
+            _output_root = None if input_shape.root is None else Variadic()
+            updates |= output_shape.inner_match(
+                output_prefix, _output_root, output_suffix
+            )
+            return input_shape.root is None, updates
+        else:
+            # set output rank to zero directly, nothing else to infer.
+            return True, output_shape.inner_match()
+
+    else:
+        # case where axis is None or TBD and keepdim is TBD
+        # we cannot infer anything in this case as keepdim is TBD
+        return False, updates
 
 
 def concat_constraints(
@@ -1811,8 +1789,14 @@ def concat_constraints(
     updates = Updates()
     keys: list[ShapeRepr] = []
     assert isinstance(output._value, Tensor)
-    input_val = [] if input._value is TBD else input._value
+    if input._value is TBD or (
+        isinstance(input._value, Sequence) and TBD in input._value
+    ):
+        return False, updates
+
+    input_val = input._value
     assert isinstance(input_val, list | tuple)
+
     for arg in input_val:
         assert isinstance(arg, Tensor)
         assert arg._temp_shape is not None, "Input shape of concat is not set!"
@@ -1972,30 +1956,93 @@ def pad_constraints(
     output_shape = output._temp_shape
     assert input_shape is not None
     assert output_shape is not None
+    status = True
+    pad_status = True
 
-    def process_shape(
-        shape: ShapeRepr, pad_value: tuple[tuple[int, int], ...], forward: bool = True
-    ) -> tuple[list[Uniadic], list[Uniadic], bool]:
-        prefix: list[Uniadic] = []
-        suffix: list[Uniadic] = []
-        status = True
+    def process_single_pad_shape(
+        input_uni: Uniadic,
+        output_uni: Uniadic,
+        pad_value: tuple[int | ToBeDetermined, int | ToBeDetermined],
+        updates: Updates,
+    ) -> tuple[
+        Uniadic, Uniadic, tuple[int | ToBeDetermined, int | ToBeDetermined], bool
+    ]:
+        # Infers single shape for given pad value,
+        # Example:
+        #    input_uni.value = 2
+        #    pad_value = (1, 2)  -> output_uni.value = 5
 
-        for idx, uni in enumerate(shape.prefix):
-            if uni.value is None:
-                prefix.append(Uniadic())
-                status = False
-                continue
+        input_value = input_uni.value
+        output_value = output_uni.value
+        status = False
+        match input_value, output_value:
+            case (int(), int()):
+                left_pad, right_pad = pad_value
+                padded_shape = output_value - input_value
 
-            padding = pad_value[idx]
-            uni = Uniadic(
-                uni.value + sum(padding) if forward else uni.value - sum(padding)
-            )
-            prefix.append(uni)
+                match (left_pad, right_pad):
+                    case (int(), int()):
+                        if not (input_value + left_pad + right_pad == output_value):
+                            raise ValueError(
+                                f"Shape mismatch for pad. "
+                                f"Input shape = {input_value}, "
+                                f"pad value = {pad_value}, "
+                                f"output shape = {output_value}"
+                            )
+                        status = True
 
-        return prefix, suffix, status
+                    case (ToBeDetermined(), int()):
+                        # case where left pad value is unknown
+                        # and can be inferred
+                        inferred_pad = padded_shape - right_pad
+                        pad_value = (inferred_pad, right_pad)
+                        status = True
+
+                    case (int(), ToBeDetermined()):
+                        # case where right pad value is unknown
+                        # and can be inferred
+                        inferred_pad = padded_shape - left_pad
+                        pad_value = (left_pad, inferred_pad)
+                        status = True
+
+                    case (ToBeDetermined(), ToBeDetermined()):
+                        if (
+                            input_uni is output_uni
+                            or input_uni.value == output_uni.value
+                        ):
+                            pad_value = (0, 0)
+                            status = True
+
+            case (int(), None):
+                if is_tuple_of_two_ints(pad_value):
+                    # case where output is unknown and can be inferred:
+                    inferred_output = input_value + sum(pad_value)
+                    if output_uni.set_value(inferred_output):
+                        updates.add(output_uni)
+                        status = True
+
+            case (None, int()):
+                if is_tuple_of_two_ints(pad_value):
+                    # case where input is unknown and can be inferred:
+                    inferred_input = output_value - sum(pad_value)
+                    if input_uni.set_value(inferred_input):
+                        updates.add(input_uni)
+                        status = True
+
+            case (None, None):
+                if pad_value == (0, 0):
+                    updates |= input_uni.match(output_uni)
+                    status = True
+
+        return input_uni, output_uni, pad_value, status
 
     if isinstance(pad_value, ToBeDetermined):
-        return False, updates
+        if input_shape is output_shape:
+            pad_val = tuple((0, 0) for _ in range(len(input_shape.prefix)))
+            updates |= pad_width.set_value(tuple(pad_val))
+            return True, updates
+        else:
+            return False, updates
 
     # Use pad width
     temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
@@ -2004,18 +2051,32 @@ def pad_constraints(
     temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
     updates |= output_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
 
-    # Forward inference
-    prefix, suffix, forward_status = process_shape(input_shape, pad_value, forward=True)
-    updates |= output_shape.inner_match(prefix=prefix, root=None, suffix=suffix)
+    inferred_pad: list[
+        tuple[int | ToBeDetermined, int | ToBeDetermined] | ToBeDetermined
+    ] = []
+    for input_uni, output_uni, single_pad_value in zip(
+        input_shape.prefix, output_shape.prefix, pad_value, strict=False
+    ):
+        if not isinstance(single_pad_value, ToBeDetermined):
+            input_uni, output_uni, inferred_pad_value, _status = (
+                process_single_pad_shape(
+                    input_uni, output_uni, single_pad_value, updates
+                )
+            )
+            status &= _status
+            inferred_pad.append(inferred_pad_value)
 
-    # Backward inference
-    prefix, suffix, backward_status = process_shape(
-        output_shape, pad_value, forward=False
-    )
-    updates |= input_shape.inner_match(prefix=prefix, root=None, suffix=suffix)
-    status = forward_status or backward_status
+        elif input_uni is output_uni or (
+            input_uni.value == output_uni.value and input_uni.value is not None
+        ):
+            inferred_pad.append((0, 0))
 
-    return status, updates
+        else:
+            inferred_pad.append(TBD)
+            pad_status = False
+    updates |= pad_width.set_value(tuple(inferred_pad))
+
+    return status & pad_status, updates
 
 
 def reverse_constraints(
@@ -2028,7 +2089,6 @@ def reverse_constraints(
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     axes_val = axes.value
-    assert axes_val is TBD or is_axis_reverse_type(axes_val), "Invalid axis value!"
     status = False
     updates = Updates()
 
@@ -2059,25 +2119,54 @@ def reverse_constraints(
                     raise ValueError("Shape mismatch in Transpose model")
             status = True
 
-    elif isinstance(axes_val, int | tuple | list):
-        a_val: list[int] | tuple[int, ...] = (
-            [axes_val] if isinstance(axes_val, int) else axes_val
-        )
-        in_unis = [Uniadic() for _ in range(len(a_val))]
-        out_unis = [in_unis[axis] for axis in a_val]
+    elif isinstance(axes_val, int | list | tuple):
+        _axes_val: list[int | ToBeDetermined]
 
-        updates |= input_shape.update_uniadics(input_shape.prefix, in_unis)
-        updates |= input_shape.update_uniadics(input_shape.reverse, in_unis[::-1])
+        if isinstance(axes_val, int):
+            _axes_val = [axes_val]
+        elif enhanced_isinstance(axes_val, tuple[int | ToBeDetermined, ...]):
+            _axes_val = list(axes_val)
+        else:
+            assert enhanced_isinstance(axes_val, list[int | ToBeDetermined])
+            _axes_val = axes_val
 
-        updates |= output_shape.update_uniadics(output_shape.prefix, out_unis)
-        updates |= output_shape.update_uniadics(output_shape.reverse, out_unis[::-1])
+        # check if all values in axes_val is determined
+        # if all of them is determined, do the shape updates
+        # if only one of them is missing, infer it.
+        missing_indices: set[int] = set()
+        for idx in range(len(_axes_val)):
+            # find all missing indices
+            if idx not in _axes_val:
+                missing_indices.add(idx)
+            if len(missing_indices) >= 2:
+                break
+        else:
+            # Note that length of missing indices is 1 or 0 in there
+            if missing_indices:
+                # find the index of TBD and replace it
+                # with the missing index.
+                missing_idx = missing_indices.pop()
+                tbd_idx = _axes_val.index(missing_idx)
+                _axes_val[tbd_idx] = missing_idx
+                updates |= axes.set_value(_axes_val)
+            assert is_list_int(_axes_val)
+            in_unis = [Uniadic() for _ in range(len(_axes_val))]
+            out_unis = [in_unis[axis] for axis in _axes_val]
 
-        if input_shape.root is not None:
-            updates |= input_shape.remove_variadic(in_unis)
-        if output_shape.root is not None:
-            updates |= output_shape.remove_variadic(out_unis)
+            updates |= input_shape.update_uniadics(input_shape.prefix, in_unis)
+            updates |= input_shape.update_uniadics(input_shape.reverse, in_unis[::-1])
 
-        status = True
+            updates |= output_shape.update_uniadics(output_shape.prefix, out_unis)
+            updates |= output_shape.update_uniadics(
+                output_shape.reverse, out_unis[::-1]
+            )
+
+            if input_shape.root is not None:
+                updates |= input_shape.remove_variadic(in_unis)
+            if output_shape.root is not None:
+                updates |= output_shape.remove_variadic(out_unis)
+
+            status = True
 
     return status, updates
 
@@ -2149,91 +2238,210 @@ def polynomial_features_constraints(
 
 
 def sliding_window_constraint_helper(
-    output: Uniadic,
-    input: Uniadic,
+    input: int,
     stride: int,
     padding: tuple[int, int] | int,
     dilation: int,
     kernel_size: int,
+) -> int:
+    padding = sum(padding) if isinstance(padding, Sequence) else padding * 2
+    output = (input + padding - (kernel_size - 1) * dilation - 1) // stride + 1
+    if output <= 0:
+        raise ValueError(
+            "Dimension Error: Output dimension calculated to be lesser than zero!"
+        )
+
+    return output
+
+
+def sliding_window_1d_constraints_helper(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: int | ToBeDetermined,
+    padding: int | ToBeDetermined | tuple[int | ToBeDetermined, int | ToBeDetermined],
+    dilation: int | ToBeDetermined,
+    kernel: int | ToBeDetermined,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    if isinstance(padding, Sequence):
-        padding = sum(padding)
-        padding_factor = padding
-    else:
-        padding_factor = 2 * padding
-    # TODO: Is Uniadic type kernel_size possible?
-    if input.value is not None:
-        if (
-            val := (input.value + padding_factor - (kernel_size - 1) * dilation - 1)
-            // stride
-            + 1
-        ) <= 0:
-            raise ValueError(
-                "Dimension Error: Output dimension calculated to be lesser than zero!"
-            )
-        if output.set_value(val):
-            updates.add(output)
-        status = True
+    assert input._temp_shape is not None, "Input shape of Convolution2D is not set!"
+    assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
+    input_shape: ShapeRepr = input._temp_shape
+    output_shape: ShapeRepr = output._temp_shape
 
+    input_val = input_shape[-1].value if len(input_shape.reverse) >= 1 else None
+
+    assert isinstance(stride, int | ToBeDetermined), "Invalid stride value!"
+    assert isinstance(dilation, int | ToBeDetermined), "Invalid dilation value!"
+    assert isinstance(padding, int | ToBeDetermined) or enhanced_isinstance(
+        padding, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ), "Invalid padding value!"
+
+    if (
+        not isinstance(stride, ToBeDetermined)
+        and not isinstance(padding, ToBeDetermined)
+        and not isinstance(dilation, ToBeDetermined)
+    ):
+        output_shape_val: int | None = None
+        if (
+            isinstance(input_val, int)
+            and (
+                isinstance(padding, int)
+                or enhanced_isinstance(padding, tuple[int, int])
+            )
+            and isinstance(kernel, int)
+        ):
+            output_shape_val = sliding_window_constraint_helper(
+                input_val,
+                stride,
+                padding,
+                dilation,
+                kernel,
+            )
+        updates |= output_shape.inner_match(
+            prefix=[], root=Variadic(), suffix=[Uniadic(output_shape_val)]
+        )
+
+    status = len(output_shape) >= 1 and output_shape[-1].value is not None
     return status, updates
 
 
-def sliding_window_1d_constraints(
+def sliding_window_2d_constraints_helper(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: tuple[int | ToBeDetermined, int | ToBeDetermined],
+    padding: tuple[int | ToBeDetermined, int | ToBeDetermined]
+    | tuple[
+        tuple[int | ToBeDetermined, int | ToBeDetermined],
+        tuple[int | ToBeDetermined, int | ToBeDetermined],
+    ],
+    dilation: tuple[int | ToBeDetermined, int | ToBeDetermined],
+    kernel: tuple[int | ToBeDetermined, int | ToBeDetermined],
+) -> ConstrainResultType:
+    updates = Updates()
+    assert input._temp_shape is not None, "Input shape of Convolution2D is not set!"
+    assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
+    input_shape: ShapeRepr = input._temp_shape
+    output_shape: ShapeRepr = output._temp_shape
+
+    if len(input_shape.reverse) >= 2:
+        input_val = (input_shape[-2].value, input_shape[-1].value)
+    elif len(input_shape.reverse) == 1:
+        input_val = (None, input_shape[-1].value)
+    else:
+        input_val = (None, None)
+
+    if (
+        not isinstance(stride, ToBeDetermined)
+        and not isinstance(padding, ToBeDetermined)
+        and not isinstance(dilation, ToBeDetermined)
+    ):
+        input_h, input_w = input_val
+        stride_h, stride_w = stride
+        padding_h, padding_w = padding
+        dilation_h, dilation_w = dilation
+        kernel_h, kernel_w = kernel
+
+        output_shape_h: int | None = None
+        output_shape_w: int | None = None
+        if (
+            isinstance(input_h, int)
+            and isinstance(stride_h, int)
+            and (
+                isinstance(padding_h, int)
+                or enhanced_isinstance(padding_h, tuple[int, int])
+            )
+            and isinstance(dilation_h, int)
+            and isinstance(kernel_h, int)
+        ):
+            output_shape_h = sliding_window_constraint_helper(
+                input_h,
+                stride_h,
+                padding_h,
+                dilation_h,
+                kernel_h,
+            )
+
+        if (
+            isinstance(input_w, int)
+            and isinstance(stride_w, int)
+            and (
+                isinstance(padding_w, int)
+                or enhanced_isinstance(padding_w, tuple[int, int])
+            )
+            and isinstance(dilation_w, int)
+            and isinstance(kernel_w, int)
+        ):
+            output_shape_w = sliding_window_constraint_helper(
+                input_w,
+                stride_w,
+                padding_w,
+                dilation_w,
+                kernel_w,
+            )
+        updates |= output_shape.inner_match(
+            prefix=[],
+            root=Variadic(),
+            suffix=[Uniadic(output_shape_h), Uniadic(output_shape_w)],
+        )
+
+    status = (
+        len(output_shape.reverse) >= 2
+        and output_shape[-2].value is not None
+        and output_shape[-1].value is not None
+    )
+    return status, updates
+
+
+def pool_1d_constraints(
     output: IOHyperEdge,
     input: IOHyperEdge,
     stride: IOHyperEdge,
     padding: IOHyperEdge,
     dilation: IOHyperEdge,
-    kernel_size: IOHyperEdge,
+    kernel: IOHyperEdge,
 ) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    assert input._temp_shape is not None, "Input shape of sliding window is not set!"
-    assert output._temp_shape is not None, "Output shape of sliding window is not set!"
-    input_shape: ShapeRepr = input._temp_shape
-    output_shape: ShapeRepr = output._temp_shape
+    assert isinstance(stride.value, int | ToBeDetermined)
+    assert enhanced_isinstance(
+        padding.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ) or isinstance(padding.value, int | ToBeDetermined)
 
-    stride_val = stride.value
-    padding_val = padding.value
-    dilation_val = dilation.value
-    kernel_size_val = kernel_size.value
-    assert isinstance(stride_val, int | ToBeDetermined), "Invalid stride value!"
-    assert (
-        is_tuple_of_two_ints(padding_val) or type(padding_val) is ToBeDetermined
-    ), "Invalid padding value!"
-    assert type(dilation_val) is int or isinstance(
-        dilation_val, ToBeDetermined
-    ), "Invalid dilation value!"
-    assert type(kernel_size_val) is int or isinstance(
-        kernel_size_val, ToBeDetermined
-    ), "Invalid kernel_size value!"
-    is_input_propagatable = len(input_shape.suffix) >= 1 or (
-        input_shape.root is None and len(input_shape.prefix) > 1
-    )
-    is_output_propagatable = len(output_shape.suffix) >= 1 or (
-        output_shape.root is None and len(output_shape.prefix) > 1
+    assert isinstance(dilation.value, int | ToBeDetermined)
+    assert isinstance(kernel.value, int | ToBeDetermined)
+    return sliding_window_1d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, kernel.value
     )
 
-    if (
-        not isinstance(stride_val, ToBeDetermined)
-        and not isinstance(padding_val, ToBeDetermined)
-        and not isinstance(dilation_val, ToBeDetermined)
-        and not isinstance(kernel_size_val, ToBeDetermined)
-        and is_input_propagatable
-        and is_output_propagatable
-    ):
-        status, _updates = sliding_window_constraint_helper(
-            output_shape[-1],
-            input_shape[-1],
-            stride_val,
-            padding_val,
-            dilation_val,
-            kernel_size_val,
-        )
-        updates |= _updates
-    return status, updates
+
+def pool_2d_constraints(
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
+) -> ConstrainResultType:
+    assert enhanced_isinstance(
+        stride.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    assert enhanced_isinstance(
+        padding.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ) or enhanced_isinstance(
+        padding.value,
+        tuple[
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+        ],
+    )
+    assert enhanced_isinstance(
+        dilation.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    assert enhanced_isinstance(
+        kernel.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    )
+    return sliding_window_2d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, kernel.value
+    )
 
 
 def conv_1d_constraints(
@@ -2244,134 +2452,20 @@ def conv_1d_constraints(
     dilation: IOHyperEdge,
     kernel: IOHyperEdge,
 ) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    assert input._temp_shape is not None, "Input shape of Convolution1D is not set!"
-    assert output._temp_shape is not None, "Output shape of Convolution1D is not set!"
-    input_shape: ShapeRepr = input._temp_shape
-    output_shape: ShapeRepr = output._temp_shape
+    assert isinstance(kernel._temp_shape, ShapeRepr)
+    kernel_shp: ShapeRepr = kernel._temp_shape
+    kernel_val = kernel_shp[-1].value if kernel_shp[-1].value is not None else TBD
 
-    stride_val = stride.value
-    padding_val = padding.value
-    dilation_val = dilation.value
-
-    assert (
-        type(stride_val) is int or type(stride_val) is ToBeDetermined
-    ), "Invalid stride value!"
-    assert (
-        is_tuple_of_two_ints(padding_val)
-        or type(padding_val) is int
-        or type(padding_val) is ToBeDetermined
-    ), "Invalid padding value!"
-    assert (
-        type(dilation_val) is int or type(dilation_val) is ToBeDetermined
-    ), "Invalid dilation value!"
-    kernel_size_val: ToBeDetermined | int = TBD
-    assert kernel.shape is not None
-    if len(kernel_shp := kernel.shape.get_shapes()) == 3 and isinstance(
-        kernel_shp[-1], int
-    ):
-        kernel_size_val = kernel_shp[-1]
-    is_input_propagatable = len(input_shape.suffix) >= 1 or (
-        input_shape.root is None and len(input_shape.prefix) > 1
+    assert isinstance(stride.value, int | ToBeDetermined)
+    assert isinstance(padding.value, int | ToBeDetermined) or enhanced_isinstance(
+        padding.value,
+        tuple[int | ToBeDetermined, int | ToBeDetermined],
     )
-    is_output_propagatable = len(output_shape.suffix) >= 1 or (
-        output_shape.root is None and len(output_shape.prefix) > 1
+    assert isinstance(dilation.value, int | ToBeDetermined)
+
+    return sliding_window_1d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, kernel_val
     )
-
-    if (
-        is_input_propagatable
-        and is_output_propagatable
-        and not isinstance(stride_val, ToBeDetermined)
-        and not isinstance(padding_val, ToBeDetermined)
-        and not isinstance(dilation_val, ToBeDetermined)
-        and not isinstance(kernel_size_val, ToBeDetermined)
-    ):
-        status, _updates = sliding_window_constraint_helper(
-            output_shape[-1],
-            input_shape[-1],
-            stride_val,
-            padding_val,
-            dilation_val,
-            kernel_size_val,
-        )
-        updates |= _updates
-    return status, updates
-
-
-def sliding_window_2d_constraints(
-    output: IOHyperEdge,
-    input: IOHyperEdge,
-    stride: IOHyperEdge,
-    padding: IOHyperEdge,
-    dilation: IOHyperEdge,
-    kernel_size: IOHyperEdge,
-) -> ConstrainResultType:
-    status = False
-    updates = Updates()
-    assert input._temp_shape is not None, "Input shape of Convolution2D is not set!"
-    assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
-    input_shape: ShapeRepr = input._temp_shape
-    output_shape: ShapeRepr = output._temp_shape
-
-    stride_val = stride.value
-    padding_val = padding.value
-    dilation_val = dilation.value
-    kernel_size_val = kernel_size.value
-
-    assert is_tuple_of_two_ints(stride_val) or isinstance(
-        stride_val, ToBeDetermined
-    ), "Invalid stride value!"
-    assert is_tuple_of_two_ints(dilation_val) or isinstance(
-        dilation_val, ToBeDetermined
-    ), "Invalid stride value!"
-    assert is_tuple_of_two_ints(kernel_size_val) or isinstance(
-        kernel_size_val, ToBeDetermined
-    ), "Invalid stride value!"
-    assert is_padding_type(padding_val) or isinstance(
-        padding_val, ToBeDetermined
-    ), "Invalid padding value!"
-
-    is_input_propagatable = len(input_shape.suffix) >= 2 or (
-        input_shape.root is None and len(input_shape.prefix) > 2
-    )
-    is_output_propagatable = len(output_shape.suffix) >= 2 or (
-        output_shape.root is None and len(output_shape.prefix) > 2
-    )
-
-    # To calculate maxpool constraint we need to know ... and last 2 dimension of
-    # the input
-    if (
-        not isinstance(stride_val, ToBeDetermined)
-        and not isinstance(padding_val, ToBeDetermined)
-        and not isinstance(dilation_val, ToBeDetermined)
-        and not isinstance(kernel_size_val, ToBeDetermined)
-        and is_input_propagatable
-        and is_output_propagatable
-    ):
-        status_height, symbols_height = sliding_window_constraint_helper(
-            output_shape[-2],
-            input_shape[-2],
-            stride_val[0],
-            padding_val[0],
-            dilation_val[0],
-            kernel_size_val[0],
-        )
-        status_width, symbols_width = sliding_window_constraint_helper(
-            output_shape[-1],
-            input_shape[-1],
-            stride_val[1],
-            padding_val[1],
-            dilation_val[1],
-            kernel_size_val[1],
-        )
-        status = (
-            status_height and status_width and input_shape.root == output_shape.root
-        )
-        updates |= symbols_height
-        updates |= symbols_width
-
-    return status, updates
 
 
 def conv_2d_constraints(
@@ -2382,79 +2476,38 @@ def conv_2d_constraints(
     dilation: IOHyperEdge,
     kernel: IOHyperEdge,
 ) -> ConstrainResultType:
-    status = False
-    updates = Updates()
-    assert input._temp_shape is not None, "Input shape of Convolution2D is not set!"
-    assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
-    input_shape: ShapeRepr = input._temp_shape
-    output_shape: ShapeRepr = output._temp_shape
+    assert isinstance(kernel._temp_shape, ShapeRepr)
+    kernel_shp: ShapeRepr = kernel._temp_shape
 
-    stride_val = stride.value
-    padding_val = padding.value
-    dilation_val = dilation.value
+    if len(kernel_shp.reverse) >= 2:
+        kernel_w = kernel_shp[-2].value if kernel_shp[-2].value is not None else TBD
+        kernel_h = kernel_shp[-1].value if kernel_shp[-1].value is not None else TBD
+    elif len(kernel_shp.reverse) == 1:
+        kernel_w = kernel_shp[-1].value if kernel_shp[-1].value is not None else TBD
+        kernel_h = TBD
+    else:
+        kernel_w = TBD
+        kernel_h = TBD
 
-    assert is_tuple_of_two_ints(stride_val) or isinstance(
-        stride_val, ToBeDetermined
-    ), "Invalid stride value!"
-    assert is_tuple_of_two_ints(dilation_val) or isinstance(
-        dilation_val, ToBeDetermined
-    ), "Invalid stride value!"
-    assert is_padding_type(padding_val) or isinstance(
-        padding_val, ToBeDetermined
-    ), "Invalid padding value!"
-
-    kernel_size_0: ToBeDetermined | int = TBD
-    kernel_size_1: ToBeDetermined | int = TBD
-    assert kernel.shape is not None
-    if (
-        len(kernel_shp := kernel.shape.get_shapes()) == 4
-        and isinstance(kernel_shp[-1], int)
-        and isinstance(kernel_shp[-2], int)
-    ):
-        kernel_size_0 = kernel_shp[-2]
-        kernel_size_1 = kernel_shp[-1]
-
-    is_input_propagatable = len(input_shape.suffix) >= 2 or (
-        input_shape.root is None and len(input_shape.prefix) > 2
+    assert enhanced_isinstance(
+        stride.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
     )
-    is_output_propagatable = len(output_shape.suffix) >= 2 or (
-        output_shape.root is None and len(output_shape.prefix) > 2
+    assert enhanced_isinstance(
+        padding.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ) or enhanced_isinstance(
+        padding.value,
+        tuple[
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+        ],
+    )
+    assert enhanced_isinstance(
+        dilation.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
     )
 
-    # To calculate maxpool constraint we need to know ... and last 2 dimension of
-    # the input
-    if (
-        not isinstance(stride_val, ToBeDetermined)
-        and not isinstance(padding_val, ToBeDetermined)
-        and not isinstance(dilation_val, ToBeDetermined)
-        and not isinstance(kernel_size_0, ToBeDetermined)
-        and not isinstance(kernel_size_1, ToBeDetermined)
-        and is_input_propagatable
-        and is_output_propagatable
-    ):
-        status_height, symbols_height = sliding_window_constraint_helper(
-            output_shape[-2],
-            input_shape[-2],
-            stride_val[0],
-            padding_val[0],
-            dilation_val[0],
-            kernel_size_0,
-        )
-        status_width, symbols_width = sliding_window_constraint_helper(
-            output_shape[-1],
-            input_shape[-1],
-            stride_val[1],
-            padding_val[1],
-            dilation_val[1],
-            kernel_size_1,
-        )
-        status = (
-            status_height and status_width and input_shape.root == output_shape.root
-        )
-        updates |= symbols_height
-        updates |= symbols_width
-
-    return status, updates
+    return sliding_window_2d_constraints_helper(
+        output, input, stride.value, padding.value, dilation.value, (kernel_w, kernel_h)
+    )
 
 
 def flatten_constrains(
@@ -2711,12 +2764,10 @@ def arange_constraints(
                 "have at most 1 dim."
             )
     # TODO: Should we try to infer step if start, stop value and output shape is known?
-    # updated_symbols -= new_shape_items
     return status, updates
 
 
 def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResultType:
-    status = False
     updates = Updates()
     assert output._temp_shape is not None, "Output shape of Reshape is not set!"
 
@@ -2724,101 +2775,67 @@ def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResul
     shape_val = shape.value
 
     assert (
-        is_tuple_int(shape_val)
-        or is_list_int(shape_val)
+        enhanced_isinstance(shape_val, tuple[int | ToBeDetermined, ...])
+        or enhanced_isinstance(shape_val, list[int | ToBeDetermined])
         or isinstance(shape_val, ToBeDetermined)
+        or enhanced_isinstance(shape_val, tuple[()])
     ), "Invalid shape value!"
 
     if not isinstance(shape_val, ToBeDetermined):
-        if output_shape.root is not None:
-            # Check shape consistency.
-            if (
-                min_dims := (len(output_shape.prefix) + len(output_shape.suffix))
-            ) > len(shape_val):
-                raise ValueError(
-                    f"Shape mismatch. Output has minimum {min_dims} dim(s) where it "
-                    f"must have exactly {len(shape_val)} dim(s)."
-                )
-            out_uniadics = [Uniadic(dim) for dim in shape_val]
-            updates |= output_shape.update_uniadics(output_shape.prefix, out_uniadics)
-            updates |= output_shape.update_uniadics(
-                output_shape.reverse, out_uniadics[::-1]
+        # Check shape consistency.
+        if (min_dims := (len(output_shape.prefix) + len(output_shape.suffix))) > len(
+            shape_val
+        ):
+            raise ValueError(
+                f"Shape mismatch. Output has minimum {min_dims} dim(s) where it "
+                f"must have exactly {len(shape_val)} dim(s)."
             )
-            updates |= output_shape.remove_variadic(out_uniadics)
+        out_uniadics = [
+            Uniadic(dim) if isinstance(dim, int) else Uniadic() for dim in shape_val
+        ]
+        updates |= output_shape.inner_match(out_uniadics)
 
-        else:
-            # Check shape consistency.
-            if len(output_shape) != len(shape_val):
-                raise ValueError(
-                    f"Shape mismatch. Output has {len(output_shape)} dim(s) "
-                    f"where it must "
-                    f"have {len(shape_val)} dim(s)."
-                )
-            for idx, shp in enumerate(shape_val):
-                if (uni := output_shape.prefix[idx]).set_value(shp):
-                    updates.add(uni)
-
-        status = True
-
-    return status, updates
+    return shape.is_valued, updates
 
 
 def broadcast_to_constraints(
     output: IOHyperEdge, shape: IOHyperEdge, input: IOHyperEdge
 ) -> ConstrainResultType:
-    status = False
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of BroadcastTo is not set!"
     assert output._temp_shape is not None, "Output shape of BroadcastTo is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     shape_val = shape.value
-    assert is_tuple_int(shape_val) or isinstance(
-        shape_val, ToBeDetermined
-    ), "Invalid shape value!"
+    assert enhanced_isinstance(
+        shape_val, tuple[int | ToBeDetermined, ...]
+    ) or isinstance(shape_val, ToBeDetermined), "Invalid shape value!"
 
     if not isinstance(shape_val, ToBeDetermined):
-        if output_shape.root is not None:
-            # Check shape consistency.
-            if (
-                min_dims := (len(output_shape.prefix) + len(output_shape.suffix))
-            ) > len(shape_val):
-                raise ValueError(
-                    f"Shape mismatch. Output has minimum {min_dims} dim(s) where it "
-                    f"must have exactly {len(shape_val)} dim(s)."
-                )
-            out_uniadics = [Uniadic(dim) for dim in shape_val]
-            updates |= output_shape.update_uniadics(output_shape.prefix, out_uniadics)
-            updates |= output_shape.update_uniadics(
-                output_shape.reverse, out_uniadics[::-1]
+        # Check shape consistency.
+        if (min_dims := (len(output_shape.prefix) + len(output_shape.suffix))) > len(
+            shape_val
+        ):
+            raise ValueError(
+                f"Shape mismatch. Output has minimum {min_dims} dim(s) where it "
+                f"must have exactly {len(shape_val)} dim(s)."
             )
-            updates |= output_shape.remove_variadic(out_uniadics)
-
-        else:
-            # Check shape consistency.
-            if len(output_shape) != len(shape_val):
-                raise ValueError(
-                    f"Shape mismatch. Output has {len(output_shape)} dim(s) "
-                    f"where it must "
-                    f"have {len(shape_val)} dim(s)."
-                )
-            for idx, shp in enumerate(shape_val):
-                if (uni := output_shape.prefix[idx]).set_value(shp):
-                    updates.add(uni)
+        out_uniadics = [
+            Uniadic(dim) if isinstance(dim, int) else Uniadic() for dim in shape_val
+        ]
+        updates |= output_shape.inner_match(out_uniadics)
 
         if input_shape.root is None:
             # if input is uniadic, look for if every input is determined,
-            # if determined, validate its shape (whether if it matches
-            # to output's shape based on bcast rule). If it is validated,
-            # set status to True.
+            # if determined, validate its shape
             for uni in input_shape.prefix:
                 if uni.value is None:
                     break
             else:
-                validate_bcast(input_shape, shape_val)
-                status = True
+                if is_tuple_int(shape_val):
+                    validate_bcast(input_shape, shape_val)
 
-    return status, updates
+    return shape.is_valued and is_repr_known(input_shape), updates
 
 
 def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]) -> None:
@@ -2845,12 +2862,11 @@ def reshape_constraints(
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     shape_val = shape.value
-    assert (
-        is_tuple_int_or_none(shape_val)
-        or isinstance(shape_val, ToBeDetermined)
-        or is_list_int_or_none(shape_val)
-    ), "Invalid shape value!"
-    if not isinstance(shape_val, ToBeDetermined):
+    if shape.is_valued:
+        assert enhanced_isinstance(
+            shape_val, tuple[int | None, ...]
+        ) or enhanced_isinstance(shape_val, list[int | None]), "Invalid shape value!"
+
         known_input = False
         shp_prod = 1
         if input_shape.root is None and input_shape.prefix:
@@ -3031,171 +3047,71 @@ def size_constraints(
 ) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Size is not set!"
     input_shape: ShapeRepr = input._temp_shape
-
-    status = False
     updates = Updates()
     dim_val = dim.value
     output_val = output.value
-    assert (
-        isinstance(dim_val, ToBeDetermined)
-        or type(dim_val) is int
-        or dim_val is None
-        or is_tuple_int(dim_val)
-    )
-    assert (
-        isinstance(output_val, ToBeDetermined)
-        or type(output_val) is int
-        or is_tuple_int(output_val)
-    )
-    if not isinstance(dim_val, ToBeDetermined):
-        is_int = False
-        if isinstance(dim_val, int):
-            is_int = True
-            dim_val = [dim_val]
-        if dim_val is None:
-            max_dim = -float("inf")
+    assert isinstance(dim_val, int | None | ToBeDetermined)
+    assert isinstance(output_val, int | None | ToBeDetermined)
+    if isinstance(dim_val, int):
+        prefix: list[Uniadic] = []
+        suffix: list[Uniadic] = []
+        if dim_val > 0:
+            prefix = [Uniadic() for _ in range(dim_val + 1)]
         else:
-            pos_dims = [item for item in dim_val if item >= 0]
-            neg_dims = [item for item in dim_val if item < 0]
-            max_dim = (
-                max(max(pos_dims) + 1, abs(min(neg_dims)))
-                if pos_dims and neg_dims
-                else (max(pos_dims) + 1 if pos_dims else abs(min(neg_dims)))
-            )
-        if input_shape.root is None:
-            if len(input_shape) < (max_dim):
-                # Check if input shape has at least (dim + 1) dimensions
-                # if dim is not None, else raise ValueError.
-                raise ValueError(
-                    f"Input has dimensionality of {len(input_shape)}. "
-                    f"Should be at least "
-                    "{max_dim} dimensional when dim = {original_dim}"
-                )
-        elif dim_val is not None and len(input_shape) < (max_dim):
-            prefix = [Uniadic() for _ in range(int(max_dim))]
-            updates |= input_shape.inner_match(prefix=prefix, root=Variadic())
-            # TODO: Is it required to do the below check here? Is it possible to
-            # have len(input) < (max_dim + 1) after above inner_match operation???
+            suffix = [Uniadic() for _ in range(abs(dim_val))]
+        updates |= input_shape.inner_match(
+            prefix=prefix, root=Variadic(), suffix=suffix
+        )
+        if (
+            len(input_shape.prefix) > dim_val >= 0
+            or -len(input_shape.reverse) <= dim_val < 0
+        ):
+            uni = input_shape[dim_val]
+            if uni.value is not None:
+                updates |= output.set_value(uni.value)
 
-        if dim_val is not None:
-            is_all_int = False
-            if input_shape.root is not None:
-                if pos_dims and neg_dims:
-                    if len(input_shape.prefix) >= (max(pos_dims) + 1) and len(
-                        input_shape.suffix
-                    ) >= abs(min(neg_dims)):
-                        is_all_int = all(
-                            isinstance(input_shape.prefix[idx].value, int)
-                            for idx in pos_dims
-                        ) and all(
-                            isinstance(input_shape.suffix[idx].value, int)
-                            for idx in neg_dims
-                        )
-                elif pos_dims:
-                    if len(input_shape.prefix) >= (max(pos_dims) + 1):
-                        is_all_int = all(
-                            isinstance(input_shape.prefix[idx].value, int)
-                            for idx in pos_dims
-                        )
-                elif len(input_shape.suffix) >= abs(min(neg_dims)):
-                    is_all_int = all(
-                        isinstance(input_shape.suffix[idx].value, int)
-                        for idx in neg_dims
-                    )
-            else:
-                is_all_int = all(
-                    isinstance(input_shape[idx].value, int) for idx in dim_val
-                )
+    elif dim_val is None:
+        if is_repr_known(input_shape):
+            shape_values = [val.value for val in input_shape.prefix]
+            assert enhanced_isinstance(shape_values, list[int])
+            output_val = math.prod(shape_values)
+            updates |= output.set_value(output_val)
 
-            if is_all_int:
-                if is_int:
-                    updates |= output.set_value(input_shape[dim_val[0]].value)
-                else:
-                    updates |= output.set_value(
-                        tuple(input_shape[idx].value for idx in dim_val)
-                    )
-                status = True
-
-            elif not isinstance(output_val, ToBeDetermined):
-                if isinstance(output_val, int):
-                    output_val = (output_val,)
-                output_value = tuple(output_val)
-                max_pos_dim = max(pos_dims) + 1 if pos_dims else 0
-                max_neg_dim = -min(neg_dims) if neg_dims else 0
-
-                input_prefix: list[Uniadic] = []
-                for idx, _ in enumerate(range(max_pos_dim)):
-                    if len(input_shape.prefix) > idx:
-                        input_prefix.append(input_shape.prefix[idx])
-                    else:
-                        input_prefix.append(Uniadic())
-
-                input_suffix: list[Uniadic] = []
-                rev_suffix = input_shape.suffix[::-1]
-                for idx, _ in enumerate(range(max_neg_dim)):
-                    if len(rev_suffix) > idx:
-                        input_suffix.append(rev_suffix[idx])
-                    else:
-                        input_suffix.append(Uniadic())
-                input_suffix = input_suffix[::-1]
-
-                for dim_value, out_val in zip(dim_val, output_value, strict=False):
-                    if dim_value >= 0:
-                        if len(input_shape.prefix) >= dim_value:
-                            if input_shape.prefix[dim_value].set_value(out_val):
-                                updates.add(input_shape.prefix[dim_value])
-                        else:
-                            input_prefix[dim_value].set_value(out_val)
-                    else:
-                        if len(input_shape.suffix) > abs(dim_value):
-                            if input_shape.suffix[dim_value].set_value(out_val):
-                                updates.add(input_shape.suffix[dim_value])
-                        else:
-                            input_suffix[dim_value].set_value(out_val)
-                updates |= input_shape.inner_match(
-                    prefix=input_prefix, root=(Variadic())
-                )
-                updates |= input_shape.inner_match(
-                    root=(Variadic()), suffix=input_suffix
-                )
-                if input_shape.root is None:
-                    status = all(
-                        isinstance(input_shape[idx].value, int) for idx in dim_val
-                    )
-                else:
-                    status = (
-                        len(input_shape.prefix) >= max_pos_dim
-                        and len(input_shape.suffix) >= max_neg_dim
-                    )
-
-        elif input_shape.root is None:
-            input_shape_values = [uni.value for uni in input_shape.prefix]
-            if is_list_int(input_shape_values):
-                updates |= output.set_value(math.prod(input_shape_values))
-                status = True
-    return status, updates
+    return output.is_valued, updates
 
 
 def shape_constraints(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Shape is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
-    assert isinstance(output_val, ToBeDetermined) or is_tuple_int(output_val)
-    status = False
+    assert isinstance(output_val, ToBeDetermined) or enhanced_isinstance(
+        output_val, tuple[int | ToBeDetermined, ...]
+    )
     updates = Updates()
 
     if input_shape.root is None:
         in_shape = input_shape.get_shapes({}, {})
-        if all(isinstance(x, int) for x in in_shape):
-            updates |= output.set_value(tuple(in_shape))
-            # NOTE: Should we add output.scalar into the updated_symbols???
-            status = True
-    elif not isinstance(output_val, ToBeDetermined):
-        input_prefix = [Uniadic(val) for val in output_val]
+        inferred_output_value = tuple(
+            shp if isinstance(shp, int) else TBD for shp in in_shape
+        )
+        updates |= output.set_value(inferred_output_value)
+        output_val = output.value
+        assert isinstance(output_val, tuple)
+        input_prefix = [
+            Uniadic(val) if isinstance(val, int) else Uniadic() for val in output_val
+        ]
         updates |= input_shape.inner_match(prefix=input_prefix)
-        status = True
 
-    return status, updates
+    elif not isinstance(output_val, ToBeDetermined):
+        input_prefix = [
+            Uniadic(val) if isinstance(val, int) else Uniadic() for val in output_val
+        ]
+        updates |= input_shape.inner_match(prefix=input_prefix)
+        in_shape = input_shape.get_shapes({}, {})
+        output_value = tuple(shp if isinstance(shp, int) else TBD for shp in in_shape)
+        updates |= output.set_value(output_value)
+
+    return output.is_valued and is_repr_known(input_shape), updates
 
 
 def eye_constraints(
@@ -3381,7 +3297,7 @@ def to_tensor_constraints(
 
     if not isinstance(input_val, ToBeDetermined):
         shape: list[int] = []
-        if isinstance(input_val, list | tuple):
+        if isinstance(input_val, list | tuple) and is_valued(input_val):
             _shape, _, typ = process_value(input_val)
             assert _shape is not None
             shape = _shape
@@ -3428,7 +3344,7 @@ def tensor_to_list_constraints(
     status = False
     if not isinstance(output_val, ToBeDetermined):
         shape: list[Uniadic] = []
-        if isinstance(output_value, list | tuple):
+        if isinstance(output_value, list | tuple) and is_valued(output_value):
             shp, *_ = process_value(output_val)
             assert shp is not None
             shape = [Uniadic(idx) for idx in shp]
@@ -3492,9 +3408,11 @@ def scalar_item_constraints(
         index._value, ToBeDetermined
     ):
         updates |= output.set_value(input._value[index._value])
-        status = True
-    elif not isinstance(input._value, ToBeDetermined) and isinstance(
-        output._value, int | float | bool | Tensor
+        status = output.is_valued
+    elif (
+        not isinstance(input._value, ToBeDetermined)
+        and TBD not in input._value
+        and isinstance(output._value, int | float | bool | Tensor)
     ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
@@ -3508,42 +3426,11 @@ def scalar_item_constraints(
 def to_tuple_constraints(
     output: IOHyperEdge, *args: IOHyperEdge
 ) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    assert isinstance(output._value, ToBeDetermined) or type(output._value) is tuple
-    # Forward value propagation.
-    values = [arg._value for arg in args]
-    if all([val is not TBD for val in values]):
-        updates |= output.set_value(tuple(values))
-        status = True
-    # Backward value propagation.
-    elif not isinstance(output._value, ToBeDetermined):
-        for val, arg in zip(output._value, args, strict=False):
-            updates |= arg.set_value(val)
-        status = True
-    return status, updates
+    return to_sequence_helper(tuple, output, *args)
 
 
 def to_list_constraints(output: IOHyperEdge, *args: IOHyperEdge) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    assert isinstance(output._value, ToBeDetermined) or type(output._value) is list
-    # Backward value propagation.
-    if not isinstance(output._value, ToBeDetermined):
-        for val, arg in zip(output._value, args, strict=False):
-            updates |= arg.set_value(val)
-        status = True
-    else:
-        # Forward value propagation.
-        values = []
-        for arg in args:
-            if (arg_val := arg._value) is TBD:
-                break
-            values.append(arg_val)
-        else:
-            updates |= output.set_value(list(values))
-            status = True
-    return status, updates
+    return to_sequence_helper(list, output, *args)
 
 
 def tensor_item_constraints(
@@ -3568,7 +3455,20 @@ def tensor_item_constraints(
 
     status = False
     updated_symbols = Updates()
-    if not isinstance(index_val, ToBeDetermined):
+
+    if not isinstance(index_val, tuple):
+        index_val = (index_val,)
+    index_status = True
+    for idx_val in index_val:
+        if idx_val is TBD:
+            index_status = False
+            break
+        elif isinstance(idx_val, Sequence):
+            if not is_valued(idx_val):
+                index_status = False
+                break
+
+    if index_status:
         # Initially set all status to True,
         # Final status will be intersection of all status
 
@@ -3581,9 +3481,6 @@ def tensor_item_constraints(
 
         # bcast status determines if all broadcast operations are made
         bcast_status = True
-
-        if not isinstance(index_val, tuple):
-            index_val = (index_val,)
 
         assert is_index_type(index_val)
 
@@ -3747,14 +3644,12 @@ def indexer_constraints(
 def padding_1d_constraint(
     output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
-    status = False
     updates = Updates()
     input_value = input.value
     kernel_size_value = kernel_size.value
     if isinstance(input_value, PaddingType):
         if input_value == PaddingType.VALID:
             updates |= output.set_value((0, 0))
-            status = True
         else:
             if isinstance(kernel_size_value, int):
                 if kernel_size_value % 2 == 0:
@@ -3762,122 +3657,102 @@ def padding_1d_constraint(
                         "'same' padding is not supported when the kernel size is even!"
                     )
                 updates |= output.set_value((kernel_size_value // 2,) * 2)
-                status = True
             elif kernel_size_value is not TBD:
                 raise RuntimeError("Kernel size must be 'tuple[int, int]' or 'int'!")
 
     elif isinstance(input_value, int):
         updates |= output.set_value((input_value, input_value))
-        status = True
 
     elif isinstance(input_value, Sequence):
         if isinstance(input_value[0], Sequence) or isinstance(input_value[1], Sequence):
             raise RuntimeError(f"Given input value '{input_value}' is not valid!")
         updates |= output.set_value(tuple(input_value))
-        status = True
 
-    return status, updates
+    return output.is_valued, updates
 
 
 def padding_2d_constraint(
     output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
-    status = False
     updates = Updates()
     input_value = input.value
+    kernel_size_value = kernel_size._value
     if isinstance(input_value, PaddingType):
         if input_value == PaddingType.VALID:
             updates |= output.set_value((0, 0))
-            status = True
         else:
-            if isinstance(kernel_size, tuple):
-                if kernel_size[0] % 2 == 0 or kernel_size[1] % 2 == 0:
+            if enhanced_isinstance(
+                kernel_size_value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+            ):
+                height = kernel_size_value[0]
+                width = kernel_size_value[1]
+                if (isinstance(height, int) and height % 2 == 0) or (
+                    isinstance(width, int) and width % 2 == 0
+                ):
                     raise RuntimeError(
                         "'same' padding is not supported when the kernel size is even!"
                     )
-            elif isinstance(kernel_size, int):
-                if kernel_size % 2 == 0:
+                height_val = height // 2 if isinstance(height, int) else height
+                width_val = width // 2 if isinstance(width, int) else width
+                updates |= output.set_value(
+                    ((height_val, height_val), (width_val, width_val))
+                )
+            elif isinstance(kernel_size_value, int):
+                if kernel_size_value % 2 == 0:
                     raise RuntimeError(
                         "'same' padding is not supported when the kernel size is even!"
                     )
-                updates |= output.set_value([(kernel_size // 2, kernel_size // 2)] * 2)
-                status = True
+                updates |= output.set_value(
+                    (tuple([kernel_size_value // 2, kernel_size_value // 2]),) * 2
+                )
             elif kernel_size.value is not TBD:
                 raise RuntimeError("Kernel size must be 'tuple[int, int]' or 'int'!")
     elif isinstance(input_value, int):
         updates |= output.set_value((input_value, input_value))
-        status = True
-    elif is_padding_type(input_value):
-        updated_padding: list[tuple[int, ...]] = []
-        for p in input_value:
-            if isinstance(p, int):
-                updated_padding.append((p, p))
-            elif len(p) == 2:
-                updated_padding.append(tuple(p))
-            else:
-                raise RuntimeError(f"Given padding '{input_value}' is not valid!")
-        final_padding = (
-            (updated_padding[0][0], updated_padding[0][1]),
-            (updated_padding[1][0], updated_padding[1][1]),
-        )
-        updates |= output.set_value(final_padding)
-        status = True
-    return status, updates
+    elif enhanced_isinstance(
+        input_value,
+        tuple[
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+            tuple[int | ToBeDetermined, int | ToBeDetermined],
+        ],
+    ):
+        updates |= output.set_value(input_value)
+
+    elif enhanced_isinstance(
+        input_value, tuple[int | ToBeDetermined, int | ToBeDetermined]
+    ):
+        pad1, pad2 = input_value
+        updates |= output.set_value(((pad1, pad1), (pad2, pad2)))
+    return output.is_valued, updates
 
 
 def stride_constraint(
     output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
-    status = False
     updates = Updates()
     input_value = input.value
-    assert (
-        isinstance(input_value, ToBeDetermined)
-        or is_padding_type(input_value)
-        or type(input_value) is int
-        or input_value is None
-    )
-
-    assert (
-        is_tuple_of_two_ints(output.value)
-        or isinstance(output.value, ToBeDetermined)
-        or type(output.value) is int
-    )
-
-    assert (
-        is_tuple_of_two_ints(kernel_size.value)
-        or isinstance(kernel_size.value, ToBeDetermined)
-        or type(kernel_size.value) is int
-    )
     kernel_size_value = kernel_size.value
     if input_value is None:
-        if not isinstance(kernel_size_value, ToBeDetermined):
-            updates |= output.set_value(kernel_size_value)
-            status = True
-    elif not isinstance(input_value, ToBeDetermined):
+        updates |= output.set_value(kernel_size_value)
+        updates |= kernel_size.set_value(output._value)
+        status = output.is_valued and kernel_size.is_valued
+    else:
         updates |= output.set_value(input_value)
-        status = True
-    elif output.value is not TBD:
-        status = True
+        updates |= input.set_value(output._value)
+        status = output.is_valued and input.is_valued
     return status, updates
 
 
 def tuple_converter_constraint(
     output: IOHyperEdge, input: IOHyperEdge
 ) -> ConstrainResultType:
-    status = False
     updates = Updates()
     input_value = input._value
-    if input_value is not TBD:
-        if isinstance(input_value, int):
-            updates |= output.set_value((input_value, input_value))
-            status = True
-        if isinstance(input_value, tuple):
-            updates |= output.set_value(input_value)
-            status = True
-    if output.is_valued:
-        status = True
-    return status, updates
+    if isinstance(input_value, int):
+        updates |= output.set_value((input_value, input_value))
+    if isinstance(input_value, tuple):
+        updates |= output.set_value(input_value)
+    return output.is_valued, updates
 
 
 def cross_entropy_constraint(
@@ -3948,21 +3823,6 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
     return status, updates
 
 
-def relational_operator_type_constraint(
-    output: IOHyperEdge, input1: IOHyperEdge, input2: IOHyperEdge
-) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    # Forward inference.
-    if input1.is_tensor or input2.is_tensor:
-        updates |= output.set_type(Tensor[bool])
-        status = True
-    elif input1.is_scalar and input2.is_scalar:
-        updates |= output.set_type(bool)
-        status = True
-    return status, updates
-
-
 def polynomial_kernel_constraint(
     poly_coef: IOHyperEdge, degree: IOHyperEdge
 ) -> ConstrainResultType:
@@ -4006,6 +3866,5 @@ constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
     stride_constraint: [UpdateType.VALUE],
     tuple_converter_constraint: [UpdateType.VALUE],
     buffer_constraint: [UpdateType.TYPE, UpdateType.VALUE],
-    relational_operator_type_constraint: [UpdateType.TYPE],
     general_type_constraint: [UpdateType.TYPE],
 }

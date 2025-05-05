@@ -38,6 +38,7 @@ from ..common import (
     ValueType,
     any_differentiable,
     is_type_adjustment_required,
+    is_valued,
 )
 from ..logical.model import Connection
 from ..logical.operator import Operator
@@ -506,6 +507,7 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Finally prune the connection
                 self._prune_connection(conn, source_conn)
+                self._all_source_keys.add(source_conn.key)
 
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)
@@ -531,7 +533,7 @@ class FlatGraph(GenericDataType[DataType]):
                 value = constant_keys.get(key, TBD)
 
             # If connection is valued, then compare values.
-            if not isinstance(value, ToBeDetermined):
+            if is_valued(value):  # type: ignore
                 for value_key, ref_value in self.value_table.items():
                     if type(ref_value) is not type(value):
                         is_equal: bool = False

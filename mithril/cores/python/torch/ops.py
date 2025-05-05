@@ -1000,15 +1000,11 @@ def shape(input: torch.Tensor) -> tuple[int, ...]:
     return tuple(input.shape)
 
 
-def size(
-    input: torch.Tensor, dim: int | tuple[int, ...] | None
-) -> int | tuple[int, ...]:
+def size(input: torch.Tensor, dim: int | None) -> int | tuple[int, ...]:
     if dim is None:
-        return math.prod(input.size())
-    if isinstance(dim, int):
-        return input.size(dim)
+        return math.prod(input.shape)
     else:
-        return tuple(input.size(idx) for idx in dim)
+        return input.size(dim)
 
 
 def norm_modifier(input: torch.Tensor) -> torch.Tensor:

@@ -779,15 +779,11 @@ def shape(input: mx.array) -> tuple[int, ...]:
     return input.shape
 
 
-def size(input: mx.array, dim: int | Sequence[int] | None) -> int | tuple[int]:
+def size(input: mx.array, dim: int | None) -> int | tuple[int]:
     if dim is None:
         return input.size
-    if isinstance(dim, int):
-        return input.shape[dim]
-    if isinstance(dim, Sequence):
-        return tuple(input.shape[idx] for idx in dim)
     else:
-        raise ValueError(f"Unexpected dim: {dim}")
+        return input.shape[dim]
 
 
 def primitive_accuracy(input1: mx.array, input2: mx.array) -> mx.array:

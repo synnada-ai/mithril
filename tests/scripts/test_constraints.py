@@ -21,6 +21,7 @@ from typing import Any, TypeGuard
 import numpy as np
 import pytest
 
+from mithril.common import PaddingType
 from mithril.framework.common import (
     TBD,
     ConstraintSolver,
@@ -54,24 +55,28 @@ from mithril.framework.constraints import (
     indexer_type_constraint,
     item_constraints,
     pad_constraints,
+    padding_2d_constraint,
     polynomial_features_constraints,
+    pool_2d_constraints,
     randn_constraints,
     reduce_constraints,
     reduce_type_constraint,
     reshape_constraints,
     reverse_constraints,
+    scalar_item_constraints,
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
     slice_constraints,
-    sliding_window_2d_constraints,
     squeeze_constraints,
+    stride_constraint,
     swap_axes_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
     to_tensor_constraints,
     to_tuple_constraints,
+    tuple_converter_constraint,
     where_constrains,
 )
 from mithril.types import GenericDataType
@@ -194,7 +199,8 @@ def assert_value_results(
 ) -> None:
     for key, value in ref_results.items():
         if isinstance(
-            value, int | float | bool | tuple | list | str | ToBeDetermined | slice
+            value,
+            int | float | bool | tuple | list | str | None | ToBeDetermined | slice,
         ):
             assert data[key]._value == value
         else:
@@ -1682,7 +1688,7 @@ def test_reduce_forward_error_3():
     """Should work with no problem with axis = (-1, 1)."""
     shapes: dict[str, list[int | str | tuple]] = {"output": [], "input": [3, 4]}
     given_data = {
-        "axis": IOHyperEdge(value=(-1, 0, 1)),
+        "axis": IOHyperEdge(value=(-1, 1)),
         "keepdim": IOHyperEdge(value=False),
     }
     with pytest.raises(ValueError) as err_info:
@@ -1707,7 +1713,7 @@ def test_reduce_forward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 2 where input "
-        "rank = 3 and axis = (1,). Axis numbers printed as their counterparts."
+        "rank = 3 and axis = 1."
     )
 
 
@@ -1729,7 +1735,7 @@ def test_reduce_forward_error_2():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 2. Output rank must be exactly 1 where input "
-        "rank = 3 and axis = (1, 2). Axis numbers printed as their counterparts."
+        "rank = 3 and axis = (1, 2)."
     )
 
 
@@ -1748,7 +1754,7 @@ def test_reduce_backward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 2 where input "
-        "rank = 3 and axis = (1,). Axis numbers printed as their counterparts."
+        "rank = 3 and axis = 1."
     )
 
 
@@ -1839,7 +1845,7 @@ def test_reduce_forward_backward_error_1():
         )
     assert str(err_info.value) == (
         "Shape mismatch, output rank = 3. Output rank must be exactly 4 where "
-        "input rank = 6 and axis = (4, 2). Axis numbers printed as their counterparts."
+        "input rank = 6 and axis = (-2, 2)."
     )
 
 
@@ -1931,8 +1937,8 @@ def test_reduce_axis_valued_keep_dim_false_input_variadic():
         "input": [("Var2", ...)],
     }
     final_shapes = {
-        "output": ["(Var1, ...)", "f"],
-        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "output": ["a", "(Var1, ...)", "f"],
+        "input": ["a", "b", "c", "(Var1, ...)", "d", "e", "f"],
         "axis": [],
         "keepdim": [],
     }
@@ -1946,7 +1952,7 @@ def test_reduce_axis_valued_keep_dim_false_input_variadic():
         final_shapes,
         {},
         reduce_constraints,
-        False,
+        True,
         {"input", "output"},
         given_data,
     )
@@ -1960,7 +1966,7 @@ def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
     }
     final_shapes = {
         "output": ["(Var1, ...)"],
-        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "input": ["a", "b", "c", "(Var2, ...)", "d", "e", "f"],
         "axis": [],
         "keepdim": [],
     }
@@ -2281,7 +2287,7 @@ def test_pad_output_with_variadic_forward_random_pad():
     )
 
 
-def test_pad_input_output_mismatch_error():
+def test_pad_value_error():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [2, 7, 8, 25],
         "input": [1, 2, 3, 5],
@@ -2296,7 +2302,10 @@ def test_pad_input_output_mismatch_error():
         assert_constraint_results(
             shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, given_data
         )
-    assert str(err_info.value) == "Possible values mismatch!"
+    assert str(err_info.value) == (
+        "Shape mismatch for pad. Input shape = 5, "
+        "pad value = (9, 12), output shape = 25"
+    )
 
 
 def test_pad_pad_width_tbd():
@@ -2643,8 +2652,9 @@ def test_randn_3():
             given_data,
         )
     except ValueError as e:
-        assert (
-            str(e) == "Shape mismatch. Output has 4 dim(s) where it must have 3 dim(s)."
+        assert str(e) == (
+            "Shape mismatch. Output has minimum "
+            "4 dim(s) where it must have exactly 3 dim(s)."
         )
 
 
@@ -2694,20 +2704,20 @@ def test_max_pool_1():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(1, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2725,20 +2735,20 @@ def test_max_pool_2():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(1, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(5, 5)),
+        "kernel": IOHyperEdge(value=(5, 5)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2754,12 +2764,12 @@ def test_max_pool_3_error():
         "stride": IOHyperEdge(value=(1, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(12, 12)),
+        "kernel": IOHyperEdge(value=(12, 12)),
     }
 
     with pytest.raises(Exception) as err_info:
         assert_constraint_results(
-            shapes, {}, {}, {}, sliding_window_2d_constraints, True, set(), given_data
+            shapes, {}, {}, {}, pool_2d_constraints, True, set(), given_data
         )
     assert (
         str(err_info.value)
@@ -2778,20 +2788,20 @@ def test_max_pool_4():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2809,20 +2819,20 @@ def test_max_pool_5():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(1, 1)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2840,20 +2850,20 @@ def test_max_pool_6():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(1, 2)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2871,20 +2881,20 @@ def test_max_pool_7():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(1, 2)),
         "dilation": IOHyperEdge(value=(3, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2902,20 +2912,20 @@ def test_max_pool_8():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(1, 2)),
         "dilation": IOHyperEdge(value=(3, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output"},
         given_data,
@@ -2933,20 +2943,20 @@ def test_max_pool_9():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(1, 2)),
         "dilation": IOHyperEdge(value=(3, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         True,
         {"output", "input"},
         given_data,
@@ -2964,21 +2974,21 @@ def test_max_pool_10():
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
-        False,
+        pool_2d_constraints,
+        True,
         {"output"},
         given_data,
     )
@@ -2990,27 +3000,27 @@ def test_max_pool_11():
         "input": ["a", "b", "c", "d"],
     }
     final_shapes = {
-        "output": ["(Var1, ...)"],
+        "output": ["(Var1, ...)", "e", "f"],
         "input": ["a", "b", "c", "d"],
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
-        set(),
+        {"output"},
         given_data,
     )
 
@@ -3021,27 +3031,27 @@ def test_max_pool_12():
         "input": [("Var2", ...), "d"],
     }
     final_shapes = {
-        "output": ["(Var1, ...)"],
+        "output": ["(Var1, ...)", "e", "f"],
         "input": ["(Var2, ...)", "d"],
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
-        set(),
+        {"output"},
         given_data,
     )
 
@@ -3052,27 +3062,27 @@ def test_max_pool_13():
         "input": ["a", ("Var2", ...), "d"],
     }
     final_shapes = {
-        "output": ["(Var1, ...)"],
+        "output": ["(Var1, ...)", "e", "f"],
         "input": ["a", "(Var2, ...)", "d"],
         "stride": [],
         "padding": [],
         "dilation": [],
-        "kernel_size": [],
+        "kernel": [],
     }
     given_data = {
         "stride": IOHyperEdge(value=(2, 1)),
         "padding": IOHyperEdge(value=(0, 0)),
         "dilation": IOHyperEdge(value=(1, 1)),
-        "kernel_size": IOHyperEdge(value=(3, 3)),
+        "kernel": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        sliding_window_2d_constraints,
+        pool_2d_constraints,
         False,
-        set(),
+        {"output"},
         given_data,
     )
 
@@ -3085,7 +3095,7 @@ def test_broadcast_to_1():
     and shape = (1, 2).
     """
     shapes: dict[str, list[int | str | tuple]] = {
-        "output": [("V", ...)],
+        "output": [("V1", ...)],
         "input": [("V2", ...)],
     }
     final_shapes = {"output": [1, 2], "input": ["(V2, ...)"], "shape": []}
@@ -3205,7 +3215,7 @@ def test_broadcast_to_error_1():
         )
     assert (
         str(err_info.value)
-        == "Shape mismatch. Output has 1 dim(s) where it must have 2 dim(s)."
+        == "Determined shape representations should have same length."
     )
 
 
@@ -3723,117 +3733,6 @@ def test_size_3():
     )
 
 
-def test_size_4():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "input": [2, 3, 4],
-    }
-    final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
-    final_values = {"output": (3, 4)}
-    given_data = {
-        "dim": IOHyperEdge(value=(1, 2)),
-        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"output"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_5():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3, 4]}
-    final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
-    final_values = {"output": (4, 2)}
-    given_data = {
-        "dim": IOHyperEdge(value=(-1, 0)),
-        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"output"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_6():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "input": [2, 3, 4],
-    }
-    final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
-    final_values = {"output": (3, 2, 4)}
-    given_data = {
-        "dim": IOHyperEdge(value=(1, 0, 2)),
-        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"output"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_7():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3, 4]}
-    final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
-    final_values = {"output": (4, 3)}
-    given_data = {
-        "dim": IOHyperEdge(value=(-1, -2)),
-        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"output"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_8():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "input": [2, 3, 4, ("Var1", ...), 1, 5]
-    }
-    final_shapes = {"input": [2, 3, 4, "(V1, ...)", 1, 5], "output": [], "dim": []}
-    final_values = {"output": (2, 3)}
-    given_data = {
-        "dim": IOHyperEdge(value=(0, 1)),
-        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"output"},
-        given_data,
-        final_values,
-    )
-
-
 def test_size_9():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [2, 3, 4, ("Var1", ...), 1, 5]
@@ -3842,96 +3741,6 @@ def test_size_9():
     final_values = {"output": 4}
     given_data = {
         "dim": IOHyperEdge(value=2),
-        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"output"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_10():
-    shapes: dict[str, list[int | str | tuple]] = {"input": ["u1", "u2", "u3"]}
-    final_shapes = {"input": ["u1", 3, 4], "output": [], "dim": []}
-    final_values = {"output": (3, 4)}
-    given_data = {
-        "dim": IOHyperEdge(value=(1, 2)),
-        "output": IOHyperEdge(value=(3, 4)),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"input"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_11():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "input": ["u1", "u2", "u3", ("Var1", ...), "u4", "u5", "u6"]
-    }
-    final_shapes = {
-        "input": ["u1", 10, "u3", "(V1, ...)", "u4", "u5", 7],
-        "output": [],
-        "dim": [],
-    }
-    final_values = {"output": (7, 10)}
-    given_data = {
-        "dim": IOHyperEdge(value=(-1, 1)),
-        "output": IOHyperEdge(value=(7, 10)),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        True,
-        {"input"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_12():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [("Var1", ...)]}
-    final_shapes = {"input": ["a", 10, "b", "(V1, ...)"], "output": [], "dim": []}
-    final_values = {"output": (7, 10)}
-    given_data = {
-        "dim": IOHyperEdge(value=(-3, 1)),
-        "output": IOHyperEdge(value=(7, 10)),
-    }
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        size_constraints,
-        False,
-        {"input"},
-        given_data,
-        final_values,
-    )
-
-
-def test_size_13():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3, 4]}
-    final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
-    final_values = {"output": 4}
-    given_data = {
-        "dim": IOHyperEdge(value=-1),
         "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
@@ -8533,4 +8342,882 @@ def test_general_forward_add_3_inputs_status_false():
         given_data,
         final_values,
         variadic_fn=True,
+    )
+
+
+def test_reduce_partial_1():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["(V2, ...)"],
+        "input": ["(V1, ...)", "a"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {
+        "axis": IOHyperEdge(value=(-1, TBD)),
+        "keepdim": IOHyperEdge(value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input"},
+        given_data,
+    )
+
+
+def test_reduce_partial_2():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["(V2, ...)"],
+        "input": ["b", "(V1, ...)", "a"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {
+        "axis": IOHyperEdge(value=(-1, 0, TBD)),
+        "keepdim": IOHyperEdge(value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input"},
+        given_data,
+    )
+
+
+def test_reduce_partial_3():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", "b", "c", "d"],
+    }
+    final_shapes = {
+        "output": ["(V2, ...)"],
+        "input": ["a", "b", "c", "d"],
+        "axis": [],
+        "keepdim": [],
+    }
+    given_data = {
+        "axis": IOHyperEdge(value=(-1, TBD)),
+        "keepdim": IOHyperEdge(value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        set(),
+        given_data,
+    )
+
+
+def test_pad_partial_forward():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [6, "u1", "u2", 13],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    given_data = {"pad_width": IOHyperEdge(value=((2, 3), TBD, (0, TBD), (4, 5)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"output"}, given_data
+    )
+
+
+def test_pad_partial_backward():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [6, 7, 8, 9],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [6, 7, 8, 9],
+        "input": ["u1", "u2", "u3", 6],
+        "pad_width": [],
+    }
+    given_data = {"pad_width": IOHyperEdge(value=(TBD, TBD, (0, TBD), (1, 2)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"input"}, given_data
+    )
+
+
+def test_pad_partial_with_scalar_inference():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [8, 9, 10, 11],
+        "input": [6, 5, 4, 3],
+    }
+    final_shapes = {
+        "output": [8, 9, 10, 11],
+        "input": [6, 5, 4, 3],
+        "pad_width": [],
+    }
+    given_data = {
+        "pad_width": IOHyperEdge(value=((TBD, 0), (1, TBD), (TBD, 2), (7, TBD)))
+    }
+    final_values = {
+        "pad_width": ((2, 0), (1, 3), (4, 2), (7, 1)),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        True,
+        {"pad_width"},
+        given_data,
+        final_values,
+    )
+
+
+def test_tuple_converter_forward_int_input():
+    given_data = {"input": IOHyperEdge(value=2), "output": IOHyperEdge(value=TBD)}
+    final_values = {"input": 2, "output": (2, 2)}
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        tuple_converter_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_tuple_converter_forward_tuple_int_input():
+    given_data = {"input": IOHyperEdge(value=(2, 2)), "output": IOHyperEdge(value=TBD)}
+    final_values = {"input": (2, 2), "output": (2, 2)}
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        tuple_converter_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_tuple_converter_forward_tuple_int_with_partial_tbd():
+    given_data = {
+        "input": IOHyperEdge(value=(2, TBD)),
+        "output": IOHyperEdge(value=TBD),
+    }
+    final_values = {"input": (2, TBD), "output": (2, TBD)}
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        tuple_converter_constraint,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_tuple_converter_forward_tuple_int_with_partial_tbd_output():
+    given_data = {"input": IOHyperEdge(value=2), "output": IOHyperEdge(value=(TBD, 2))}
+    final_values = {"input": 2, "output": (2, 2)}
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        tuple_converter_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_stride_constraint_forward():
+    given_data = {
+        "input": IOHyperEdge(value=((1, 1), (2, 2))),
+        "kernel_size": IOHyperEdge(value=TBD),
+        "output": IOHyperEdge(value=TBD),
+    }
+
+    final_values = {
+        "input": ((1, 1), (2, 2)),
+        "kernel_size": TBD,
+        "output": ((1, 1), (2, 2)),
+    }
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        stride_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_stride_constraint_forward_input_none():
+    given_data = {
+        "input": IOHyperEdge(value=None),
+        "kernel_size": IOHyperEdge(value=(2, 3)),
+        "output": IOHyperEdge(value=TBD),
+    }
+
+    final_values = {"input": None, "kernel_size": (2, 3), "output": (2, 3)}
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        stride_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_stride_constraint_forward_input_none_with_tbd():
+    given_data = {
+        "input": IOHyperEdge(value=None),
+        "kernel_size": IOHyperEdge(value=(2, 3)),
+        "output": IOHyperEdge(value=(TBD, 3)),
+    }
+
+    final_values = {"input": None, "kernel_size": (2, 3), "output": (2, 3)}
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        stride_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_stride_constraint_forward_with_partial_tbd_status_true():
+    given_data = {
+        "input": IOHyperEdge(value=((TBD, 3), (TBD, 3))),
+        "kernel_size": IOHyperEdge(value=(2, 3)),
+        "output": IOHyperEdge(value=((2, TBD), (2, TBD))),
+    }
+
+    final_values = {
+        "input": ((2, 3), (2, 3)),
+        "kernel_size": (2, 3),
+        "output": ((2, 3), (2, 3)),
+    }
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        stride_constraint,
+        True,
+        {"output", "input"},
+        given_data,
+        final_values,
+    )
+
+
+def test_stride_constraint_forward_with_partial_tbd_status_false():
+    given_data = {
+        "input": IOHyperEdge(value=((TBD, 3), (TBD, TBD))),
+        "kernel_size": IOHyperEdge(value=(2, 3)),
+        "output": IOHyperEdge(value=((2, TBD), (2, TBD))),
+    }
+
+    final_values = {
+        "input": ((2, 3), (2, TBD)),
+        "kernel_size": (2, 3),
+        "output": ((2, 3), (2, TBD)),
+    }
+
+    final_shapes: dict[str, list[int]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    assert_constraint_results(
+        {},
+        {},
+        final_shapes,
+        {},
+        stride_constraint,
+        False,
+        {"output", "input"},
+        given_data,
+        final_values,
+    )
+
+
+def test_to_list_forward_with_partial_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(type=list[int] | type(...), value=TBD),
+        "input1": IOHyperEdge(value=3),
+        "input2": IOHyperEdge(value=TBD),
+        "input3": IOHyperEdge(value=5),
+    }
+    final_values = {"output": [3, TBD, 5], "input1": 3, "input2": TBD, "input3": 5}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        to_list_constraints,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_to_list_backward_with_partial_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(type=list[int], value=[3, TBD, 5]),
+        "input1": IOHyperEdge(value=TBD),
+        "input2": IOHyperEdge(value=TBD),
+        "input3": IOHyperEdge(value=TBD),
+    }
+    final_values = {"output": [3, TBD, 5], "input1": 3, "input2": TBD, "input3": 5}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        to_list_constraints,
+        False,
+        {"input1", "input3"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_to_list_both_direction_with_partial_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(type=list[int], value=[3, TBD, 5]),
+        "input1": IOHyperEdge(value=TBD),
+        "input2": IOHyperEdge(value=4),
+        "input3": IOHyperEdge(value=TBD),
+    }
+    final_values = {"output": [3, 4, 5], "input1": 3, "input2": 4, "input3": 5}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        to_list_constraints,
+        True,
+        {"input1", "input3", "output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_to_tuple_forward_with_partial_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(type=tuple[int, ...], value=TBD),
+        "input1": IOHyperEdge(value=3),
+        "input2": IOHyperEdge(value=TBD),
+        "input3": IOHyperEdge(value=5),
+    }
+    final_values = {"output": (3, TBD, 5), "input1": 3, "input2": TBD, "input3": 5}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        to_tuple_constraints,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_to_tuple_backward_with_partial_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(type=tuple[int, ...], value=(3, TBD, 5)),
+        "input1": IOHyperEdge(value=TBD),
+        "input2": IOHyperEdge(value=TBD),
+        "input3": IOHyperEdge(value=TBD),
+    }
+    final_values = {"output": (3, TBD, 5), "input1": 3, "input2": TBD, "input3": 5}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        to_tuple_constraints,
+        False,
+        {"input1", "input3"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_to_tuple_both_direction_with_partial_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(type=tuple[int, ...], value=(3, TBD, 5)),
+        "input1": IOHyperEdge(value=TBD),
+        "input2": IOHyperEdge(value=4),
+        "input3": IOHyperEdge(value=TBD),
+    }
+    final_values = {"output": (3, 4, 5), "input1": 3, "input2": 4, "input3": 5}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        to_tuple_constraints,
+        True,
+        {"input1", "input3", "output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_scalar_item_with_partial_tbd_status_true():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "index": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=[2, 3, 4, TBD, TBD, TBD]),
+        "index": IOHyperEdge(value=slice(0, 3, 1)),
+    }
+    final_values = {
+        "output": [2, 3, 4],
+        "input": [2, 3, 4, TBD, TBD, TBD],
+        "index": slice(0, 3, 1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        scalar_item_constraints,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_scalar_item_with_partial_tbd_status_false():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "index": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=(2, 3, 4, TBD, TBD, TBD)),
+        "index": IOHyperEdge(value=slice(0, 4, 1)),
+    }
+    final_values = {
+        "output": (2, 3, 4, TBD),
+        "input": (2, 3, 4, TBD, TBD, TBD),
+        "index": slice(0, 4, 1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        scalar_item_constraints,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_shape_partial_forward():
+    shapes: dict[str, list[int | str | tuple]] = {"input": [3, 4, "u1"]}
+    final_shapes = {"input": [3, 4, "u1"], "output": []}
+    given_data = {"output": IOHyperEdge(value=TBD)}
+    final_values = {"output": (3, 4, TBD)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        shape_constraints,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_shape_partial_backward():
+    shapes: dict[str, list[int | str | tuple]] = {"input": [("V1", ...)]}
+    final_shapes = {"input": [3, 4, "u1"], "output": []}
+    given_data = {"output": IOHyperEdge(value=(3, 4, TBD))}
+    final_values = {"output": (3, 4, TBD)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        shape_constraints,
+        False,
+        {"input"},
+        given_data,
+        final_values,
+    )
+
+
+def test_shape_partial_both_backward_and_forward():
+    shapes: dict[str, list[int | str | tuple]] = {"input": [("V1", ...), 7]}
+    final_shapes = {"input": [3, 4, 7], "output": []}
+    given_data = {"output": IOHyperEdge(value=(3, 4, TBD))}
+    final_values = {"output": (3, 4, 7)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        shape_constraints,
+        True,
+        {"input", "output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_slding_window_2d_partial_height():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [10, 20, "c", "d"],
+        "input": [10, 10, 10, 10],
+    }
+    final_shapes = {
+        "output": [10, 20, 8, "d"],
+        "input": [10, 10, 10, 10],
+        "stride": [],
+        "padding": [],
+        "dilation": [],
+        "kernel": [],
+    }
+    given_data = {
+        "stride": IOHyperEdge(value=(1, TBD)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel": IOHyperEdge(value=(3, 3)),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pool_2d_constraints,
+        False,
+        {"output"},
+        given_data,
+    )
+
+
+def test_slding_window_2d_partial_width():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [10, 20, "c", "d"],
+        "input": [10, 10, 10, 10],
+    }
+    final_shapes = {
+        "output": [10, 20, "c", 8],
+        "input": [10, 10, 10, 10],
+        "stride": [],
+        "padding": [],
+        "dilation": [],
+        "kernel": [],
+    }
+    given_data = {
+        "stride": IOHyperEdge(value=(1, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel": IOHyperEdge(value=(TBD, 3)),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pool_2d_constraints,
+        False,
+        {"output"},
+        given_data,
+    )
+
+
+def test_padding_2d_constraints_input_forward():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=((2, 3), (4, 5))),
+        "kernel_size": IOHyperEdge(value=TBD),
+    }
+    final_values = {
+        "output": ((2, 3), (4, 5)),
+        "input": ((2, 3), (4, 5)),
+        "kernel_size": TBD,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        padding_2d_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_padding_2d_constraints_forward_paddding_type_same():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=PaddingType.SAME),
+        "kernel_size": IOHyperEdge(value=(5, 7)),
+    }
+    final_values = {
+        "output": ((2, 2), (3, 3)),
+        "input": PaddingType.SAME,
+        "kernel_size": (5, 7),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        padding_2d_constraint,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_padding_2d_constraints_forward_paddding_partial_type_same():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=PaddingType.SAME),
+        "kernel_size": IOHyperEdge(value=(TBD, 7)),
+    }
+    final_values = {
+        "output": ((TBD, TBD), (3, 3)),
+        "input": PaddingType.SAME,
+        "kernel_size": (TBD, 7),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        padding_2d_constraint,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_padding_2d_constraints_partial_forward():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=(2, TBD)),
+        "kernel_size": IOHyperEdge(value=TBD),
+    }
+    final_values = {
+        "output": ((2, 2), (TBD, TBD)),
+        "input": (2, TBD),
+        "kernel_size": TBD,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        padding_2d_constraint,
+        False,
+        {"output"},
+        given_data,
+        final_values,
+    )
+
+
+def test_padding_2d_constraints_partial_forward_full():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+        "kernel_size": [],
+    }
+    given_data = {
+        "output": IOHyperEdge(value=TBD),
+        "input": IOHyperEdge(value=((2, TBD), (TBD, 3))),
+        "kernel_size": IOHyperEdge(value=TBD),
+    }
+    final_values = {
+        "output": ((2, TBD), (TBD, 3)),
+        "input": ((2, TBD), (TBD, 3)),
+        "kernel_size": TBD,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        padding_2d_constraint,
+        False,
+        {"output"},
+        given_data,
+        final_values,
     )
