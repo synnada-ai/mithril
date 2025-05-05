@@ -129,7 +129,8 @@ def test_topological_sort_1():
     model |= relu1.connect(input=linear2.output)
     model |= relu2.connect(input=relu1.output)
     model |= relu3.connect(input=relu2.output)
-    model |= svm1.connect(input=relu3.output, output=IOKey(name="output"))
+    model |= svm1.connect(input=relu3.output, output="output")
+    model.expose_keys("output")
     graph = model.get_models_in_topological_order()
     assert graph == [linear1, linear2, relu1, relu2, relu3, svm1]
 
@@ -160,8 +161,8 @@ def test_topological_sort_3():
     add2 = Add()
     buff1 = Buffer()
     buff2 = Buffer()
-    model1 |= add1.connect(left="input", right="input", output=IOKey(name="output"))
-    model2 |= buff1.connect(input="input", output=IOKey(name="output"))
+    model1 |= add1.connect(left="input", right="input", output="output")
+    model2 |= buff1.connect(input="input", output="output")
     model |= model1.connect(input="input")
     model |= model2.connect(input=model1.output)  # type: ignore
     model |= add2.connect(left=model2.output, right="output")  # type: ignore
@@ -368,12 +369,11 @@ def test_code_generator_2(file_path: str):
     buff3 = Buffer()
     buff4 = Buffer()
 
-    model |= buff1.connect(
-        input=IOKey("input", type=Tensor), output=IOKey(name="output1")
-    )
+    model |= buff1.connect(input=IOKey("input", type=Tensor), output="output1")
     model |= buff2.connect(input=buff1.output)
     model |= buff3.connect(input=buff1.output)
-    model |= buff4.connect(input=buff2.output, output=IOKey(name="output2"))
+    model |= buff4.connect(input=buff2.output, output="output2")
+    model.expose_keys("output1", "output2")
 
     mithril.compile(
         model=model,
@@ -444,7 +444,8 @@ def test_code_generator_4(file_path: str):
 
     NumpyBackend.register_primitive(my_adder, add_grad)
 
-    model |= MyAdder().connect(left="left", right="right", output=IOKey(name="output"))
+    model |= MyAdder().connect(left="left", right="right", output="output")
+    model.expose_keys("output")
     model.set_differentiability(left=True)
     model.set_differentiability(right=True)
 
@@ -538,7 +539,8 @@ def test_code_generator_5(file_path: str):
 
     JaxBackend.register_primitive(my_adder)
 
-    model |= MyAdder().connect(left="left", right="right", output=IOKey(name="output"))
+    model += MyAdder().connect(left="left", right="right", output="output")
+    model.expose_keys("output")
     model.set_differentiability(left=True)
     model.set_differentiability(right=True)
 
@@ -588,10 +590,9 @@ def test_code_generator_6(file_path: str):
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
     model |= layer2.connect(input="input", weight="w1", bias="b1")
-    model |= (arange := Arange()).connect(stop=2, output=IOKey(name="arange_res"))
-    model |= Add().connect(
-        left=arange.output, right=layer2.output, output=IOKey(name="output")
-    )
+    model |= (arange := Arange()).connect(stop=2, output="arange_res")
+    model |= Add().connect(left=arange.output, right=layer2.output, output="output")
+    model.expose_keys("arange_res", "output")
 
     context = TrainModel(model)
     context.add_loss(
@@ -647,12 +648,9 @@ def test_code_generator_7(file_path: str):
     layer2 = Layer(dimension=2, activation=Softmax())
     model |= layer2.connect(input="input", weight="w1", bias="b1")
     model += (s := Size(dim=1)).connect()
-    model |= (arange := Arange()).connect(
-        stop=s.output, output=IOKey(name="arange_res")
-    )
-    model |= Add().connect(
-        left=arange.output, right=layer2.output, output=IOKey(name="output")
-    )
+    model |= (arange := Arange()).connect(stop=s.output, output="arange_res")
+    model |= Add().connect(left=arange.output, right=layer2.output, output="output")
+    model.expose_keys("arange_res", "output")
 
     context = TrainModel(model)
     context.add_loss(

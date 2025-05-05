@@ -14,7 +14,6 @@
 
 from collections.abc import Callable
 
-from mithril import IOKey
 from mithril.models import Add, Convolution2D, Flatten, Linear, Model, Relu
 
 
@@ -83,9 +82,8 @@ def resnet(n_classes: int, block: Callable, layers: list[int]) -> Model:
     resnet += make_layer(512, block, n_blocks=layers[3], stride=2)
     resnet += Flatten(start_dim=1)
 
-    resnet |= Linear(dimension=n_classes).connect(
-        input=resnet.cout, output=IOKey(name="output")
-    )
+    resnet |= Linear(dimension=n_classes).connect(input=resnet.cout, output="output")
+    resnet.expose_keys("output")
     return resnet
 
 

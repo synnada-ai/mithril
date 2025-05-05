@@ -56,6 +56,7 @@ def test_linear_expose():
     model += Linear(dimension=42).connect(
         input="input", weight="weight", output=IOKey(name="output")
     )
+    model.expose_keys("output")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -183,8 +184,9 @@ def test_set_cins_couts():
     model.set_cin("weight", linear_1.bias)
     outer_model = Model()
     linear_2 = Linear(dimension=42)
-    outer_model |= model.connect(input="input_1", output=IOKey(name="output_1"))
-    outer_model |= linear_2.connect(input="input_2", output=IOKey(name="output_2"))
+    outer_model |= model.connect(input="input_1", output="output_1")
+    outer_model |= linear_2.connect(input="input_2", output="output_2")
+    outer_model.expose_keys("output_1", "output_2")
     outer_model.set_cout("output_2")
 
     model_dict_created = dict_conversions.model_to_dict(outer_model)
@@ -693,12 +695,12 @@ def test_composite_13():
     model |= Linear(dimension=10).connect(
         input="input2",
         weight="weight",
-        output=IOKey("output", expose=False),
+        output="output",
     )
     model |= Linear(dimension=10).connect(
         input="input1",
         weight="weight1",
-        output=IOKey("output2", expose=False),
+        output="output2",
     )
     model.merge_connections("input1", "input2", name="my_input")
     model |= Linear(dimension=71).connect(
@@ -741,8 +743,9 @@ def test_basic_extend_from_input():
 
 def test_auto_iadd_1():
     model = Model()
-    model |= Sigmoid().connect(input="input", output=IOKey(name="output"))
+    model |= Sigmoid().connect(input="input", output="output")
     model |= Sigmoid().connect(output="output2")
+    model.expose_keys("output")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -762,8 +765,9 @@ def test_auto_iadd_1():
 
 def test_auto_iadd_2():
     model = Model()
-    model |= Sigmoid().connect(input="input", output=IOKey(name="output"))
+    model |= Sigmoid().connect(input="input", output="output")
     model |= Sigmoid().connect(output="output2")
+    model.expose_keys("output")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -830,8 +834,9 @@ def test_train_context_1():
 
     model |= layer1.connect(input="input", weight="weight0", bias="bias0")
     model |= layer2.connect(
-        input=layer1.output, weight="weight1", bias="bias1", output=IOKey(name="output")
+        input=layer1.output, weight="weight1", bias="bias1", output="output"
     )
+    model.expose_keys("output")
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], target="target", input=model.cout)
@@ -861,8 +866,9 @@ def test_train_context_2():
 
     model |= layer1.connect(weight="weight0", bias="bias0", input="input")
     model |= layer2.connect(
-        input=layer1.output, weight="weight1", bias="bias1", output=IOKey(name="output")
+        input=layer1.output, weight="weight1", bias="bias1", output="output"
     )
+    model.expose_keys("output")
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], target="target", input=model.cout)
@@ -894,14 +900,15 @@ def test_set_values_constant_1():
         weight="weight0",
         bias="bias0",
         input="input",
-        output=IOKey(name="output", expose=False),
+        output="output",
     )
     model |= Linear(1).connect(
         weight="weight1",
         bias=IOKey(value=Tensor([123.0]), name="bias1"),
         input="input2",
-        output=IOKey(name="output2"),
+        output="output2",
     )
+    model.expose_keys("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -926,14 +933,15 @@ def test_set_values_constant_2():
         weight="weight0",
         bias="bias0",
         input="input",
-        output=IOKey(name="output", expose=False),
+        output="output",
     )
     model |= Linear(1).connect(
         weight="weight1",
         bias="bias1",
         input="input2",
-        output=IOKey(name="output2"),
+        output="output2",
     )
+    model.expose_keys("output2")
     model.set_values(bias1=Tensor([123.0]))
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -1063,10 +1071,9 @@ def test_valued_scalar_in_extend():
 
 def test_valued_scalar_iokey():
     model = Model()
-    model |= Buffer().connect(input="buff_input", output=IOKey(name="buff_out"))
-    model |= Mean(axis=TBD).connect(
-        input="mean_input", axis="axis", output=IOKey(name="mean_out")
-    )
+    model |= Buffer().connect(input="buff_input", output="buff_out")
+    model |= Mean(axis=TBD).connect(input="mean_input", axis="axis", output="mean_out")
+    model.expose_keys("buff_out", "mean_out")
     outer_model = Model()
     outer_model |= model.connect(axis=IOKey(name="axis", value=1))
 

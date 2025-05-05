@@ -559,9 +559,10 @@
                 },
                 "m2": {
                     "input": {"key": {"connect": [["m1", "output"]]}},
-                    "output": {"key": {"name": "output"}}
+                    "output": "output"
                 }
-            }
+            },
+            "exposed_keys": ["output"]
         },
         "input_info": {
             "input1": {
@@ -609,9 +610,10 @@
                 },
                 "m2": {
                     "input": {"key": {"connect": [["m1", "output"]]}},
-                    "output": {"key": {"name": "output"}}
+                    "output": "output"
                 }
-            }
+            },
+            "exposed_keys": ["output"]
         },
         "input_info": {
             "input1": {

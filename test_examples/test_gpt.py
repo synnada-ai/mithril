@@ -21,7 +21,10 @@ from typing import Protocol
 
 import pytest
 
+from examples.gpt.functional_model import create_gpt as create_gpt_functional
+from examples.gpt.model import create_gpt
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+from tests.scripts.helper import assert_models_equal
 
 AllBackendsType = (
     type[TorchBackend] | type[JaxBackend] | type[MlxBackend] | type[NumpyBackend]
@@ -118,6 +121,20 @@ class TestGPT:
 
     @pytest.mark.parametrize("backend", backend_strings)
     def test_run_sample(self, backend: str, run_sample_fn: RunSampleType):
+        sys.setrecursionlimit(739)
+        # Model Configuration
+        config = {
+            "block_size": 100,
+            "vocab_size": 50304,
+            "num_layers": 12,
+            "num_heads": 12,
+            "dims": 768,
+            "bias": True,
+        }
+        gpt = create_gpt(**config)
+        gpt._freeze()
+        gpt_func = create_gpt_functional(**config)
+        assert_models_equal(gpt, gpt_func)
         with redirect_stdout(StringIO()) as prompt_output:
             run_sample_fn(
                 backend,

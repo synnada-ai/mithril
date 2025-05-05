@@ -46,7 +46,7 @@ class Backend(ABC, Generic[DataType]):
         types.Dtype.float64,
     ]
     dtype_map: Any  # TODO: Type should be BiMAP
-    primitive_function_dict: dict[str, Callable[..., DataType | Any]]
+    op_function_dict: dict[str, Callable[..., DataType | Any]]
     registered_primitives: dict[str, Callable[..., DataType]]
     array_creation_funcs: list[str]
     primitive_fn_path: str

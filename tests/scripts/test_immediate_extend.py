@@ -26,16 +26,20 @@ from mithril.models import (
     AtLeast1D,
     Buffer,
     Concat,
+    Convolution2D,
+    GroupNorm,
     Linear,
     Model,
     Multiply,
     Power,
     Reshape,
     ScaledDotProduct,
+    Square,
     Tensor,
     ToList,
     Transpose,
     Where,
+    functional,
 )
 
 from .helper import assert_models_equal
@@ -653,7 +657,346 @@ def test_flat_model_key_naming_matching():
     assert model.conns.get_con_by_metadata(metadata) is not None  # type: ignore
     flat_model = FlatModel(
         model,
-        ml.JaxBackend().primitive_function_dict,
+        ml.JaxBackend().op_function_dict,
         short_namings=False,
     )
     assert flat_model.queued_models == {}
+
+
+def test_functional_model():
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = Add()(input1, input2)
+    x = Multiply()(x, x)
+    x = x**2  # type: ignore
+
+    model = Model()
+    model |= (add := Add()).connect("input1", "input2")
+    model |= (mult := Multiply()).connect(add.output, add.output)
+    model |= Power().connect(mult.output, 2)
+
+    assert x.model is not None
+    assert_models_equal(x.model, model)
+
+
+def test_functional_model_with_lin():
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = Add()(left=input1, right=input2)
+    x = Multiply()(left=x, right=x)
+    x = x**2  # type: ignore
+    x = Linear()(input=x)
+
+    model = Model()
+    model |= (add := Add()).connect("input1", "input2")
+    model |= (mult := Multiply()).connect(add.output, add.output)
+    model |= (pow := Power()).connect(mult.output, 2)
+    model |= Linear().connect(input=pow.output)
+
+    assert_models_equal(x.model.parent, model)  # type: ignore
+
+
+def test_functional_model_with_create_api():
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = Add()(left=input1, right=input2)
+    x = Multiply()(left=x, right=x)
+    x = x**2  # type: ignore
+    x = Linear()(input=x)
+    f_model = Model.create(x)  # type: ignore
+
+    model = Model()
+    model |= (add := Add()).connect("input1", "input2")
+    model |= (mult := Multiply()).connect(add.output, add.output)
+    model |= (pow := Power(exponent=2)).connect(mult.output)
+    model |= Linear().connect(input=pow.output)
+    model._freeze()
+
+    assert_models_equal(f_model, model)
+
+
+def test_functional_model_with_create_api_no_key_namings():
+    input1 = IOKey()
+    input2 = IOKey()
+    x = Add()(left=input1, right=input2)
+    x = Multiply()(left=x, right=x)
+    x = x**2  # type: ignore
+    x = Linear()(input=x)
+    f_model = Model.create(x)  # type: ignore
+
+    model = Model()
+    model |= (add := Add())
+    model |= (mult := Multiply()).connect(add.output, add.output)
+    model |= (pow := Power(exponent=2)).connect(mult.output)
+    model |= Linear().connect(input=pow.output)
+    model._freeze()
+
+    assert_models_equal(f_model, model)
+
+
+def test_functional_model_with_create_api_with_immediate_in_call():
+    input1 = IOKey()
+    x = Add()(left=input1, right=3)
+    x = Multiply()(left=x, right=x)
+    x = x**2  # type: ignore
+    x = Linear()(input=x)
+    f_model = Model.create(x)  # type: ignore
+
+    model = Model()
+    model |= (add := Add(right=3)).connect()
+    model |= (mult := Multiply()).connect(add.output, add.output)
+    model |= (pow := Power(exponent=2)).connect(mult.output)
+    model |= Linear().connect(input=pow.output)
+    model._freeze()
+
+    assert_models_equal(f_model, model)
+
+
+def test_functional_model_with_create_api_with_immediate_in_model_init():
+    input1 = IOKey()
+    x = Add(right=3)(left=input1)
+    f_model = Model.create(x)  # type: ignore
+
+    model = Model()
+    model |= Add(right=3)
+    model._freeze()
+
+    assert_models_equal(f_model, model)
+
+
+def test_functional_partial_model_creation():
+    input = IOKey("input")
+    t_input = input.transpose((0, 2, 3, 1))
+    _ = t_input**2
+    model = Model()
+    model |= Buffer().connect(input=t_input)
+    model._freeze()
+
+    input = IOKey("input")
+    t_input = Transpose(axes=(0, 2, 3, 1))(input=input)  # type: ignore
+    _ = t_input**2
+    b_out = Buffer()(input=t_input)
+    functional_model = Model.create(b_out)  # type: ignore
+
+    input = IOKey("input")
+    t_input = input.transpose((0, 2, 3, 1))
+    _ = t_input**2
+    b_out = Buffer()(input=t_input)
+    functional_model2 = Model.create(b_out)  # type: ignore
+
+    assert_models_equal(functional_model, model)
+    assert_models_equal(functional_model2, model)
+
+
+def test_functional_model_unnamed_input_keys():
+    x = IOKey("input", shape=[None, 512, None, None])
+    normalized = GroupNorm(num_groups=32, eps=1e-6, name="norm")(x)
+    functional_model = Model.create(normalized=normalized)  # type: ignore
+
+    x = IOKey("input", shape=[None, 512, None, None])
+    model = Model()
+    model |= GroupNorm(num_groups=32, eps=1e-6, name="norm").connect(x, "normalized")
+    model._freeze()
+
+    assert_models_equal(functional_model, model)
+
+
+def attn_block_functional(n_channels: int, *, name: str | None = None):
+    # Keep the original input for the residual connection.
+    x = IOKey("input", shape=[None, 512, None, None])
+    normalized = GroupNorm(num_groups=32, eps=1e-6, name="norm")(input=x)
+    query = Convolution2D(1, n_channels, name="q")(input=normalized)
+    key = Convolution2D(1, n_channels, name="k")(input=normalized)
+    value = Convolution2D(1, n_channels, name="v")(input=normalized)
+    shape = query.shape  # type: ignore
+
+    query = query.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))  # type: ignore
+    key = key.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))  # type: ignore
+    value = value.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))  # type: ignore
+    sdp_out = ScaledDotProduct(is_causal=False)(query=query, key=key, value=value)
+
+    reshaped = Reshape()(input=sdp_out, shape=(shape[0], shape[2], shape[3], shape[1]))
+    transposed = Transpose(axes=(0, 3, 1, 2))(input=reshaped)
+    proj_out = Convolution2D(1, n_channels, name="proj_out")(input=transposed)
+
+    return Model.create(output=proj_out + x, name=name)  # type: ignore
+
+
+def attn_block(n_channels: int, *, name: str | None = None):
+    block = Model(name=name)
+    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm").connect(
+        IOKey("input", shape=[None, 512, None, None]), "normalized"
+    )
+    block |= Convolution2D(1, n_channels, name="q").connect(
+        "normalized", output="query"
+    )
+    block |= Convolution2D(1, n_channels, name="k").connect("normalized", output="key")
+    block |= Convolution2D(1, n_channels, name="v").connect(
+        "normalized", output="value"
+    )
+
+    query = block.query  # type: ignore[attr-defined]
+    key = block.key  # type: ignore[attr-defined]
+    value = block.value  # type: ignore[attr-defined]
+
+    shape = query.shape  # type: ignore[attr-defined]
+
+    query = query.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
+    key = key.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
+    value = value.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
+    block |= ScaledDotProduct(is_causal=False).connect(
+        query, key, value, output="sdp_out"
+    )
+    block.set_cout("sdp_out")
+
+    block += Reshape().connect(shape=(shape[0], shape[2], shape[3], shape[1]))
+    block += Transpose(axes=(0, 3, 1, 2))
+    block += Convolution2D(1, n_channels, name="proj_out")
+    block += Add().connect(right="input", output=IOKey("output"))
+
+    return block
+
+
+def test_functional_attn_block():
+    n_channels = 512
+    functional_model = attn_block_functional(n_channels)
+    model = attn_block(n_channels)
+    model._freeze()
+    assert_models_equal(functional_model, model)
+
+
+@functional
+def my_lin(left, right):
+    scale = IOKey("scale")
+    add_output = Add()(left=left, right=right)
+    mult_out = Multiply()(left=left, right=add_output)
+    return mult_out * scale  # type: ignore
+
+
+def manual_functional_lin(left, right, name: str | None = None):
+    _l, _r = IOKey(), IOKey()
+    m = Model.create(my_lin(_l, _r), name=name)
+    m.rename_key(_l, "left")
+    m.rename_key(_r, "right")
+    return m(left, right)
+
+
+def test_functional_model_naming():
+    # Functional API with name
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = my_lin(input1, input2, name="my_lin")
+    functional_model = Model.create(x)
+    assert list(functional_model.dag)[0].name == "my_lin"
+
+    # Functional API without name
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = my_lin(input1, input2)
+    functional_model_no_name = Model.create(x)
+    assert list(functional_model_no_name.dag)[0].name == "my_lin"
+    assert_models_equal(functional_model, functional_model_no_name)
+
+
+def test_functional_model_with_decorator():
+    # Functional API with decorator
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = my_lin(input1, input2, name="my_lin")
+
+    # Equivalent model using the |= operator
+
+    # Create Square model
+    model = Model(name="my_lin")
+    model |= (add := Add()).connect(left="left", right="right")
+    model |= (mult1 := Multiply()).connect("left", add.output)
+    model |= Multiply().connect(mult1.output, "scale")
+    # Create wrapper of lin_nested model
+    parent_model = Model()
+    parent_model |= model.connect(left="input1", right="input2")
+
+    assert_models_equal(x.model.parent, parent_model)
+
+    functional_model = Model.create(x)
+    parent_model._freeze()
+    assert_models_equal(functional_model, parent_model)
+
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = manual_functional_lin(input1, input2, name="my_lin")
+    manual_functional_model = Model.create(x)
+    assert_models_equal(manual_functional_model, functional_model)
+
+
+@functional
+def square(arg):
+    return arg**2
+
+
+@functional
+def lin_nested(left, right, *, scale_shp=None):
+    scale = IOKey("scale", shape=scale_shp)
+    add_output = Add()(left=left, right=right)
+    mult_out = Multiply()(left=left, right=add_output)
+    return mult_out * square(scale, name="my_square")
+
+
+def test_functional_model_with_decorator_nested():
+    # Functional API with nested functional model
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = lin_nested(input1, input2, name="my_lin")
+    functional_model = Model.create(x)
+
+    # Equivalent model using the |= operator
+    # Create Square model
+    sq_model = Model("my_square")
+    sq_model |= Square().connect("arg")
+
+    # Create lin_nested model
+    model = Model(name="my_lin")
+    model |= (add := Add()).connect(left="left", right="right")
+    model |= (mult1 := Multiply()).connect("left", add.output)
+    model |= sq_model.connect(arg="scale")
+    model |= Multiply().connect(mult1.output, sq_model.cout)
+
+    # Create wrapper of lin_nested model
+    parent_model = Model()
+    parent_model |= model.connect(left="input1", right="input2")
+    parent_model._freeze()
+
+    assert_models_equal(functional_model, parent_model)
+
+
+def test_functional_model_with_call_concat():
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    x = Concat()(input=[input1**2, Add(right=1)(input2)])
+    functional_model = Model.create(x)
+
+    # Equivalent model using the |= operator
+    model = Model()
+    model |= (pow := Power(exponent=2)).connect("input1")
+    model |= (add := Add(right=1)).connect("input2")
+    model |= Concat().connect(input=[pow.output, add.output])
+    model._freeze()
+
+    assert_models_equal(functional_model, model)  # type: ignore
+
+
+def test_model_create_output_order():
+    for _ in range(20):
+        input1 = IOKey("input1")
+        input2 = IOKey("input2")
+        x = Multiply()(input1, input2)
+        y = Add()(input1, input2)
+        z = Power()(input1, input2)
+        model = Model.create(out1=x, out2=y, out3=z)
+        assert model.output_keys == ["out1", "out2", "out3"]
+
+        in1 = IOKey()
+        in2 = IOKey()
+        _out1, _out2, _out3 = model(in1, in2)  # type: ignore
+        assert model.out1.metadata == _out1.metadata  # type: ignore
+        assert model.out2.metadata == _out2.metadata  # type: ignore
+        assert model.out3.metadata == _out3.metadata  # type: ignore

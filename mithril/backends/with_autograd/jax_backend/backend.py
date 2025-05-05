@@ -74,7 +74,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = str(pre_allocate).lower()
 
         self.array_creation_funcs = ops.array_creation_funcs
-        self.primitive_function_dict = ops.primitive_func_dict
+        self.op_function_dict = ops.primitive_func_dict
         self.dtype_map = core_utils.dtype_map
         self.prng_key = jax.random.PRNGKey(self.seed)
 
