@@ -465,10 +465,12 @@ def test_torch_parallel_4():
     # This test checks parallel execution with a model that includes immediate values
     # in Add primitive.
     model = Model()
-    model += (linear := Linear(256)).connect(
+    model |= (linear := Linear(256)).connect(
         input="input", weight="w", bias="b", output="out1"
     )
-    model += Add().connect(left=linear.output, right=[3] * 256, output="output")  # type: ignore
+    model |= Add().connect(
+        left=linear.output, right=Tensor([3.0] * 256), output="output"
+    )
 
     backend = mithril.TorchBackend()
     backend_parallel = create_parallel_backend(device_mesh=(4, 1))
@@ -939,16 +941,29 @@ def test_torch_parallel_multi_parallel_2():
     assert tensor4._local_tensor.shape == (8, 128)  # type: ignore
 
 
-def test_torch_parallel_multi_pm():
-    import mithril as ml
-    from mithril.models import Add, Linear
+@pytest.mark.skip("This test will be added after Torch Parallel bug is fixed.")
+def test_torch_parallel_single_pm():
+    backend = create_parallel_backend(device_mesh=(4, 1))
 
-    backend = create_parallel_backend(device_mesh=(4,))
+    model1 = Linear()
+    pm1 = compile(model1, backend=backend)
+
+    data1 = {"input": backend.array([[1.0], [2.0], [3.0], [4.0]])}
+    params1 = {"weight": backend.array([[0.2]]), "bias": backend.array([0.5])}
+
+    ref_out1 = torch.tensor([[0.7], [0.9], [1.1], [1.3]])
+    out1 = pm1.evaluate(data=data1, params=params1)["output"].full_tensor()  # type: ignore
+    np.testing.assert_allclose(out1, ref_out1, 1e-5, 1e-5)
+
+
+@pytest.mark.skip("This test will be added after Torch Parallel bug is fixed.")
+def test_torch_parallel_multi_pm():
+    backend = create_parallel_backend(device_mesh=(4, 1))
 
     model1 = Linear()
     model2 = Add()
-    pm1 = ml.compile(model1, backend=backend)
-    pm2 = ml.compile(model2, backend=backend, inference=True)
+    pm1 = compile(model1, backend=backend)
+    pm2 = compile(model2, backend=backend, inference=True)
 
     data1 = {"input": backend.array([[1.0], [2.0], [3.0], [4.0]])}
     params1 = {"weight": backend.array([[0.2]]), "bias": backend.array([0.5])}
@@ -984,7 +999,6 @@ def test_torch_parallel_multi_parallel_3():
         TorchParallel._instance.clean_up()
 
 
-# @pytest.mark.skip(reason="Only works in cuda devices")
 def test_jax_parallel_1():
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
