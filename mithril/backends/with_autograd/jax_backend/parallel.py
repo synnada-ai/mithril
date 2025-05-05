@@ -32,7 +32,8 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
         )
         super().__init__(n_devices)
 
-    def run_callable(self, *primals: jax.Array, fn_name: str) -> Any:
+    def run_callable(self, *primals: jax.Array, fn: Callable[..., Any]) -> Any:
+        fn_name = str(id(fn))
         return self.callables[fn_name](*primals)
 
     def parallelize(
@@ -45,9 +46,13 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
 
         replicate_dims: list[int] = []
 
-        _device_mesh = [1] * tensor.ndim if device_mesh is None else list(device_mesh)
+        tensor_dim = tensor.ndim
+        if tensor_dim == 0:
+            tensor_dim = 1
 
-        _device_mesh = _device_mesh + [1] * (tensor.ndim - len(_device_mesh))
+        _device_mesh = [1] * tensor_dim if device_mesh is None else list(device_mesh)
+
+        _device_mesh = _device_mesh + [1] * (tensor_dim - len(_device_mesh))
 
         mesh_devices = math.prod(_device_mesh)
         unused_devices = self.n_devices // mesh_devices
@@ -67,12 +72,10 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
 
         return jax.device_put(tensor, sharding)
 
-    def register_callable(
-        self, fn: Callable[..., Any], fn_name: str, jit: bool
-    ) -> None:
+    def register_callable(self, fn: Callable[..., Any], jit: bool) -> None:
         if jit:
             fn = jax.jit(fn)
-
+        fn_name = str(id(fn))
         self.callables[fn_name] = fn
 
     def clean_up(self) -> None:

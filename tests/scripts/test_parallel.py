@@ -939,6 +939,33 @@ def test_torch_parallel_multi_parallel_2():
     assert tensor4._local_tensor.shape == (8, 128)  # type: ignore
 
 
+def test_torch_parallel_multi_pm():
+    import mithril as ml
+    from mithril.models import Add, Linear
+
+    backend = create_parallel_backend(device_mesh=(4,))
+
+    model1 = Linear()
+    model2 = Add()
+    pm1 = ml.compile(model1, backend=backend)
+    pm2 = ml.compile(model2, backend=backend, inference=True)
+
+    data1 = {"input": backend.array([[1.0], [2.0], [3.0], [4.0]])}
+    params1 = {"weight": backend.array([[0.2]]), "bias": backend.array([0.5])}
+
+    ref_out1 = torch.tensor([[0.7], [0.9], [1.1], [1.3]])
+    out1 = pm1.evaluate(data=data1, params=params1)["output"].full_tensor()  # type: ignore
+    np.testing.assert_allclose(out1, ref_out1, 1e-5, 1e-5)
+
+    data2 = {
+        "left": backend.array([[1.0], [2.0], [3.0], [4.0]]),
+        "right": backend.array([[0.2], [0.3], [0.4], [0.5]]),
+    }
+    ref_out2 = torch.tensor([[1.2], [2.3], [3.4], [4.5]])
+    out2 = pm2.evaluate(data=data2)["output"].full_tensor()  # type: ignore
+    np.testing.assert_allclose(out2, ref_out2, 1e-5, 1e-5)
+
+
 def test_torch_parallel_multi_parallel_3():
     # Create multiple parallel backends with different incompatible mesh shapes
     if TorchParallel._instance is not None:
