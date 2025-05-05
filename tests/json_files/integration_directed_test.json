@@ -3368,12 +3368,10 @@
                     "input": {"key": {"connect": [["m1", "output"]]}}, 
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }}
+                    "output": "output"
                 }
-            }
+            },
+            "exposed_keys": ["output"]
         },
         "regularizations": [
             {
@@ -3448,30 +3446,22 @@
                     "input": "input", 
                     "weight": "w0", 
                     "bias": "b0", 
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1", 
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2", 
                     "weight": "w2", 
                     "bias": "b2", 
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -3548,30 +3538,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -3655,30 +3637,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -3767,30 +3741,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -3879,30 +3845,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -3991,30 +3949,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -4092,30 +4042,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -4199,30 +4141,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -4306,30 +4240,22 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_keys": {
             "input": [[1.0],[2.0],[3.0],[4.0]]
@@ -4410,10 +4336,7 @@
                 "m2": {
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }}
+                    "output": "output"
                 },
                 "m1": {
                     "input": "input", 
@@ -4421,7 +4344,8 @@
                     "bias": "b0", 
                     "output": {"key": {"connect": [["m2", "input"]]}}
                 }
-            }
+            },
+            "exposed_keys": ["output"]
         },
         "regularizations": [
             {

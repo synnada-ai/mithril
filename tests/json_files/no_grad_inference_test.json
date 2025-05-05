@@ -36,28 +36,20 @@
                 "m3": {
                     "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
                     "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 },
                 "m4": {
                     "left": {"key": {"connect": [["m1", "output"]]}}, 
                     "right": {"key": {"connect": [["m2","output"]]}}, 
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m5": {
                     "left": {"key": {"connect": [["m2", "output"]]}}, 
                     "right": {"key": {"connect": [["m3","output"]]}}, 
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "inputs": {
             "input1": [3.0],
@@ -118,28 +110,20 @@
                 "m3": {
                     "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
                     "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 },
                 "m4": {
                     "left": {"key": {"connect": [["m1", "output"]]}}, 
                     "right": {"key": {"connect": [["m2","output"]]}}, 
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m5": {
                     "left": {"key": {"connect": [["m2", "output"]]}}, 
                     "right": {"key": {"connect": [["m3","output"]]}}, 
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "inputs": {
             "input1": [3.0],
@@ -199,28 +183,20 @@
                 "m3": {
                     "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
                     "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 },
                 "m4": {
                     "left": {"key": {"connect": [["m1", "output"]]}}, 
                     "right": {"key": {"connect": [["m2","output"]]}}, 
-                    "output": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m5": {
                     "left": {"key": {"connect": [["m2", "output"]]}}, 
                     "right": {"key": {"connect": [["m3","output"]]}}, 
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "inputs": {
             "input1": [3.0,1.0],

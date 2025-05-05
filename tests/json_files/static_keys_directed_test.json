@@ -41,22 +41,17 @@
                 "m5": {
                     "left": {"key": {"connect": [["m3","output"]]}},
                     "right": {"key": {"connect": [["m4","output"]]}},
-                    "output": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }}
+                    "output": "output2"
                 },
                 "m6": {
                     "input": "input2"
                 },
                 "m7": {
                     "input": {"key": {"connect": [["m6","output"]]}},
-                    "output": {"key": {
-                        "name": "output", 
-                        "expose": true
-                    }}
+                    "output": "output"
                 }
-            }
+            },
+            "exposed_keys": ["output", "output2"]
         },
         "static_input_shapes": {
             "input1": [1, 1, 1, 1, 1, 1, 1,37, 43]
@@ -105,26 +100,18 @@
                         },
                         "m3": {
                             "input": {"key": {"connect": [["m1","output"]]}},
-                            "output": {"key": {
-                                "name": "output3", 
-                                "expose": true
-                            }}
+                            "output": "output3"
                         },
                         "m4": {
                             "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": {"key": {
-                                "name": "output1", 
-                                "expose": true
-                            }}
+                            "output": "output1"
                         },
                         "m5": {
                             "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": {"key": {
-                                "name": "output2", 
-                                "expose": true
-                            }}
+                            "output": "output2"
                         }
-                    }
+                    },
+                    "exposed_keys": ["output1", "output2", "output3"]
                 },
                 "m4": {
                     "name": "Relu"
@@ -144,31 +131,19 @@
                 "m3": {
                     "input1": {"key": {"connect": [["m1", "output"]]}},
                     "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }},
-                    "output2": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }},
-                    "output3": {"key": {
-                        "name": "output4", 
-                        "expose": true
-                    }}
+                    "output1": "output1",
+                    "output2": "output2",
+                    "output3": "output4"
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "input"]]}},
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
-
+            },
+            "exposed_keys": ["output1", "output2", "output3", "output4"]
         },
         "static_input_shapes": {
             "input1": [1, 1, 1, 1, 1, 1, 1,37, 43]
@@ -216,26 +191,18 @@
                         },
                         "m3": {
                             "input": {"key": {"connect": [["m1","output"]]}},
-                            "output": {"key": {
-                                "name": "output3", 
-                                "expose": true
-                            }}
+                            "output": "output3"
                         },
                         "m4": {
                             "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": {"key": {
-                                "name": "output1", 
-                                "expose": true
-                            }}
+                            "output": "output1"
                         },
                         "m5": {
                             "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": {"key": {
-                                "name": "output2", 
-                                "expose": true
-                            }}
+                            "output": "output2"
                         }
-                    }
+                    },
+                    "exposed_keys": ["output1", "output2", "output3"]
                 },
                 "m4": {
                     "name": "Relu"
@@ -255,31 +222,19 @@
                 "m3": {
                     "input1": {"key": {"connect": [["m1", "output"]]}},
                     "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": {"key": {
-                        "name": "output1", 
-                        "expose": true
-                    }},
-                    "output2": {"key": {
-                        "name": "output2", 
-                        "expose": true
-                    }},
-                    "output3": {"key": {
-                        "name": "output4", 
-                        "expose": true
-                    }}
+                    "output1": "output1",
+                    "output2": "output2",
+                    "output3": "output4"
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": {"key": {
-                        "name": "output3", 
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3", "output4"]
 
         },
         "static_input_shapes": {
@@ -328,26 +283,18 @@
                         },
                         "m3": {
                             "input": {"key": {"connect": [["m1","output"]]}},
-                            "output": {"key": {
-                                "name": "output3",
-                                "expose": true
-                            }}
+                            "output": "output3"
                         },
                         "m4": {
                             "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": {"key": {
-                                "name": "output1",
-                                "expose": true
-                            }}
+                            "output": "output1"
                         },
                         "m5": {
                             "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": {"key": {
-                                "name": "output2",
-                                "expose": true
-                            }}
+                            "output": "output2"
                         }
-                    }
+                    },
+                    "exposed_keys": ["output1", "output2", "output3"]
                 },
                 "m4": {
                     "name": "Relu"
@@ -366,30 +313,19 @@
                 "m3": {
                     "input1": {"key": {"connect": [["m1", "output"]]}},
                     "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": {"key": {
-                        "name": "output1",
-                        "expose": true
-                    }},
-                    "output2": {"key": {
-                        "name": "output2",
-                        "expose": true
-                    }},
-                    "output3": {"key": {
-                        "name": "output4",
-                        "expose": true
-                    }}
+                    "output1": "output1",
+                    "output2": "output2",
+                    "output3": "output4"
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": {"key": {
-                        "name": "output3",
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3", "output4"]
         },
         "static_input_shapes": {
             "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
@@ -440,19 +376,14 @@
                         },
                         "m4": {
                             "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": {"key": {
-                                "name": "output1",
-                                "expose": true
-                            }}
+                            "output": "output1"
                         },
                         "m5": {
                             "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": {"key": {
-                                "name": "output2",
-                                "expose": true
-                            }}
+                            "output": "output2"
                         }
-                    }
+                    },
+                    "exposed_keys": ["output1", "output2"]
                 },
                 "m4": {
                     "name": "Relu"
@@ -472,26 +403,18 @@
                 "m3": {
                     "input1": {"key": {"connect": [["m1", "output"]]}},
                     "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": {"key": {
-                        "name": "output1",
-                        "expose": true
-                    }},
-                    "output2": {"key": {
-                        "name": "output2",
-                        "expose": true
-                    }}
+                    "output1": "output1",
+                    "output2": "output2"
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "input"]]}},
-                    "output": {"key": {
-                        "name": "output3",
-                        "expose": true
-                    }}
+                    "output": "output3"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2", "output3"]
         },
         "static_input_shapes": {
         },
@@ -528,12 +451,10 @@
                         "m2": {
                             "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1", "output"]]}},
-                            "output": {"key": {
-                                "name": "output",
-                                "expose": true
-                            }}
+                            "output": "output"
                         }
-                    }
+                    },
+                    "exposed_keys": ["output"]
                 },
                 "m4": {
                     "name": "Add"
@@ -554,9 +475,7 @@
                 "m3": {
                     "input1": "input1",
                     "input2": "input1",
-                    "output": {
-                        "key": {"name": "output1", "expose": true}
-                    }
+                    "output": "output1"
                 },
                 "m4": {
                     "left": "input2",
@@ -564,12 +483,10 @@
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": {"key": 
-                        {"name": "output2",
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2"]
         },
         "static_input_shapes": {
             "input1": [3, 4, 5]
@@ -607,10 +524,7 @@
                         "m2": {
                             "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1", "output"]]}},
-                            "output": {"key": {
-                                "name": "output",
-                                "expose": true
-                            }}
+                            "output": "output"
                         }
                     }
                 },
@@ -629,18 +543,12 @@
                 "m2": {
                     "left": {"key": {"connect": [["m1", "output"]]}},
                     "right": {"key": {"connect": [["m1", "output"]]}},
-                    "output": {"key": {
-                        "name": "output3",
-                        "expose": true
-                    }}
+                    "output": "output3"
                 },
                 "m3": {
                     "input1": "input1",
                     "input2": "input1",
-                    "output": {"key": 
-                        {"name": "output1",
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m4": {
                     "left": "input2",
@@ -648,10 +556,7 @@
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": {"key": 
-                        {"name": "output2",
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
             }
         },
@@ -692,10 +597,7 @@
                         "m2": {
                             "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1", "output"]]}},
-                            "output": {"key": {
-                                "name": "output",
-                                "expose": true
-                            }}
+                            "output": "output"
                         }
                     }
                 },
@@ -718,10 +620,7 @@
                 "m3": {
                     "input1": "input1",
                     "input2": "input1",
-                    "output": {"key": 
-                        {"name": "output1",
-                        "expose": true
-                    }}
+                    "output": "output1"
                 },
                 "m4": {
                     "left": "input2",
@@ -729,12 +628,10 @@
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": {"key": 
-                        {"name": "output2",
-                        "expose": true
-                    }}
+                    "output": "output2"
                 }
-            }
+            },
+            "exposed_keys": ["output1", "output2"]
         },
         "static_input_shapes": {
             "input2": [3, 4, 5],
