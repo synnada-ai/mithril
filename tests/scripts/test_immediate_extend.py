@@ -696,6 +696,21 @@ def test_functional_model_with_lin():
     assert_models_equal(x.model.parent, model)  # type: ignore
 
 
+def test_exposing_existing_output_connection():
+    input = IOKey("input")
+    out = Buffer()(input=input)
+    a = out**2
+    m = Model.create(output=a, buff_out=out)
+
+    model = Model()
+    model |= (buff := Buffer()).connect("input", "buff_out")
+    model |= Power(exponent=2).connect(buff.output, output="output")
+    model.expose_keys("output", "buff_out")
+    model._freeze()
+
+    assert_models_equal(m, model)  # type: ignore
+
+
 def test_functional_model_with_create_api():
     input1 = IOKey("input1")
     input2 = IOKey("input2")
@@ -1000,3 +1015,42 @@ def test_model_create_output_order():
         assert model.out1.metadata == _out1.metadata  # type: ignore
         assert model.out2.metadata == _out2.metadata  # type: ignore
         assert model.out3.metadata == _out3.metadata  # type: ignore
+
+
+def check_constraints(model: Model):
+    constraints = set()
+    for key in model.conns.all.values():
+        constraints |= key.metadata.all_constraints
+    assert model.constraint_solver.constraint_map.keys() == constraints
+
+
+def test_constraint_cleaning():
+    hidden_states = IOKey("input")
+    height = IOKey("height")
+
+    height = Buffer()(input=height)
+    hidden_states = Reshape()(input=hidden_states)
+
+    model = Model.create(height_out=height, output=hidden_states)
+    check_constraints(model)
+
+
+def test_constraint_cleaning_lin():
+    model = Linear()
+    check_constraints(model)
+
+
+def test_constraint_cleaning_manual_lin():
+    weight_key = IOKey(name="weight", differentiable=True).transpose()
+
+    model = Model()
+    model |= Buffer().connect(weight_key)
+    check_constraints(model)
+
+
+def test_constraint_cleaning_composite():
+    in1 = IOKey(name="input1").transpose()
+    in2 = IOKey(name="input2").transpose()
+    model = Model()
+    model |= Add().connect(in1, in2)
+    check_constraints(model)

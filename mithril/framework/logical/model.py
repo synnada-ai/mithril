@@ -457,7 +457,8 @@ class Model(BaseModel):
             assert value.model is not None
             extract_m = value.model.get_outermost_parent()
             assert isinstance(extract_m, Model)
-            model.extend_extracted_model(extract_m, value)
+            if extract_m is not model:
+                model.extend_extracted_model(extract_m, value)
 
         model.expose_keys(**kwargs)
         # Freeze the model to prevent further modifications
@@ -546,6 +547,7 @@ class Model(BaseModel):
         self.provisional_model = provisional_model
         provisional_model.enforce_jit = self.enforce_jit
         updates = self.constraint_solver.match(provisional_model.constraint_solver)
+        provisional_model.constraint_solver.clear()
         self.constraint_solver(updates)
         provisional_model._constraint_solver = self._constraint_solver
 
@@ -640,6 +642,7 @@ class Model(BaseModel):
         if self.provisional_model is None:
             use_sub_provisional = True
             self._bind_provisional_model(model)
+        self.constraint_solver.match(model.constraint_solver)
 
         con = model.conns.get_con_by_metadata(start_con.metadata)
         submodels = []
