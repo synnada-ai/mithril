@@ -13,9 +13,12 @@
 # limitations under the License.
 
 import pytest
-from mithril import compile, TorchBackend
+
+from mithril import TorchBackend, compile
 from mithril.models import Add
+
 from .test_parallel import create_parallel_backend
+
 
 def test_single_dim_mesh_divisible():
     """Test case with (4,) mesh and dimensions divisible by 4"""
@@ -26,6 +29,7 @@ def test_single_dim_mesh_divisible():
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 4, 1, 1), "right": (1, 1, 4, 1)}
 
+
 def test_single_dim_mesh_indivisible():
     """Test case with (4,) mesh and dimensions not divisible by 4"""
     model = Add()
@@ -34,6 +38,7 @@ def test_single_dim_mesh_indivisible():
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": None, "right": None}
+
 
 def test_two_dim_mesh_2_2():
     """Test case with (2, 2) mesh and dimensions divisible by both 2s"""
@@ -44,6 +49,7 @@ def test_two_dim_mesh_2_2():
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 2, 2, 1), "right": (1, 2, 2, 1)}
 
+
 def test_two_dim_mesh_3_2():
     """Test case with (3, 2) mesh and dimensions divisible by 3 and 2"""
     model = Add()
@@ -52,7 +58,8 @@ def test_two_dim_mesh_3_2():
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 3, 2, 1), "right": (1, 3, 2, 1)}
-    
+
+
 def test_two_dim_mesh_2_3():
     """Test case with (2, 3) mesh and dimensions divisible by 2 and 3"""
     model = Add()
@@ -60,8 +67,9 @@ def test_two_dim_mesh_2_3():
     backend = create_parallel_backend(device_mesh=(2, 3))
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
-    # The result should be the same as (3, 2) case since we're looking for matching dimensions
+    # The result will be same as (3, 2) case since we're looking for matching dimensions
     assert shardings == {"left": (1, 3, 2, 1), "right": (1, 3, 2, 1)}
+
 
 def test_mixed_shape_compatibility():
     """Test case with mixed shapes - one divisible, one not"""
@@ -71,22 +79,24 @@ def test_mixed_shape_compatibility():
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 4, 1, 1), "right": None}
-    
+
+
 def test_with_known_shardings():
     """Test case with pre-defined known shardings"""
     model = Add()
     model.set_shapes(left=[1, 512, 4, 4], right=[1, 512, 4, 4])
     backend = create_parallel_backend(device_mesh=(4,))
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
-    
+
     # Define custom sharding for "left"
     given_shards = {"left": (1, 1, 1, 4)}
-    
+
     shardings = pm.get_automized_shardings(given_shards=given_shards)  # type: ignore
-    
-    # Known sharding should be preserved and automized 
+
+    # Known sharding should be preserved and automized
     # sharding should be calculated for "right"
     assert shardings == {"left": (1, 1, 1, 4), "right": (1, 4, 1, 1)}
+
 
 def test_different_input_shapes():
     """Test with different input shapes for left and right"""
@@ -97,6 +107,7 @@ def test_different_input_shapes():
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 4, 2, 1), "right": None}
 
+
 def test_one_dimensional_inputs():
     """Test with one-dimensional inputs"""
     model = Add()
@@ -105,6 +116,7 @@ def test_one_dimensional_inputs():
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (4,), "right": (4,)}
+
 
 def test_large_mesh_dimension():
     """Test with mesh dimension larger than any shape dimension"""
@@ -120,7 +132,7 @@ def test_large_mesh_dimension_ones_in_mesh():
     """Test with mesh dimension larger than any shape dimension"""
     model = Add()
     model.set_shapes(left=[1, 2, 3, 4], right=[1, 2, 3, 4])
-    backend = create_parallel_backend(device_mesh=(1,1,1,1,1,1,3,1,1,1,1,1))
+    backend = create_parallel_backend(device_mesh=(1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1))
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 1, 3, 1), "right": (1, 1, 3, 1)}
@@ -130,7 +142,7 @@ def test_large_mesh_dimension_shp_with_none():
     """Test with mesh dimension larger than any shape dimension"""
     model = Add()
     model.set_shapes(left=[None, None, 3, None], right=[None])
-    backend = create_parallel_backend(device_mesh=(1,1,1,1,1,1,3,1,1,1,1,1))
+    backend = create_parallel_backend(device_mesh=(1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1))
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": (1, 1, 3, 1), "right": None}
@@ -140,7 +152,7 @@ def test_large_mesh_dimension_shp_with_ellipsis():
     """Test with mesh dimension larger than any shape dimension"""
     model = Add()
     model.set_shapes(left=[1, None, ("V2", ...), 1, 3], right=[("V1", ...)])
-    backend = create_parallel_backend(device_mesh=(1,1,1,1,1,1,3,1,1,1,1,1))
+    backend = create_parallel_backend(device_mesh=(1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1))
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings()
     assert shardings == {"left": None, "right": None}
@@ -150,7 +162,7 @@ def test_large_mesh_dimension_shp_with_given_shards():
     """Test with mesh dimension larger than any shape dimension"""
     model = Add()
     model.set_shapes(left=[None, None, 3, None], right=[None])
-    backend = create_parallel_backend(device_mesh=(1,1,1,1,1,1,3,1,1,1,1,1))
+    backend = create_parallel_backend(device_mesh=(1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1))
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     shardings = pm.get_automized_shardings({"left": (3, 1, 1, 1)})
     assert shardings == {"left": (3, 1, 1, 1), "right": None}
@@ -163,6 +175,6 @@ def test_large_mesh_dimension_shp_with_type_error():
     backend = TorchBackend()
     pm = compile(model, backend, jit=False, data_keys={"left", "right"}, inference=True)
     with pytest.raises(TypeError) as error_info:
-        # This should raise a TypeError because the mesh is not compatible with the shape
+        # This should raise TypeError because the mesh is not compatible with the shape
         _ = pm.get_automized_shardings({"left": (3, 1, 1, 1)})
     assert str(error_info.value) == "Sharding is only supported for parallel backends!"
