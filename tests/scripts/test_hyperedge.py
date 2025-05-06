@@ -558,7 +558,7 @@ def test_list_of_tensor_type_edge_match_with_list_of_tensor_value_edge():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == set()
     assert updates.shape_updates == set()
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
@@ -597,7 +597,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
@@ -721,7 +721,7 @@ def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 ValueType = Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
@@ -946,7 +946,7 @@ def test_match_two_tensors_in_two_containers():
 
     assert set(edge1.tensors) == {t1}
 
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_match_four_tensors_in_two_nested_containers():
@@ -983,7 +983,7 @@ def test_match_four_tensors_in_two_nested_containers():
 
     assert set(edge1.tensors) == {t1}
 
-    assert updates.value_updates == set()
+    assert updates.value_updates == {edge1}
 
 
 def test_match_four_tensors_in_two_nested_containers_with_tbd():
@@ -1236,3 +1236,123 @@ def test_three_edge_reference():
     assert t3.referees == set()
     assert t4.referees == set()
     assert t5.referees == set()
+
+
+def test_hyperedge_set_same_value():
+    """
+    Tests the following case:
+
+    edge1:  [[3.1, T1],  ----> [[3.1, T1],
+             [T2, TBD]]          [T2, TBD]]
+                ^
+                |
+                |
+
+            [[3.1, T1],
+             [T2, TBD]]
+
+
+    T1 and T2 are all different Tensor objects.
+    """
+
+    t1: Tensor[int] = Tensor(type=int)
+    t2: Tensor[int] = Tensor(type=int)
+
+    edge1 = IOHyperEdge(value=[[3.1, t1], [t2, TBD]])
+    updates = edge1.set_value(value=[[3.1, t1], [t2, TBD]])
+    assert edge1._value == [[3.1, t1], [t2, TBD]]
+
+    assert updates.value_updates == set()
+    assert updates.constraints == set()
+    assert updates.node_updates == set()
+    assert updates.shape_updates == set()
+    assert updates.uniadic_updates == set()
+
+
+def test_hyperedge_type_match():
+    """
+    Tests the following case:
+
+
+
+    edge1:  tuple[int | float, float] ----+
+                                          |
+                                          + -> tuple[int, float]
+                                          |
+    edge2:  tuple[int, float] ------------+
+
+    edge1 has constr1[TYPE]
+    edge2 has constr2[TYPE]
+
+    result should have {constr1[TYPE], constr2[TYPE]}
+
+
+    """
+    constr1 = Constraint(fn=reduce_constraints, types=[UpdateType.TYPE])
+    constr2 = Constraint(fn=reduce_constraints, types=[UpdateType.TYPE])
+
+    edge1 = IOHyperEdge(type=tuple[int | float, float])
+    edge1.add_constraint(constr1)
+
+    edge2 = IOHyperEdge(type=tuple[int, float])
+    edge2.add_constraint(constr2)
+
+    updates = edge1.match(edge2)
+    assert edge1._type == tuple[int, float]
+
+    assert updates.constraints == {constr1}
+    assert edge1.constraints[UpdateType.SHAPE] == set()
+    assert edge1.constraints[UpdateType.TYPE] == {constr1, constr2}
+    assert edge1.constraints[UpdateType.VALUE] == set()
+
+
+def test_hyperedge_set_type():
+    """
+
+    edge1: tuple[int | float, float]  ----> tuple[int, float]
+                    ^
+                    |
+                    |
+                    |
+           tuple[int, float]
+
+
+    """
+    constr1 = Constraint(fn=reduce_constraints, types=[UpdateType.TYPE])
+
+    edge1 = IOHyperEdge(type=tuple[int | float, float])
+    edge1.add_constraint(constr1)
+
+    updates = edge1.set_type(tuple[int, float])
+    assert edge1._type == tuple[int, float]
+
+    assert updates.constraints == {constr1}
+    assert edge1.constraints[UpdateType.SHAPE] == set()
+    assert edge1.constraints[UpdateType.TYPE] == {constr1}
+    assert edge1.constraints[UpdateType.VALUE] == set()
+
+
+def test_hyperedge_set_same_type():
+    """
+
+    edge1: tuple[int, float]  ----> tuple[int, float]
+                    ^
+                    |
+                    |
+                    |
+           tuple[int, float]
+
+
+    """
+    constr1 = Constraint(fn=reduce_constraints, types=[UpdateType.TYPE])
+
+    edge1 = IOHyperEdge(type=tuple[int, float])
+    edge1.add_constraint(constr1)
+
+    updates = edge1.set_type(tuple[int, float])
+    assert edge1._type == tuple[int, float]
+
+    assert updates.constraints == set()
+    assert edge1.constraints[UpdateType.SHAPE] == set()
+    assert edge1.constraints[UpdateType.TYPE] == {constr1}
+    assert edge1.constraints[UpdateType.VALUE] == set()

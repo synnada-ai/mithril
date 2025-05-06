@@ -1,0 +1,11 @@
+---
+# Common settings
+BasedOnStyle: Google
+
+
+# For JSON specifically (language-specific options)
+---
+Language: Json
+BreakArrays: false  # Don't automatically break after [ in arrays
+
+--- 

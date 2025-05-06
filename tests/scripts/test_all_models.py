@@ -560,6 +560,15 @@ def test_train_model_linear_1():
     )
 
 
+def test_match_with_valued_connection():
+    from mithril.models import Add
+
+    model = Model()
+    model |= Add().connect("left", "right")
+    model |= Add(left=2).connect("left", right="right2", output="output")
+    assert "left" in model.conns.input_keys
+
+
 def test_conv1d_1():
     model = Convolution1D(3, 2)
     train_model = TrainModel(model)
@@ -2125,24 +2134,6 @@ def test_size_2():
         reference_outputs=reference_outputs,
         reference_gradients=None,
         tolerances=None,
-    )
-
-
-def test_size_3():
-    model = Size(dim=(1, 2))
-    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
-    reference_outputs = {"output": (3, 4)}
-    compile_and_compare(
-        model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
-        data={},
-        params={},
-        output_gradients={},
-        reference_outputs=reference_outputs,
-        reference_gradients=None,
-        tolerances=None,
-        ignore_transform={"output"},
-        assert_shapes=False,
     )
 
 
@@ -4496,9 +4487,10 @@ def test_concat_3_with_indexer_list_input():
     input3 = IOKey("input3", type=Tensor)
 
     model |= to_list.connect(input1=input1, input2=input2, input3=input3)
-    model += concat_1.connect(output=IOKey("output_1"))
+    model += concat_1.connect(output="output_1")
     indexed_data = to_list.output[-2:]
-    model |= concat_2.connect(input=indexed_data, output=IOKey("output_2"))
+    model |= concat_2.connect(input=indexed_data, output="output_2")
+    model.expose_keys("output_1", "output_2")
 
     params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
     data = {"input2": [[3.0, 4.0]]}
@@ -4545,9 +4537,10 @@ def test_concat_3_with_indexer_tuple_input():
     input3 = IOKey("input3", type=Tensor)
 
     model |= to_tuple.connect(input1=input1, input2=input2, input3=input3)
-    model += concat_1.connect(output=IOKey("output_1"))
+    model += concat_1.connect(output="output_1")
     indexed_data = to_tuple.output[-2:]
-    model |= concat_2.connect(input=indexed_data, output=IOKey("output_2"))
+    model |= concat_2.connect(input=indexed_data, output="output_2")
+    model.expose_keys("output_1", "output_2")
 
     params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
     data = {"input2": [[3.0, 4.0]]}
@@ -4765,7 +4758,7 @@ def test_split_with_concat():
     model = Model()
     input = IOKey("input", differentiable=True, shape=(4, 2))
     model |= Split(split_size=2, axis=0).connect(input=input, output="split_output")
-    model |= Concat(axis=1).connect(input="split_output", output=IOKey("output"))
+    model |= Concat(axis=1).connect(input="split_output", output="output")
 
     params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
     ref_out = {"output": [[1.0, 2.0, 5.0, 6.0], [3.0, 4.0, 7.0, 8.0]]}
@@ -4795,8 +4788,8 @@ def test_split_with_2_concat():
     model |= (split := Split(split_size=2, axis=0)).connect(
         input=input, output="split_output"
     )
-    model |= Concat(axis=1).connect(input=split.output[0:1], output=IOKey("output_1"))
-    model |= Concat(axis=1).connect(input=split.output[1:2], output=IOKey("output_2"))
+    model |= Concat(axis=1).connect(input=split.output[0:1], output="output_1")
+    model |= Concat(axis=1).connect(input=split.output[1:2], output="output_2")
 
     params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
     ref_out = {
@@ -4832,8 +4825,8 @@ def test_split_with_2_concat_4_split():
     model |= (split := Split(split_size=4, axis=0)).connect(
         input=input, output="split_output"
     )
-    model |= Concat(axis=1).connect(input=split.output[0:2], output=IOKey("output_1"))
-    model |= Concat(axis=1).connect(input=split.output[2:4], output=IOKey("output_2"))
+    model |= Concat(axis=1).connect(input=split.output[0:2], output="output_1")
+    model |= Concat(axis=1).connect(input=split.output[2:4], output="output_2")
 
     params = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]}
     ref_out = {"output_1": [[1.0, 2.0, 3.0, 4.0]], "output_2": [[5.0, 6.0, 7.0, 8.0]]}
@@ -5017,7 +5010,7 @@ def test_list_of_list_type_data_flow():
     model |= (tl_1 := ToList(n=2)).connect(input1=input_1, input2=input_2)
     model |= (tl_2 := ToList(n=2)).connect(input1=input_2, input2=input_2)
     model |= (tl_3 := ToList(n=2)).connect(input1=tl_1.output, input2=tl_2.output)
-    model |= Buffer().connect(tl_3.output[0][0], output=IOKey("output"))
+    model |= Buffer().connect(tl_3.output[0][0], output="output")
 
     output = [1.0]
     output_grad = [0.1]

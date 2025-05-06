@@ -55,9 +55,8 @@ def layer_norm(name: str | None = None):
     block |= LayerNorm().connect(
         input=block.cout, weight=IOKey("weight"), bias=IOKey("bias")
     )  # type: ignore
-    block |= Cast().connect(
-        dtype=input.dtype(), input=block.cout, output=IOKey("output")
-    )  # type: ignore
+    block |= Cast().connect(dtype=input.dtype(), input=block.cout, output="output")  # type: ignore
+    block.expose_keys("output")
     block.set_cin("input")
     return block
 
@@ -66,7 +65,8 @@ def quick_gelu(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     block |= Sigmoid().connect((1.702 * input), output="sigmoid")
-    block |= Buffer().connect(input * block.sigmoid, output=IOKey("output"))  # type: ignore
+    block |= Buffer().connect(input * block.sigmoid, output="output")  # type: ignore
+    block.expose_keys("output")
     return block
 
 
@@ -113,8 +113,9 @@ def multi_head_attention(
     block |= Linear(d_model, name="out_proj").connect(values_hat, output="out")
     block |= Buffer().connect(
         input=block.out.reshape((B, L, d_model)),  # type: ignore
-        output=IOKey("output"),
+        output="output",
     )
+    block.expose_keys("output")
     return block
 
 
@@ -129,8 +130,9 @@ def mlp_resblock(d_model: int, name: str | None = None):
     )
     block |= Linear(d_model, name="c_proj").connect(
         input=block.gelu_output,  # type: ignore
-        output=IOKey("output"),
+        output="output",
     )
+    block.expose_keys("output")
     return block
 
 
@@ -154,7 +156,8 @@ def residual_attention_block(
     block |= mlp.connect(input=block.ln_2, output="mlp_output")  # type: ignore
 
     result = input + block.attention + block.mlp_output  # type: ignore
-    block |= Buffer().connect(result, output=IOKey("output"))
+    block |= Buffer().connect(result, output="output")
+    block.expose_keys("output")
     return block
 
 
@@ -172,7 +175,8 @@ def seq_resblocks(
             width, heads, use_attn_mask=use_attn_mask, name=f"{idx}"
         ).connect(input=input_key, output=f"attn_output_{idx}")
         input_key = f"attn_output_{idx}"
-    block |= Buffer().connect(input=f"attn_output_{idx}", output=IOKey("output"))
+    block |= Buffer().connect(input=f"attn_output_{idx}", output="output")
+    block.expose_keys("output")
     return block
 
 
@@ -195,7 +199,8 @@ def transformer(
     )
     block |= resblocks.connect(input=input, output="resblocks_output")
 
-    block |= Buffer().connect(input=block.resblocks_output, output=IOKey("output"))  # type: ignore
+    block |= Buffer().connect(input=block.resblocks_output, output="output")  # type: ignore
+    block.expose_keys("output")
 
     return block
 
@@ -269,11 +274,13 @@ def vision_transformer(
         block |= Buffer().connect(
             block.ln_post[:, 0, :]  # type: ignore
             @ IOKey("proj", differentiable=True, shape=(width, output_dim)),
-            output=IOKey("output"),
+            output="output",
         )
+        block.expose_keys("output")
         return block
 
-    block |= Buffer().connect(input=block.ln_post[:, 0, :], output=IOKey("output"))  # type: ignore
+    block |= Buffer().connect(input=block.ln_post[:, 0, :], output="output")  # type: ignore
+    block.expose_keys("output")
     return block
 
 
@@ -331,7 +338,8 @@ def multi_head_attention_forward(
     )
     attn_output = attn_output @ out_proj_weight.transpose() + out_proj_bias
 
-    block |= Buffer().connect(input=attn_output, output=IOKey("output"))
+    block |= Buffer().connect(input=attn_output, output="output")
+    block.expose_keys("output")
 
     return block
 
@@ -417,8 +425,9 @@ def attention_pool2d(
     block |= Reshape().connect(
         input=block.attention,  # type: ignore
         shape=(attn_shape[-2], attn_shape[-1]),
-        output=IOKey("output"),
+        output="output",
     )
+    block.expose_keys("output")
     return block
 
 
@@ -470,7 +479,8 @@ def bottleneck(inplanes: int, planes: int, stride: int = 1, name: str | None = N
 
     else:
         out = block.out1 + input  # type: ignore
-    block |= Relu(name="relu3").connect(out, output=IOKey("output"))
+    block |= Relu(name="relu3").connect(out, output="output")
+    block.expose_keys("output")
     block.set_cout("output")
 
     return block
@@ -489,7 +499,8 @@ def make_layer(inplanes, planes, blocks, stride=1, name: str | None = None):
             input=input_key, output=f"bottle_neck{i}"
         )
         input_key = f"bottle_neck{i}"
-    block |= Buffer().connect(input=f"bottle_neck{i}", output=IOKey("output"))
+    block |= Buffer().connect(input=f"bottle_neck{i}", output="output")
+    block.expose_keys("output")
     return block
 
 
@@ -553,7 +564,8 @@ def modified_resnet(
         input=input_key,
         output="attn_output",
     )
-    block |= Buffer().connect(input=block.attn_output, output=IOKey("output"))  # type: ignore
+    block |= Buffer().connect(input=block.attn_output, output="output")  # type: ignore
+    block.expose_keys("output")
     return block
 
 
@@ -577,7 +589,8 @@ def norm(
         assert isinstance(p, int)
         block += Sum(axis=axis, keepdim=keepdim).connect(input=(input.abs() ** p))
         block += Power(exponent=(1 / p))
-    block += Buffer().connect(output=IOKey("output"))
+    block += Buffer().connect(output="output")
+    block.expose_keys("output")
     return block
 
 
@@ -701,8 +714,9 @@ def clip(
     logit_scale = IOKey("logit_scale", type=ml.Tensor, differentiable=True, shape=(1,))
     logits_per_image = logit_scale.exp() * (image_features @ text_features.transpose())
     logits_per_text = logits_per_image.transpose()
-    block |= Buffer().connect(input=logits_per_image, output=IOKey("logits_per_image"))
-    block |= Buffer().connect(input=logits_per_text, output=IOKey("logits_per_text"))
+    block |= Buffer().connect(input=logits_per_image, output="logits_per_image")
+    block |= Buffer().connect(input=logits_per_text, output="logits_per_text")
+    block.expose_keys("logits_per_image", "logits_per_text")
 
     return block
 
@@ -716,6 +730,7 @@ def build_attention_mask() -> Model:
         cond=upper_bool_triu,
         input1=Tensor(0.0),
         input2=Tensor(float("-inf")),
-        output=IOKey("output"),
+        output="output",
     )
+    block.expose_keys("output")
     return block
