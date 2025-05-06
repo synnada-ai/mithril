@@ -43,41 +43,17 @@ class GGMLCodeGen(CGen):
         stdlib_include = c_ast.Include("stdlib.h", system=True)
         self.imports.append(stdlib_include)
 
-        # Generate static context variables as global variables
+        # Generate static context, buffer, backend, graph and
+        # allocator variables as global variables
         # We are storing these in global variables to be able to
-        # access them in all functions
-        eval_static_ctx = c_ast.StaticVariable(
-            c_ast.Pointer("g_context"),
-            "eval_static_ctx",
-            c_ast.Constant("NULL"),
-        )
-
-        eval_static_gf = c_ast.StaticVariable(
-            c_ast.Pointer("struct ggml_cgraph"),
-            "eval_static_gf",
-            c_ast.Constant("NULL"),
-        )
-
-        eval_grad_static_ctx = c_ast.StaticVariable(
-            c_ast.Pointer("g_context"),
-            "eval_grad_static_ctx",
-            c_ast.Constant("NULL"),
-        )
-
-        eval_grad_static_gf = c_ast.StaticVariable(
-            c_ast.Pointer("struct ggml_cgraph"),
-            "eval_grad_static_gf",
-            c_ast.Constant("NULL"),
-        )
+        # access them in all functions (evaluate and evaluate_gradients)
+        static_vars = self.genearate_static_variables()
 
         cleanup_fn = self.generate_cleanup_fn()
 
         self.globals.extend(
             [
-                eval_static_ctx,
-                eval_grad_static_ctx,
-                eval_static_gf,
-                eval_grad_static_gf,
+                *static_vars,
                 cleanup_fn,
             ]
         )
@@ -86,7 +62,7 @@ class GGMLCodeGen(CGen):
 
     def generate_cleanup_fn(self) -> c_ast.Stmt:
         fn_body: list[c_ast.Stmt] = []
-
+        # Add cleanup function to free the allocated memory at exit
         # Add if check for static_ctx
         if_check1 = c_ast.If(
             c_ast.Variable("eval_static_ctx != NULL"),
@@ -96,18 +72,48 @@ class GGMLCodeGen(CGen):
             ],
         )
 
+        # Add if check for backend_static_ctx
         if_check2 = c_ast.If(
-            c_ast.Variable("eval_grad_static_ctx != NULL"),
+            c_ast.Variable("eval_backend_static_ctx != NULL"),
             [
-                c_ast.MakeStmt(c_ast.Call("ggml_free", ["eval_grad_static_ctx"])),
+                c_ast.MakeStmt(c_ast.Call("ggml_free", ["eval_backend_static_ctx"])),
                 c_ast.Assign(
-                    c_ast.Variable("eval_grad_static_ctx"), c_ast.Constant("NULL")
+                    c_ast.Variable("eval_backend_static_ctx"), c_ast.Constant("NULL")
                 ),
             ],
         )
 
+        # Add if check for static_gf
+        if_check3 = c_ast.If(
+            c_ast.Variable("eval_allocr != NULL"),
+            [
+                c_ast.MakeStmt(c_ast.Call("ggml_gallocr_free", ["eval_allocr"])),
+                c_ast.Assign(c_ast.Variable("eval_allocr"), c_ast.Constant("NULL")),
+            ],
+        )
+
+        # Add if check for static_gf
+        if_check4 = c_ast.If(
+            c_ast.Variable("eval_buffer != NULL"),
+            [
+                c_ast.MakeStmt(c_ast.Call("ggml_backend_buffer_free", ["eval_buffer"])),
+                c_ast.Assign(c_ast.Variable("eval_buffer"), c_ast.Constant("NULL")),
+            ],
+        )
+
+        # Add if check for static_gf
+        if_check5 = c_ast.If(
+            c_ast.Variable("eval_backend != NULL"),
+            [
+                c_ast.MakeStmt(c_ast.Call("ggml_backend_free", ["eval_backend"])),
+                c_ast.Assign(c_ast.Variable("eval_backend"), c_ast.Constant("NULL")),
+            ],
+        )
         fn_body.append(if_check1)
         fn_body.append(if_check2)
+        fn_body.append(if_check3)
+        fn_body.append(if_check4)
+        fn_body.append(if_check5)
 
         return c_ast.FunctionDef("void", "cleanup", [], fn_body)
 
@@ -136,10 +142,13 @@ class GGMLCodeGen(CGen):
 
     @override
     def call_op(
-        self, formula_key: str, input_vars: list[c_ast.Expr], context: str
+        self,
+        formula_key: str,
+        input_vars: list[c_ast.Expr],
     ) -> c_ast.Expr:
-        context_txt = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
-        return c_ast.Call(formula_key, [c_ast.Variable(context_txt), *input_vars])
+        return c_ast.Call(
+            formula_key, [c_ast.Variable("eval_backend_static_ctx"), *input_vars]
+        )
 
     def update_compute_function(
         self,
@@ -154,7 +163,9 @@ class GGMLCodeGen(CGen):
         static_vars: list[c_ast.Stmt] = []
 
         fn_ref_name = "eval" if name == "evaluate" else "eval_grad"
-        ctx_name = f"{fn_ref_name}_static_ctx"
+        ctx_name = "eval_static_ctx"
+        backend_ctx_name = "eval_backend_static_ctx"
+        backend_name = "eval_backend"
 
         # Input tensors will be stored in static variables
         # We will update their data pointers in every call
@@ -170,11 +181,32 @@ class GGMLCodeGen(CGen):
                 )
             )
 
+        if fn_ref_name == "eval":
+            for output_key in reversed(list(self.pm.flat_graph.topological_order)):
+                operations.append(
+                    self.generate_dup_tensor(output_key, context=fn_ref_name)  # type: ignore
+                )
+
+            static_vars.append(
+                c_ast.StaticVariable("size_t", "buffer_size", c_ast.Constant("0"))
+            )
+
+            static_vars.append(
+                c_ast.StaticVariable(
+                    c_ast.Pointer("uint8_t"), "buffer", c_ast.Constant("NULL")
+                )
+            )
+
         pre_process = static_vars + pre_process
 
         # Initialization block
         init_block: ast_block_type = self.create_init_block(
-            operations, fn_ref_name, input_keys, ctx_name
+            operations,
+            fn_ref_name,
+            input_keys,
+            ctx_name,
+            backend_ctx_name,
+            backend_name,
         )
 
         # Update the data pointers of the input tensors
@@ -182,23 +214,13 @@ class GGMLCodeGen(CGen):
             input_keys, fn_ref_name
         )
 
-        compute_block = [
-            c_ast.Comment("Compute graph"),
-            c_ast.MakeStmt(
-                c_ast.Call(
-                    "ggml_graph_compute_with_ctx",
-                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
-                )
-            ),
-        ]
-
         # Compute graph
         compute_block = [
             c_ast.Comment("Compute graph"),
             c_ast.MakeStmt(
                 c_ast.Call(
-                    "ggml_graph_compute_with_ctx",
-                    [ctx_name, f"{fn_ref_name}_static_gf", c_ast.Constant(1)],
+                    "ggml_backend_graph_compute",
+                    [backend_name, "eval_static_gf"],
                 )
             ),
         ]
@@ -215,29 +237,84 @@ class GGMLCodeGen(CGen):
         fn_ref_name: str,
         input_keys: list[str],
         ctx_name: str,
+        backend_ctx_name: str,
+        backend_name: str,
     ) -> ast_block_type:
         init_block: ast_block_type = []
-
+        num_tensors = 2 * len(
+            set(self.struct_keys.eval_grad_input_keys)
+            | set(self.struct_keys.eval_input_keys)
+        )
         # Initialize context if NULL
         init_block.append(c_ast.Comment("One-time initialization"))  # type: ignore
-        init_block.append(
-            c_ast.StructInit(  # type: ignore
-                "ggml_init_params params",
-                {
-                    "mem_size": c_ast.Constant(
-                        1024 * 1024 * 512
-                    ),  # TODO: Calculate this
-                    "mem_buffer": c_ast.Constant("NULL"),
-                    "no_alloc": c_ast.Constant("false"),
-                },
+
+        # Initialize context and backend only for evaluate
+        if fn_ref_name == "eval":
+            init_block.append(
+                c_ast.StructInit(  # type: ignore
+                    "ggml_init_params params",
+                    {
+                        "mem_size": c_ast.BinaryOp(
+                            "*",
+                            c_ast.Call("ggml_tensor_overhead", [" "]),
+                            c_ast.Constant(num_tensors),
+                        ),
+                        "mem_buffer": c_ast.Constant("NULL"),
+                        "no_alloc": c_ast.Constant("true"),
+                    },
+                )
             )
-        )
-        init_block.append(
-            c_ast.Assign(  # type: ignore
-                c_ast.Variable(f"{fn_ref_name}_static_ctx"),
-                c_ast.Call("ggml_init", ["params"]),
+
+            init_block.append(
+                c_ast.Assign(
+                    c_ast.Constant("buffer_size"),
+                    c_ast.BinaryOp(
+                        "+",
+                        c_ast.Parameter(  # type: ignore
+                            c_ast.BinaryOp(
+                                "*",
+                                c_ast.Call("ggml_tensor_overhead", [""]),
+                                c_ast.Constant("GGML_DEFAULT_GRAPH_SIZE"),
+                            ),
+                            " ",
+                        ),
+                        c_ast.Call("ggml_graph_overhead", [""]),
+                    ),
+                )
             )
-        )
+            init_block.append(
+                c_ast.Assign(  # type: ignore
+                    c_ast.Constant("buffer"),
+                    c_ast.Cast(
+                        c_ast.Pointer("uint8_t"), c_ast.Call("malloc", ["buffer_size"])
+                    ),
+                )
+            )
+
+            init_block.append(
+                c_ast.StructInit(  # type: ignore
+                    "ggml_init_params backend_params",
+                    {
+                        "mem_size": c_ast.Constant("buffer_size"),
+                        "mem_buffer": c_ast.Constant("buffer"),
+                        "no_alloc": c_ast.Constant("true"),
+                    },
+                )
+            )
+
+            init_block.append(
+                c_ast.Assign(  # type: ignore
+                    c_ast.Variable(f"{ctx_name}"),
+                    c_ast.Call("ggml_init", ["params"]),
+                )
+            )
+
+            init_block.append(
+                c_ast.Assign(  # type: ignore
+                    c_ast.Variable(f"{backend_ctx_name}"),
+                    c_ast.Call("ggml_init", ["backend_params"]),
+                )
+            )
 
         # Create tensors
         init_block.append(c_ast.Comment("Create tensors only once"))  # type: ignore
@@ -280,16 +357,59 @@ class GGMLCodeGen(CGen):
                     )
                 )
 
-        # Create and build graph
+        # Create backend only once in evaluate
+        if fn_ref_name == "eval":
+            # Create backend
+            init_block.extend(
+                [
+                    c_ast.Comment("Create backend object only once"),  # type: ignore
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Variable(f"{backend_name}"),
+                        c_ast.Call("ggml_backend_cpu_init", ""),
+                    ),
+                ]
+            )
         init_block.extend(
             [
-                c_ast.Comment("Create graph object only once"),  # type: ignore
+                c_ast.Comment("Create backend buffer and allocate tensors only once"),  # type: ignore
                 c_ast.Assign(  # type: ignore
-                    c_ast.Variable(f"{fn_ref_name}_static_gf"),
-                    c_ast.Call("ggml_new_graph", [ctx_name]),
+                    c_ast.Variable("eval_buffer"),
+                    c_ast.Call(
+                        "ggml_backend_alloc_ctx_tensors",
+                        [f"{ctx_name}", f"{backend_name}"],
+                    ),
                 ),
             ]
         )
+        # Create and build graph
+        init_block.extend(
+            [
+                c_ast.Comment("Create graph allocator only once"),  # type: ignore
+                c_ast.Assign(  # type: ignore
+                    c_ast.Variable("eval_allocr"),
+                    c_ast.Call(
+                        "ggml_gallocr_new",
+                        [
+                            c_ast.Call(
+                                "ggml_backend_get_default_buffer_type",
+                                [f"{backend_name}"],
+                            )
+                        ],
+                    ),
+                ),
+            ]
+        )
+        if fn_ref_name == "eval":
+            # Create and build graph
+            init_block.extend(
+                [
+                    c_ast.Comment("Create graph object only once"),  # type: ignore
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Variable("eval_static_gf"),
+                        c_ast.Call("ggml_new_graph", [backend_ctx_name]),
+                    ),
+                ]
+            )
 
         # Add the original body operations
         init_block += operations  # type: ignore
@@ -300,6 +420,20 @@ class GGMLCodeGen(CGen):
             if fn_ref_name == "eval"
             else self.struct_keys.eval_grad_output_keys
         )
+        if fn_ref_name == "eval":
+            for out_key in self.pm.flat_graph.topological_order:
+                init_block.append(
+                    c_ast.MakeStmt(  # type: ignore
+                        c_ast.Call(
+                            "ggml_build_forward_expand",
+                            [
+                                "eval_static_gf",
+                                self.create_key_ref(out_key, context=fn_ref_name),
+                            ],
+                        )
+                    )
+                )
+
         for out_key in output_keys:
             # If key is statically inferred, skip marking
             if out_key in input_keys:
@@ -310,18 +444,37 @@ class GGMLCodeGen(CGen):
                     c_ast.Call(
                         "ggml_build_forward_expand",
                         [
-                            f"{fn_ref_name}_static_gf",
+                            "eval_static_gf",
                             self.create_key_ref(out_key, context=fn_ref_name),
                         ],
                     )
                 )
             )
-
+        init_block.append(
+            c_ast.MakeStmt(  # type: ignore
+                c_ast.Call(
+                    "ggml_gallocr_alloc_graph",
+                    ["eval_allocr", "eval_static_gf"],
+                )
+            )
+        )
+        if fn_ref_name == "eval_grad":
+            init_block.append(
+                c_ast.MakeStmt(  # type: ignore
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Variable("is_context_initialized"),
+                        c_ast.Constant("true"),
+                    )
+                )
+            )
         init_block.append(c_ast.MakeStmt(c_ast.Call("atexit", ["cleanup"])))  # type: ignore
 
         # Wrap initialization in if check
-        if_init = [c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)]  # type: ignore
-
+        if fn_ref_name == "eval":
+            if_init = [c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)]  # type: ignore
+        else:
+            # Check if context is already initialized in evaluate_gradients
+            if_init = [c_ast.If(c_ast.Variable("!is_context_initialized"), init_block)]  # type: ignore
         return if_init  # type: ignore
 
     @override
@@ -372,6 +525,65 @@ class GGMLCodeGen(CGen):
 
         return op, [*args[:-1], *shape], []
 
+    def generate_dup_tensor(self, key: str, context: str) -> c_ast.Stmt:
+        input_vars: list[c_ast.Expr] = [
+            self.create_key_ref(key, context=context, load=False),
+        ]
+        op_call = self.call_op("ggml_dup", input_vars)
+        op_ast = self.assign_primitive_output(key, op_call, context=context)
+        return op_ast
+
+    def genearate_static_variables(self) -> list[c_ast.Stmt]:
+        static_vars: list[c_ast.Stmt] = []
+        eval_static_ctx = self.create_static_variable(
+            "g_context", "eval_static_ctx", "NULL", True
+        )
+
+        backend_static_ctx = self.create_static_variable(
+            "g_context", "eval_backend_static_ctx", "NULL", True
+        )
+
+        eval_allocr = self.create_static_variable(
+            "ggml_gallocr_t", "eval_allocr", "NULL", False
+        )
+
+        eval_buffer = self.create_static_variable(
+            "ggml_backend_buffer_t", "eval_buffer", "NULL", False
+        )
+
+        eval_static_gf = self.create_static_variable(
+            "struct ggml_cgraph", "eval_static_gf", "NULL", True
+        )
+
+        eval_backend = self.create_static_variable(
+            "ggml_backend_t", "eval_backend", "NULL", False
+        )
+
+        # Add bool check to avoid reinitializing the context
+        # and graph in every call
+        is_context_initialized = self.create_static_variable(
+            "bool", "is_context_initialized", "false", False
+        )
+        static_vars.extend(
+            [
+                eval_static_ctx,
+                backend_static_ctx,
+                eval_allocr,
+                eval_buffer,
+                eval_static_gf,
+                eval_backend,
+                is_context_initialized,
+            ]
+        )
+        return static_vars
+
+    def create_static_variable(
+        self, var_type: str, name: str, value: str, is_ptr: bool
+    ) -> c_ast.Stmt:
+        # Create static variable for GGML
+        type_node = c_ast.Pointer(var_type) if is_ptr else c_ast.Variable(var_type)
+        return c_ast.StaticVariable(type_node, name, c_ast.Constant(value))
+
     def _generate_update_tensor_pointers(
         self, input_keys: list[str], context: str
     ) -> ast_block_type:
@@ -403,12 +615,30 @@ class GGMLCodeGen(CGen):
                         c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
                     )
                 )
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(
+                            self.create_key_ref(key, context=context), "buffer"
+                        ),
+                        c_ast.Arrow(
+                            c_ast.Arrow(c_ast.Variable("inputs"), key), "buffer"
+                        ),
+                    )
+                )
             # For regular tensors, just update the data pointer
             else:
                 update_ptr_block.append(
                     c_ast.Assign(  # type: ignore
                         c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
                         c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+                    )
+                )
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(c_ast.Variable(f"{key}"), "buffer"),
+                        c_ast.Arrow(
+                            c_ast.Arrow(c_ast.Variable("inputs"), key), "buffer"
+                        ),
                     )
                 )
 

@@ -444,7 +444,7 @@ class CGen(CodeGen[PyArray]):
                         c_ast.Call(
                             "accumulate_grads",
                             [
-                                "eval_grad_static_ctx",
+                                "eval_backend_static_ctx",
                                 op_call,
                                 self.create_key_ref(input_key, context="eval_grad"),
                             ],
@@ -520,7 +520,7 @@ class CGen(CodeGen[PyArray]):
         )
 
         # Create op call
-        op_call = self.call_op(formula_key, input_vars, context)
+        op_call = self.call_op(formula_key, input_vars)
 
         op_call, post_lines = self.post_process_op(op, op_call, context, post_processor)
         post_op_call += post_lines
@@ -531,9 +531,7 @@ class CGen(CodeGen[PyArray]):
 
         return op_lines
 
-    def call_op(
-        self, formula_key: str, input_vars: list[c_ast.Expr], context: str
-    ) -> c_ast.Expr:
+    def call_op(self, formula_key: str, input_vars: list[c_ast.Expr]) -> c_ast.Expr:
         return c_ast.Call(formula_key, input_vars)
 
     def assign_primitive_output(
