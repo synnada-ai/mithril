@@ -543,23 +543,23 @@ class PhysicalModel(GenericDataType[DataType]):
 
         return shapes
 
-    def get_automized_shardings(
+    def propose_shardings(
         self, given_shards: dict[str, tuple[int, ...]] | None = None
     ) -> dict[str, tuple[int, ...] | None]:
         """
         Compute and return a mapping from input keys to
         sharding tuples for a parallel backend.
 
-        This method determines an automatic sharding configuration based on the shapes
+        This method proposes a sharding configuration based on the shapes
         of the inputs and the device mesh of the backend. It optionally allows preset
         shardings via the given_shards parameter.
 
         Parameters:
             given_shards (dict[str, tuple[int, ...]] | None):
-                An optional dictionary of pre-determined shardings to override automatic
+                An optional dictionary of pre-determined shardings to override proposed
                 computation. Keys present in this dictionary will not be computed and
                 will take the provided sharding tuple. If None, no override is applied
-                and all keys are processed for automatic sharding.
+                and all keys are processed for proposing sharding.
 
         Returns:
             dict[str, tuple[int, ...] | None]:
@@ -589,8 +589,8 @@ class PhysicalModel(GenericDataType[DataType]):
                 the sharding for that key remains None.
 
         Note:
-            This automated method is intended to facilitate parallel execution by
-            partitioning tensor data appropriately across devices in a device mesh.
+            This method is intended to facilitate parallel execution by partitioning
+            tensor data appropriately across devices in a device mesh.
 
             This method uses simple eager evaluation to determine the sharding
             configuration. This method will be updated with a more sophisticated
