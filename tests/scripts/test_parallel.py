@@ -460,7 +460,6 @@ def test_torch_parallel_3():
         np.testing.assert_allclose(grad, parallel_grad, 1e-6, 1e-6)
 
 
-@pytest.mark.skip("Will be fixed in torch 2.6.0")
 def test_torch_parallel_4():
     # This test checks parallel execution with a model that includes immediate values
     # in Add primitive.
@@ -732,6 +731,20 @@ def test_torch_parallel_error_1():
     )
 
 
+def test_torch_parallel_single_pm():
+    backend = create_parallel_backend(device_mesh=(4, 1))
+
+    model1 = Linear()
+    pm1 = compile(model1, backend=backend, jit=False)
+
+    data1 = {"input": backend.array([[1.0], [2.0], [3.0], [4.0]])}
+    params1 = {"weight": backend.array([[0.2]]), "bias": backend.array([0.5])}
+
+    ref_out1 = torch.tensor([[0.7], [0.9], [1.1], [1.3]])
+    out1 = pm1.evaluate(data=data1, params=params1)["output"].full_tensor()  # type: ignore
+    np.testing.assert_allclose(out1, ref_out1, 1e-5, 1e-5)
+
+
 def test_torch_parallel_error_2():
     # This test checks if an error is raised when trying to shard a tensor with
     # incompatible dimensions.
@@ -941,29 +954,13 @@ def test_torch_parallel_multi_parallel_2():
     assert tensor4._local_tensor.shape == (8, 128)  # type: ignore
 
 
-@pytest.mark.skip("This test will be added after Torch Parallel bug is fixed.")
-def test_torch_parallel_single_pm():
-    backend = create_parallel_backend(device_mesh=(4, 1))
-
-    model1 = Linear()
-    pm1 = compile(model1, backend=backend)
-
-    data1 = {"input": backend.array([[1.0], [2.0], [3.0], [4.0]])}
-    params1 = {"weight": backend.array([[0.2]]), "bias": backend.array([0.5])}
-
-    ref_out1 = torch.tensor([[0.7], [0.9], [1.1], [1.3]])
-    out1 = pm1.evaluate(data=data1, params=params1)["output"].full_tensor()  # type: ignore
-    np.testing.assert_allclose(out1, ref_out1, 1e-5, 1e-5)
-
-
-@pytest.mark.skip("This test will be added after Torch Parallel bug is fixed.")
 def test_torch_parallel_multi_pm():
     backend = create_parallel_backend(device_mesh=(4, 1))
 
     model1 = Linear()
     model2 = Add()
-    pm1 = compile(model1, backend=backend)
-    pm2 = compile(model2, backend=backend, inference=True)
+    pm1 = compile(model1, backend=backend, jit=False)
+    pm2 = compile(model2, backend=backend, inference=True, jit=False)
 
     data1 = {"input": backend.array([[1.0], [2.0], [3.0], [4.0]])}
     params1 = {"weight": backend.array([[0.2]]), "bias": backend.array([0.5])}

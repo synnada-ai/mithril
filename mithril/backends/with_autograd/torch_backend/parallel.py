@@ -560,6 +560,7 @@ class TorchParallel(Parallel[torch.Tensor]):
         self._send_instrcs(Instructions.EXIT)
         TorchParallel._instance = None
         TorchParallel.device_meshes = {}
+        TorchParallel.used_ports = set()
 
         for process in self.processes:
             process.join()
