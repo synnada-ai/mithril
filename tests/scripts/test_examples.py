@@ -47,6 +47,8 @@ def test_readme_code_blocks():
     code_blocks = re.findall(r"```python(.*?)```", content, re.DOTALL)
 
     with TemporaryFileCleanup():
+        if TorchParallel._instance is not None:
+            TorchParallel._instance.clean_up()
         for i, code_block in enumerate(code_blocks):
             try:
                 # Use exec() to run the code block, wrapped in a function scope
