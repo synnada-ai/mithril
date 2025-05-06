@@ -642,7 +642,6 @@ class Model(BaseModel):
         if self.provisional_model is None:
             use_sub_provisional = True
             self._bind_provisional_model(model)
-        self.constraint_solver.match(model.constraint_solver)
 
         con = model.conns.get_con_by_metadata(start_con.metadata)
         submodels = []

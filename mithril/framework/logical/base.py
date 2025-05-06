@@ -1093,6 +1093,11 @@ class BaseModel:
                 if _con.model is model:
                     _con.model = None
 
+            # Manually add only required constraints into constraint_solver.
+            _constr_map = self.constraint_solver.constraint_map
+            for con in conns.values():
+                for constr in con.metadata.all_constraints:
+                    _constr_map[constr] = model.constraint_solver.constraint_map[constr]
             # Extend the self model with submodel.
             self.extend(sub_m, **conns)
         # Clear the connections_dict and metadata_dict of the submodel.

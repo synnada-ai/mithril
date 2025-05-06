@@ -1035,6 +1035,26 @@ def test_constraint_cleaning():
     check_constraints(model)
 
 
+def test_constraint_cleaning_unused_model():
+    from mithril.models import Relu
+
+    hidden_states = IOKey("input")
+    height = IOKey("height")
+
+    height = Buffer()(input=height)
+    hidden_states = Relu()(input=hidden_states)
+    _hidden_states = Relu()(input=hidden_states)
+    _hidden_states = Reshape()(input=_hidden_states)
+
+    model = Model.create(height_out=height, output=hidden_states)
+    assert len(model.constraint_solver.constraint_map) == 3
+    # The last Reshape model is not used and first Relu's connections do not contain
+    # constraints of last Reshape model. Therefore, there will be only 3 constraints
+    # in the constraint_map which are 1 buffer_constraint and 2 general_type_constraint
+    # and the last Reshape model constraint.
+    check_constraints(model)
+
+
 def test_constraint_cleaning_lin():
     model = Linear()
     check_constraints(model)
