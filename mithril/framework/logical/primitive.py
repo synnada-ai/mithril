@@ -29,7 +29,7 @@ class OperatorModel(Model):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(name=name, enforce_jit=model._jittable)
+        super().__init__(name=name)
         self._extend(model, {k: k for k in model.external_keys}, trace=False)
         self.expose_keys(*model.external_keys)
         self._freeze()

@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import mlx.core as mx
@@ -26,7 +26,9 @@ from ....cores.python.mlx.utils import dtype_map
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
-
+JITABLE: dict[str, Callable[..., bool]] = {
+    "default": lambda *args, **kwargs: True,
+}
 
 ArrayType = mx.array
 

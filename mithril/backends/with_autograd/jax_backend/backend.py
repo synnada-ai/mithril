@@ -52,6 +52,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     registered_primitives: dict[str, Callable[..., jax.numpy.ndarray]] = {}
     primitive_fn_path = "mithril.cores.python.jax.ops"
     CODEGEN_CONFIG = utils.CODEGEN_CONFIG
+    JITABLE = utils.JITABLE
 
     def __init__(
         self,

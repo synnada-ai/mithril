@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import jax
@@ -24,6 +24,13 @@ from ....cores.python.jax.utils import dtype_map
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
+JITABLE: dict[str, Callable[..., bool]] = {
+    "default": lambda *args, **kwargs: True,
+    "tensor_to_list": lambda *args, **kwargs: False,
+    "item": lambda *args, **kwargs: False,
+    "unique": lambda *args, **kwargs: False,
+}
+
 
 ArrayType = jax.Array
 
@@ -80,3 +87,20 @@ def determine_dtype(
         dtype_name = DtypeSubTypes[default_dtype.name].value
 
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
+
+
+# JITABLITY RULES
+
+
+def is_tensor_slice_jitable(
+    *input_types: tuple[bool, type | tuple[type, ...]],
+) -> bool:
+    # Tensor slice operation with boolean types is not supported in JAX.
+    for is_tensor, dtypes in input_types:
+        is_bool_exists = bool in dtypes if isinstance(dtypes, tuple) else bool is dtypes
+        if not is_tensor and is_bool_exists:
+            return False
+    return True
+
+
+JITABLE["primitive_slice"] = is_tensor_slice_jitable

@@ -68,6 +68,7 @@ def test_discard_keys_inference(case: str) -> None:
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
 
     discarded_keys = pm.discarded_keys
@@ -104,6 +105,7 @@ def test_static_keys_inference(case: str) -> None:
         discard_keys=discard_keys,
         constant_keys=static_inputs,
         inference=True,
+        jit=True,
     )
     model_static_keys = sorted(compiled_model.flat_graph.all_static_keys)
     assert model_static_keys == sorted(results)

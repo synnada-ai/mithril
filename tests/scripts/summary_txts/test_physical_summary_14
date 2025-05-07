@@ -6,7 +6,7 @@ Backend precision  : 32
 --------------------------------
 Backend device     : TFRT_CPU_0 
 --------------------------------
-Output keys        : output1    
+Output keys        : None       
 --------------------------------
 Constant inputs    : None       
 --------------------------------
@@ -27,7 +27,7 @@ Model Name   |                                  Model Keys
 Add          |   Inputs  : left   :      [3, 4,   5] : 'left'      :          0
              |             right  :            [...] : 'right'     :          0
              |   --------------------------------------------------------------
-             |   Outputs : output : [..., 3, 4,   5] : 'output1'   :          0
+             |   Outputs : output : [..., 3, 4,   5] : 'output'    :          0
 -------------------------------------------------------------------------------
 
 

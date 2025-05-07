@@ -242,7 +242,7 @@ def test_tensor_to_scalar_1_non_jittable():
     it requires TensorToList conversion before being argument to reshape method which
     is not a problem for non-jitted models. Note that we don't jit model in compile.
     """
-    model = Model(enforce_jit=False)
+    model = Model()
     to_tensor_1 = ToTensor()
     to_tensor_2 = ToTensor()
     add_1 = Add()
@@ -255,7 +255,7 @@ def test_tensor_to_scalar_1_non_jittable():
     model_1 = model
 
     # Auto conversion
-    model = Model(enforce_jit=False)
+    model = Model()
     add_2 = Add()
     model |= add_2.connect(
         left=IOKey(value=[2, 1]).tensor(), right=IOKey(value=[[1, 1]]).tensor()
@@ -751,7 +751,7 @@ def test_type_propagation_8():
 
 def test_type_propagation_9():
     """Tests type propagation."""
-    model = Model(enforce_jit=False)
+    model = Model()
     add = Add()
     tensor_to_list = ArtificialPrimitive(type=Tensor[float])
     model |= add.connect(
@@ -767,7 +767,7 @@ def test_type_propagation_9():
 
 def test_type_propagation_10():
     """Tests type propagation."""
-    model = Model(enforce_jit=False)
+    model = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     tensor_to_list = ArtificialPrimitive(type=Tensor[int | bool])
@@ -976,7 +976,7 @@ def test_connect_2():
     merging Scalar inputs We have also given these connection's name as "abcd". It is
     also expected that abcd name appear sa one of the model's connections
     """
-    model = Model(enforce_jit=False)
+    model = Model()
     concat_model = PrimitiveUnion(n=3)
     model |= concat_model.connect(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
@@ -998,7 +998,7 @@ def test_connect_3():
     It is also expected that ToTensor will be applied to Tensor
     connections, and value will be directly written to scalar connections,
     """
-    model = Model(enforce_jit=False)
+    model = Model()
     concat_model = PrimitiveUnion(n=3)
     model |= concat_model.connect(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
@@ -1399,7 +1399,7 @@ def test_tensor_to_scalar_4():
 
 
 def test_tensor_to_scalar_connect_1():
-    model = Model(enforce_jit=False)
+    model = Model()
     mean_model_1 = Mean(axis=TBD)
     mean_model_2 = Mean(axis=TBD)
     mean_model_3 = Mean(axis=TBD)
@@ -1420,7 +1420,7 @@ def test_tensor_to_scalar_connect_1():
 
 
 def test_tensor_to_scalar_connect_3_error_existing_key():
-    model = Model(enforce_jit=False)
+    model = Model()
     mean_model_1 = Mean(axis=TBD)
     mean_model_2 = Mean(axis=TBD)
     mean_model_3 = Mean(axis=TBD)
@@ -1544,7 +1544,7 @@ def test_coercion_2():
 
 def test_coercion_3():
     backend = JaxBackend()
-    model = Model(enforce_jit=False)
+    model = Model()
     reduce_model = Sum(axis=TBD)
     add_model = Add()
     model |= add_model.connect(
@@ -1572,7 +1572,7 @@ def test_coercion_3():
 
 def test_coercion_4():
     backend = JaxBackend()
-    model = Model(enforce_jit=False)
+    model = Model()
     reduce_model = Sum(axis=TBD)
     add_model = Add()
     model |= add_model.connect(
@@ -1598,7 +1598,7 @@ def test_coercion_4():
 
 def test_coercion_5():
     backend = JaxBackend()
-    model = Model(enforce_jit=False)
+    model = Model()
     add = Add()
     to_list = TensorToList()
     model |= add.connect(left=IOKey("left", differentiable=True), right=Tensor([2.0]))
@@ -1618,7 +1618,7 @@ def test_coersion_6():
     mlp_model = MLP(activations=[Relu(), Relu(), Relu()], dimensions=[1, 1, 1])
     to_list = TensorToList()
     buff_model = Buffer()
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= mlp_model.connect(input="input")
     model += to_list
     model |= buff_model.connect(input=to_list.output.tensor(), output="output")

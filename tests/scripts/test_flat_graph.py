@@ -33,7 +33,8 @@ def test_flatgraph_1():
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "buffer_output"})
     graph.add_value(Buffer().submodel, {"input": "buffer_output", "output": "output"})
-    graph.prune_duplicate_connections({}, {})
+    for op in graph.all_models:
+        graph.prune_duplicate_operation(op, {}, {})
 
     expected_connections = ["input1", "relu_out"]
 
@@ -54,7 +55,8 @@ def test_flatgraph_2():
     graph.add_value(Buffer().submodel, {"input": "output1", "output": "output2"})
     graph.add_value(Buffer().submodel, {"input": "output2", "output": "output3"})
     graph.add_value(Buffer().submodel, {"input": "output3", "output": "output4"})
-    graph.prune_duplicate_connections({}, {})
+    for op in graph.all_models:
+        graph.prune_duplicate_operation(op, {}, {})
 
     expected_connections = ["input1", "relu_out"]
 
@@ -76,7 +78,8 @@ def test_flatgraph_3():
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Relu().submodel, {"input": "relu_out", "output": "output1"})
     graph.add_value(Relu().submodel, {"input": "output1", "output": "output2"})
-    graph.prune_duplicate_connections({}, {})
+    for op in graph.all_models:
+        graph.prune_duplicate_operation(op, {}, {})
 
     expected_connections = ["input1", "output1", "output2", "relu_out"]
 
