@@ -209,6 +209,8 @@ __all__ = [
     "zeros_like",
     "avg_pool2d",
     "ones",
+    "floor",
+    "clamp",
 ]
 
 
@@ -477,6 +479,7 @@ def conv2d(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
+    groups: int = 1,
 ) -> torch.Tensor:
     _padding: tuple[int, int]
     if is_int_tuple_tuple(padding):
@@ -493,7 +496,7 @@ def conv2d(
         stride=stride,
         padding=_padding,
         dilation=dilation,
-        groups=1,
+        groups=groups,
     )
 
 
@@ -505,6 +508,7 @@ def conv2d_bias(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
+    groups: int = 1,
 ) -> torch.Tensor:
     _padding: tuple[int, int]
     if is_int_tuple_tuple(padding):
@@ -521,7 +525,7 @@ def conv2d_bias(
         stride=stride,
         padding=_padding,
         dilation=dilation,
-        groups=1,
+        groups=groups,
     )
 
 
@@ -1306,6 +1310,16 @@ def indexer(
         ]
         return input[new_index]  # type: ignore
     return input[index]  # type: ignore
+
+
+def floor(input: torch.Tensor) -> torch.Tensor:
+    return input.floor()
+
+
+def clamp(
+    input: torch.Tensor, min_val: float | int, max_val: float | int
+) -> torch.Tensor:
+    return torch.clamp(input, min=min_val, max=max_val)
 
 
 array_creation_funcs = [

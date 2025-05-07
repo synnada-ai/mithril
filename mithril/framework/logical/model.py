@@ -45,12 +45,14 @@ from .operators import (
     AddOp,
     AtLeast1DOp,
     CastOp,
+    ClampOp,
     CosineOp,
     DivideOp,
     DtypeOp,
     EqualOp,
     ExponentialOp,
     FloorDivideOp,
+    FloorOp,
     GreaterEqualOp,
     GreaterOp,
     IndexerOp,
@@ -388,6 +390,18 @@ class Connection(ConnectionData):
     def atleast_1d(self) -> Connection:
         return _extend_with_op_model(connections=[self], model=AtLeast1DOp)
 
+    def floor(self) -> Connection:
+        return _extend_with_op_model(connections=[self], model=FloorOp)
+
+    def clamp(
+        self,
+        min_val: Connection | int | float | None = None,
+        max_val: Connection | int | float | None = None,
+    ) -> Connection:
+        return _extend_with_op_model(
+            connections=[self, min_val, max_val], model=ClampOp
+        )
+
 
 IOKey = Connection
 
@@ -457,7 +471,8 @@ class Model(BaseModel):
             assert value.model is not None
             extract_m = value.model.get_outermost_parent()
             assert isinstance(extract_m, Model)
-            model.extend_extracted_model(extract_m, value)
+            if extract_m is not model:
+                model.extend_extracted_model(extract_m, value)
 
         model.expose_keys(**kwargs)
         # Freeze the model to prevent further modifications
@@ -544,6 +559,7 @@ class Model(BaseModel):
         self.provisional_model = provisional_model
         provisional_model.enforce_jit = self.enforce_jit
         updates = self.constraint_solver.match(provisional_model.constraint_solver)
+        provisional_model.constraint_solver.clear()
         self.constraint_solver(updates)
         provisional_model._constraint_solver = self._constraint_solver
 
@@ -639,6 +655,7 @@ class Model(BaseModel):
             use_sub_provisional = True
             self._bind_provisional_model(model)
 
+        self.constraint_solver.match(model.constraint_solver)
         con = model.conns.get_con_by_metadata(start_con.metadata)
         submodels = []
         assert con is not None

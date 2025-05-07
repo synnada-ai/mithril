@@ -506,6 +506,7 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Finally prune the connection
                 self._prune_connection(conn, source_conn)
+                self._all_source_keys.add(source_conn.key)
 
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)

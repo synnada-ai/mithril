@@ -2380,19 +2380,24 @@ def conv_2d_constraints(
     stride: IOHyperEdge,
     padding: IOHyperEdge,
     dilation: IOHyperEdge,
+    groups: IOHyperEdge,
     kernel: IOHyperEdge,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of Convolution2D is not set!"
     assert output._temp_shape is not None, "Output shape of Convolution2D is not set!"
+    assert kernel._temp_shape is not None, "Kernel shape of Convolution2D is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
+    kernel_shape: ShapeRepr = kernel._temp_shape
 
     stride_val = stride.value
     padding_val = padding.value
     dilation_val = dilation.value
+    groups_val = groups.value
 
+    assert isinstance(groups_val, int | ToBeDetermined), "Invalid groups value!"
     assert is_tuple_of_two_ints(stride_val) or isinstance(
         stride_val, ToBeDetermined
     ), "Invalid stride value!"
@@ -2413,6 +2418,24 @@ def conv_2d_constraints(
     ):
         kernel_size_0 = kernel_shp[-2]
         kernel_size_1 = kernel_shp[-1]
+
+    out_channels_updated = False
+    if not isinstance(groups_val, ToBeDetermined) and groups_val != 1:
+        # out_channels must be divisible by groups.
+        out_channels = output_shape.prefix[1].value
+        if out_channels is not None and (out_channels % groups_val) != 0:
+            raise ValueError(
+                "Output channels must be divisible by groups for Conv2D operation!"
+            )
+        # Shape of kernel is (out_channels, in_channels // 4,
+        # kernel_size_0, kernel_size_1)
+        in_channels = input_shape.prefix[1].value
+        if out_channels is not None and in_channels is not None:
+            if kernel_shape.prefix[1].set_value(in_channels // groups_val):
+                updates.add(kernel_shape.prefix[1])
+            out_channels_updated = True
+    else:
+        out_channels_updated = True
 
     is_input_propagatable = len(input_shape.suffix) >= 2 or (
         input_shape.root is None and len(input_shape.prefix) > 2
@@ -2449,7 +2472,10 @@ def conv_2d_constraints(
             kernel_size_1,
         )
         status = (
-            status_height and status_width and input_shape.root == output_shape.root
+            status_height
+            and status_width
+            and input_shape.root == output_shape.root
+            and out_channels_updated
         )
         updates |= symbols_height
         updates |= symbols_width
@@ -2921,8 +2947,8 @@ def reshape_constraints(
                 input_values = [uni.value for uni in input_shape.prefix]
                 if input_values.count(None) == 1:
                     none_index = input_values.index(None)
-                    uni_val = reduce(prod_fn, shape_val) // reduce(
-                        prod_fn, filter(None, input_values)
+                    uni_val = reduce(prod_fn, shape_val, 1) // reduce(
+                        prod_fn, filter(None, input_values), 1
                     )
                     if (uni := input_shape.prefix[none_index]).set_value(uni_val):
                         updates.add(uni)

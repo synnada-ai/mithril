@@ -436,6 +436,7 @@ class Convolution2D(Model):
     stride: Connection
     padding: Connection
     dilation: Connection
+    groups: Connection
     output: Connection
 
     def __init__(
@@ -449,6 +450,7 @@ class Convolution2D(Model):
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = (0, 0),
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
+        groups: int | ToBeDetermined = 1,
         use_bias: bool = True,
         input: Tensor[int | float] | ToBeDetermined = TBD,
         weight: Tensor[int | float] | ToBeDetermined = TBD,
@@ -462,6 +464,7 @@ class Convolution2D(Model):
             "stride": convert_to_list(stride),
             "padding": convert_to_list(padding),
             "dilation": convert_to_list(dilation),
+            "groups": groups,
             "use_bias": use_bias,
         }
 
@@ -499,11 +502,14 @@ class Convolution2D(Model):
             "stride": st_converter.output,
             "padding": pt_converter.output,
             "dilation": dt_converter.output,
+            "groups": IOKey(name="groups", value=groups),
         }
         if use_bias:
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
-        self |= PrimitiveConvolution2D(use_bias=use_bias).connect(**conv_connections)
+        self |= PrimitiveConvolution2D(use_bias=use_bias, groups=groups).connect(
+            **conv_connections
+        )
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -518,6 +524,7 @@ class Convolution2D(Model):
         | tuple[int, int]
         | tuple[tuple[int, int], tuple[int, int]] = NOT_GIVEN,
         dilation: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
+        groups: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().connect(
@@ -526,6 +533,7 @@ class Convolution2D(Model):
             stride=stride,
             padding=padding,
             dilation=dilation,
+            groups=groups,
             output=output,
         )
 

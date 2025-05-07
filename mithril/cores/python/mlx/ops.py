@@ -198,6 +198,8 @@ __all__ = [
     "zeros_like",
     "avg_pool2d",
     "ones",
+    "floor",
+    "clamp",
 ]
 
 
@@ -427,6 +429,7 @@ def conv2d(
         1,
     ),
     dilation: tuple[int, int] = (1, 1),
+    groups: int = 1,
 ) -> mx.array:
     _padding: tuple[int, int]
     if is_int_tuple_tuple(padding):
@@ -452,7 +455,7 @@ def conv2d(
         stride=stride,
         padding=_padding,
         dilation=dilation,
-        groups=1,
+        groups=groups,
     )
     return mx.swapaxes(result, -3, -1)
 
@@ -465,9 +468,18 @@ def conv2d_bias(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
+    groups: int = 1,
 ) -> mx.array:
     return (
-        conv2d(input, weight, stride=stride, padding=padding, dilation=dilation) + bias
+        conv2d(
+            input,
+            weight,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+        )
+        + bias
     )
 
 
@@ -1050,6 +1062,14 @@ def ones(
 
 def atleast_1d(input: mx.array) -> mx.array:
     return mx.atleast_1d(input)
+
+
+def floor(input: mx.array) -> mx.array:
+    return mx.floor(input)
+
+
+def clamp(input: mx.array, min_val: float, max_val: float) -> mx.array:
+    return mx.clip(input, min_val, max_val)
 
 
 array_creation_funcs = [

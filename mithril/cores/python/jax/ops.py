@@ -222,6 +222,8 @@ __all__ = [
     "zeros_like",
     "avg_pool2d",
     "ones",
+    "floor",
+    "clamp",
 ]
 
 
@@ -427,6 +429,7 @@ def conv2d(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
+    groups: int = 1,
 ) -> jax.Array:
     _padding_normalized: tuple[tuple[int, int], tuple[int, int]]
     if is_tuple_int(padding):
@@ -442,7 +445,7 @@ def conv2d(
         lhs_dilation=dilation,
         rhs_dilation=None,
         dimension_numbers=("NCHW", "OIHW", "NCHW"),
-        feature_group_count=1,
+        feature_group_count=groups,
     )
 
 
@@ -454,6 +457,7 @@ def conv2d_bias(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
+    groups: int = 1,
 ) -> jax.Array:
     return (
         conv2d(
@@ -462,6 +466,7 @@ def conv2d_bias(
             stride=stride,
             padding=padding,
             dilation=dilation,
+            groups=groups,
         )
         + bias
     )
@@ -1170,6 +1175,14 @@ def ones(
 
 def atleast_1d(input: jax.Array) -> jax.Array:
     return jnp.atleast_1d(input)
+
+
+def floor(input: jax.Array) -> jax.Array:
+    return jnp.floor(input)
+
+
+def clamp(input: jax.Array, min_val: float | int, max_val: float | int) -> jax.Array:
+    return jnp.clip(input, min_val, max_val)
 
 
 array_creation_funcs = [

@@ -1296,9 +1296,10 @@ class BaseModel:
         return name_mapping
 
     def _freeze(self) -> None:
-        for cout in self.conns.couts:
-            self.conns.set_connection_type(cout, KeyType.OUTPUT, safe=False)
-        self.dependency_map.update_all_keys()
+        if not self.output_keys:
+            for cout in self.conns.couts:
+                self.conns.set_connection_type(cout, KeyType.OUTPUT, safe=False)
+            self.dependency_map.update_all_keys()
 
         # Name unnamed submodels before freezing considering the insertion order.
         model_names = self.get_unique_submodel_names()
