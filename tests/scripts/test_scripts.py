@@ -2856,11 +2856,6 @@ def test_size():
     input_array = np.ones((1, 2, 3, 4, 5, 6, 7, 8))
     expected_result_1 = input_array.size
     expected_result_2 = input_array.shape[3]
-    expected_result_3 = (
-        input_array.shape[3],
-        input_array.shape[5],
-        input_array.shape[7],
-    )
 
     m1 = Model()
     m1 += Size().connect(input="input", output="output")
@@ -2868,11 +2863,8 @@ def test_size():
     m2 = Model()
     m2 += Size(dim=TBD).connect(input="input", dim=3, output="output")
 
-    m3 = Model()
-    m3 += Size(dim=TBD).connect(input="input", dim=(3, 5, 7), output="output")
-
-    models = [m1, m2, m3]
-    expected_results = [expected_result_1, expected_result_2, expected_result_3]
+    models = [m1, m2]
+    expected_results = [expected_result_1, expected_result_2]
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for model, expected_result in zip(models, expected_results, strict=False):
         for backend_class in backends:

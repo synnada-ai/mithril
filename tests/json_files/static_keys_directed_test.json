@@ -1,645 +1,1025 @@
 {
-    "test_composite_1": {
-        "model": {
-            "name": "Model",
-            "submodels": {
-                "m1": {
-                    "name": "Relu"
-                },
-                "m2": {
-                    "name": "Relu"
-                },
-                "m3": {
-                    "name": "Relu"
-                },
-                "m4": {
-                    "name": "Relu"
-                },
-                "m5": {
-                    "name": "Add"
-                },
-                "m6": {
-                    "name": "Relu"
-                },
-                "m7": {
-                    "name": "Relu"
-                }
-            },
-            "connections" : { 
-                "m1": {
-                    "input": "input1"
-                },
-                "m2": {
-                    "input": {"key": {"connect": [["m1","output"]]}}
-                },
-                "m3": {
-                    "input": {"key": {"connect": [["m2","output"]]}}
-                },
-                "m4": {
-                    "input": {"key": {"connect": [["m2","output"]]}}
-                },
-                "m5": {
-                    "left": {"key": {"connect": [["m3","output"]]}},
-                    "right": {"key": {"connect": [["m4","output"]]}},
-                    "output": "output2"
-                },
-                "m6": {
-                    "input": "input2"
-                },
-                "m7": {
-                    "input": {"key": {"connect": [["m6","output"]]}},
-                    "output": "output"
-                }
-            },
-            "exposed_keys": ["output", "output2"]
+  "test_composite_1": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Relu"
         },
-        "static_input_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1,37, 43]
+        "m2": {
+          "name": "Relu"
         },
-
-        "results": {
-            "static_keys": ["input2", "output2"]
+        "m3": {
+          "name": "Relu"
+        },
+        "m4": {
+          "name": "Relu"
+        },
+        "m5": {
+          "name": "Add"
+        },
+        "m6": {
+          "name": "Relu"
+        },
+        "m7": {
+          "name": "Relu"
         }
-    },
-
-    "test_composite_2": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Relu"
-                },
-                "m2": {
-                    "name": "Relu"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Relu"
-                        },
-                        "m2": {
-                            "name": "Relu"
-                        },
-                        "m3": {
-                            "name": "Relu"
-                        },
-                        "m4": {
-                            "name": "Relu"
-                        },
-                        "m5": {
-                            "name": "Relu"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input": "input1"
-                        },
-                        "m2": {
-                            "input": "input2"
-                        },
-                        "m3": {
-                            "input": {"key": {"connect": [["m1","output"]]}},
-                            "output": "output3"
-                        },
-                        "m4": {
-                            "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": "output1"
-                        },
-                        "m5": {
-                            "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": "output2"
-                        }
-                    },
-                    "exposed_keys": ["output1", "output2", "output3"]
-                },
-                "m4": {
-                    "name": "Relu"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-
-            },
-            "connections" : {
-                "m1": {
-                    "input": "input1"
-                },
-                "m2": {
-                    "input": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input1": {"key": {"connect": [["m1", "output"]]}},
-                    "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": "output1",
-                    "output2": "output2",
-                    "output3": "output4"
-                },
-                "m4": {
-                    "input": "input2"
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "input"]]}},
-                    "output": "output3"
-                }
-            },
-            "exposed_keys": ["output1", "output2", "output3", "output4"]
+      },
+      "connections": {
+        "m1": {
+          "input": "input1"
         },
-        "static_input_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1,37, 43]
-        },
-
-        "results": {
-            "static_keys": ["input2", "output1", "output2", "output4"]
-        }
-    },
-    "test_composite_3": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Relu"
-                },
-                "m2": {
-                    "name": "Relu"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Relu"
-                        },
-                        "m2": {
-                            "name": "Relu"
-                        },
-                        "m3": {
-                            "name": "Relu"
-                        },
-                        "m4": {
-                            "name": "Relu"
-                        },
-                        "m5": {
-                            "name": "Relu"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input": "input1"
-                        },
-                        "m2": {
-                            "input": "input2"
-                        },
-                        "m3": {
-                            "input": {"key": {"connect": [["m1","output"]]}},
-                            "output": "output3"
-                        },
-                        "m4": {
-                            "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": "output1"
-                        },
-                        "m5": {
-                            "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": "output2"
-                        }
-                    },
-                    "exposed_keys": ["output1", "output2", "output3"]
-                },
-                "m4": {
-                    "name": "Relu"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-
-            },
-            "connections" : {
-                "m1": {
-                    "input": "input1"
-                },
-                "m2": {
-                    "input": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input1": {"key": {"connect": [["m1", "output"]]}},
-                    "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": "output1",
-                    "output2": "output2",
-                    "output3": "output4"
-                },
-                "m4": {
-                    "input": "input2"
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": "output3"
-                }
-            },
-            "exposed_keys": ["output1", "output2", "output3", "output4"]
-
-        },
-        "static_input_shapes": {
-            "input2": [1, 1, 1, 1, 1, 1, 1,37, 43]
-        },
-
-        "results": {
-            "static_keys": ["input1", "output3"]
-        }
-    },
-    "test_composite_4": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Relu"
-                },
-                "m2": {
-                    "name": "Sigmoid"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Sigmoid"
-                        },
-                        "m2": {
-                            "name": "Relu"
-                        },
-                        "m3": {
-                            "name": "Sigmoid"
-                        },
-                        "m4": {
-                            "name": "Sigmoid"
-                        },
-                        "m5": {
-                            "name": "Sigmoid"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input": "input1"
-                        },
-                        "m2": {
-                            "input": "input2"
-                        },
-                        "m3": {
-                            "input": {"key": {"connect": [["m1","output"]]}},
-                            "output": "output3"
-                        },
-                        "m4": {
-                            "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": "output1"
-                        },
-                        "m5": {
-                            "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": "output2"
-                        }
-                    },
-                    "exposed_keys": ["output1", "output2", "output3"]
-                },
-                "m4": {
-                    "name": "Relu"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-            },
-            "connections" : {
-                "m1": {
-                    "input": "input1"
-                },
-                "m2": {
-                    "input": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input1": {"key": {"connect": [["m1", "output"]]}},
-                    "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": "output1",
-                    "output2": "output2",
-                    "output3": "output4"
-                },
-                "m4": {
-                    "input": "input2"
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": "output3"
-                }
-            },
-            "exposed_keys": ["output1", "output2", "output3", "output4"]
-        },
-        "static_input_shapes": {
-            "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
-            "input2": [1, 1, 1, 1, 1, 1, 1, 37, 43]
-        },
-        "results": {
-            "static_keys": ["output1", "output2", "output3", "output4"]
-        }
-    },
-    "test_composite_5": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Relu"
-                },
-                "m2": {
-                    "name": "Relu"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Relu"
-                        },
-                        "m2": {
-                            "name": "Relu"
-                        },
-                        "m3": {
-                            "name": "Relu"
-                        },
-                        "m4": {
-                            "name": "Relu"
-                        },
-                        "m5": {
-                            "name": "Relu"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "input": "input1"
-                        },
-                        "m2": {
-                            "input": "input2"
-                        },
-                        "m3": {
-                            "input": {"key": {"connect": [["m1","output"]]}}
-                        },
-                        "m4": {
-                            "input": {"key": {"connect": [["m2","output"]]}},
-                            "output": "output1"
-                        },
-                        "m5": {
-                            "input": {"key": {"connect": [["m4","output"]]}},
-                            "output": "output2"
-                        }
-                    },
-                    "exposed_keys": ["output1", "output2"]
-                },
-                "m4": {
-                    "name": "Relu"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-
-            },
-            "connections" : {
-                "m1": {
-                    "input": "input1"
-                },
-                "m2": {
-                    "input": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input1": {"key": {"connect": [["m1", "output"]]}},
-                    "input2": {"key": {"connect": [["m2", "output"]]}},
-                    "output1": "output1",
-                    "output2": "output2"
-                },
-                "m4": {
-                    "input": "input2"
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "input"]]}},
-                    "output": "output3"
-                }
-            },
-            "exposed_keys": ["output1", "output2", "output3"]
-        },
-        "static_input_shapes": {
-        },
-
-        "results": {
-            "static_keys": ["input1", "input2"]
-        }
-    },
-    "test_composite_6": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Add"
-                },
-                "m2": {
-                    "name": "Add"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                            "right": "input1"
-                        },
-                        "m2": {
-                            "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
-                            "right": {"key": {"connect": [["m1", "output"]]}},
-                            "output": "output"
-                        }
-                    },
-                    "exposed_keys": ["output"]
-                },
-                "m4": {
-                    "name": "Add"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-            },
-            "connections" : {
-                "m1": {
-                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
-                },
-                "m2": {
-                    "left": {"key": {"connect": [["m1", "output"]]}},
-                    "right": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input1": "input1",
-                    "input2": "input1",
-                    "output": "output1"
-                },
-                "m4": {
-                    "left": "input2",
-                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": "output2"
-                }
-            },
-            "exposed_keys": ["output1", "output2"]
-        },
-        "static_input_shapes": {
-            "input1": [3, 4, 5]
-        },
-
-        "results": {
-            "static_keys": ["input2", "input3", "output1"]
-        }
-    },
-    "test_composite_7": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Add"
-                },
-                "m2": {
-                    "name": "Add"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                            "right": "input1"
-                        },
-                        "m2": {
-                            "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
-                            "right": {"key": {"connect": [["m1", "output"]]}},
-                            "output": "output"
-                        }
-                    }
-                },
-                "m4": {
-                    "name": "Add"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-            },
-            "connections" : {
-                "m1": {
-                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
-                },
-                "m2": {
-                    "left": {"key": {"connect": [["m1", "output"]]}},
-                    "right": {"key": {"connect": [["m1", "output"]]}},
-                    "output": "output3"
-                },
-                "m3": {
-                    "input1": "input1",
-                    "input2": "input1",
-                    "output": "output1"
-                },
-                "m4": {
-                    "left": "input2",
-                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": "output2"
-                }
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
             }
+          }
         },
-        "static_input_shapes": {
-            "input1": [3, 4, 5],
-            "input2": [3, 4, 5]
+        "m3": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          }
         },
-
-        "results": {
-            "static_keys": ["input2", "input3", "output1", "output3"]
+        "m4": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          }
+        },
+        "m5": {
+          "left": {
+            "key": {
+              "connect": [
+                [ "m3", "output" ]
+              ]
+            }
+          },
+          "right": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          },
+          "output": "output2"
+        },
+        "m6": {
+          "input": "input2"
+        },
+        "m7": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m6", "output" ]
+              ]
+            }
+          },
+          "output": "output"
         }
+      },
+      "exposed_keys": [ "output", "output2" ]
     },
-    "test_composite_8": {
-        "model": {
-            "name": "Model",
-            "submodels" : {
-                "m1": {
-                    "name": "Add"
-                },
-                "m2": {
-                    "name": "Add"
-                },
-                "m3": {
-                    "name": "Model",
-                    "submodels": {
-                        "m1": {
-                            "name": "Add"
-                        },
-                        "m2": {
-                            "name": "Multiply"
-                        }
-                    },
-                    "connections": {
-                        "m1": {
-                            "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                            "right": "input1"
-                        },
-                        "m2": {
-                            "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
-                            "right": {"key": {"connect": [["m1", "output"]]}},
-                            "output": "output"
-                        }
-                    }
-                },
-                "m4": {
-                    "name": "Add"
-                },
-                "m5": {
-                    "name": "Relu"
-                }
-            },
-            "connections" : {
-                "m1": {
-                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
-                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
-                },
-                "m2": {
-                    "left": {"key": {"connect": [["m1", "output"]]}},
-                    "right": {"key": {"connect": [["m1", "output"]]}}
-                },
-                "m3": {
-                    "input1": "input1",
-                    "input2": "input1",
-                    "output": "output1"
-                },
-                "m4": {
-                    "left": "input2",
-                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
-                },
-                "m5": {
-                    "input": {"key": {"connect": [["m4", "output"]]}},
-                    "output": "output2"
-                }
-            },
-            "exposed_keys": ["output1", "output2"]
-        },
-        "static_input_shapes": {
-            "input2": [3, 4, 5],
-            "input3": [3, 4, 5]
-        },
+    "static_input_shapes": {
+      "input1": [ 1, 1, 1, 1, 1, 1, 1, 37, 43 ]
+    },
 
-        "results": {
-            "static_keys": ["input1", "output2"]
-        }
+    "results": {
+      "static_keys": [ "input2", "output2" ]
     }
+  },
+
+  "test_composite_2": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Relu"
+        },
+        "m2": {
+          "name": "Relu"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Relu"
+            },
+            "m2": {
+              "name": "Relu"
+            },
+            "m3": {
+              "name": "Relu"
+            },
+            "m4": {
+              "name": "Relu"
+            },
+            "m5": {
+              "name": "Relu"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1"
+            },
+            "m2": {
+              "input": "input2"
+            },
+            "m3": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              },
+              "output": "output3"
+            },
+            "m4": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m2", "output" ]
+                  ]
+                }
+              },
+              "output": "output1"
+            },
+            "m5": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m4", "output" ]
+                  ]
+                }
+              },
+              "output": "output2"
+            }
+          },
+          "exposed_keys": [ "output1", "output2", "output3" ]
+        },
+        "m4": {
+          "name": "Relu"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+
+      },
+      "connections": {
+        "m1": {
+          "input": "input1"
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input1": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "input2": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "output1": "output1",
+          "output2": "output2",
+          "output3": "output4"
+        },
+        "m4": {
+          "input": "input2"
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "input" ]
+              ]
+            }
+          },
+          "output": "output3"
+        }
+      },
+      "exposed_keys": [ "output1", "output2", "output3", "output4" ]
+    },
+    "static_input_shapes": {
+      "input1": [ 1, 1, 1, 1, 1, 1, 1, 37, 43 ]
+    },
+
+    "results": {
+      "static_keys": [ "input2", "output1", "output2", "output4" ]
+    }
+  },
+  "test_composite_3": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Relu"
+        },
+        "m2": {
+          "name": "Relu"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Relu"
+            },
+            "m2": {
+              "name": "Relu"
+            },
+            "m3": {
+              "name": "Relu"
+            },
+            "m4": {
+              "name": "Relu"
+            },
+            "m5": {
+              "name": "Relu"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1"
+            },
+            "m2": {
+              "input": "input2"
+            },
+            "m3": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              },
+              "output": "output3"
+            },
+            "m4": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m2", "output" ]
+                  ]
+                }
+              },
+              "output": "output1"
+            },
+            "m5": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m4", "output" ]
+                  ]
+                }
+              },
+              "output": "output2"
+            }
+          },
+          "exposed_keys": [ "output1", "output2", "output3" ]
+        },
+        "m4": {
+          "name": "Relu"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+
+      },
+      "connections": {
+        "m1": {
+          "input": "input1"
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input1": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "input2": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "output1": "output1",
+          "output2": "output2",
+          "output3": "output4"
+        },
+        "m4": {
+          "input": "input2"
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          },
+          "output": "output3"
+        }
+      },
+      "exposed_keys": [ "output1", "output2", "output3", "output4" ]
+
+    },
+    "static_input_shapes": {
+      "input2": [ 1, 1, 1, 1, 1, 1, 1, 37, 43 ]
+    },
+
+    "results": {
+      "static_keys": [ "input1", "output3" ]
+    }
+  },
+  "test_composite_4": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Relu"
+        },
+        "m2": {
+          "name": "Sigmoid"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Sigmoid"
+            },
+            "m2": {
+              "name": "Relu"
+            },
+            "m3": {
+              "name": "Sigmoid"
+            },
+            "m4": {
+              "name": "Sigmoid"
+            },
+            "m5": {
+              "name": "Sigmoid"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1"
+            },
+            "m2": {
+              "input": "input2"
+            },
+            "m3": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              },
+              "output": "output3"
+            },
+            "m4": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m2", "output" ]
+                  ]
+                }
+              },
+              "output": "output1"
+            },
+            "m5": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m4", "output" ]
+                  ]
+                }
+              },
+              "output": "output2"
+            }
+          },
+          "exposed_keys": [ "output1", "output2", "output3" ]
+        },
+        "m4": {
+          "name": "Relu"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+      },
+      "connections": {
+        "m1": {
+          "input": "input1"
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input1": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "input2": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "output1": "output1",
+          "output2": "output2",
+          "output3": "output4"
+        },
+        "m4": {
+          "input": "input2"
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          },
+          "output": "output3"
+        }
+      },
+      "exposed_keys": [ "output1", "output2", "output3", "output4" ]
+    },
+    "static_input_shapes": {
+      "input1": [ 1, 1, 1, 1, 1, 1, 1, 37, 43 ],
+      "input2": [ 1, 1, 1, 1, 1, 1, 1, 37, 43 ]
+    },
+    "results": {
+      "static_keys": [ "output1", "output2", "output3", "output4" ]
+    }
+  },
+  "test_composite_5": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Relu"
+        },
+        "m2": {
+          "name": "Relu"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Relu"
+            },
+            "m2": {
+              "name": "Relu"
+            },
+            "m3": {
+              "name": "Relu"
+            },
+            "m4": {
+              "name": "Relu"
+            },
+            "m5": {
+              "name": "Relu"
+            }
+          },
+          "connections": {
+            "m1": {
+              "input": "input1"
+            },
+            "m2": {
+              "input": "input2"
+            },
+            "m3": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              }
+            },
+            "m4": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m2", "output" ]
+                  ]
+                }
+              },
+              "output": "output1"
+            },
+            "m5": {
+              "input": {
+                "key": {
+                  "connect": [
+                    [ "m4", "output" ]
+                  ]
+                }
+              },
+              "output": "output2"
+            }
+          },
+          "exposed_keys": [ "output1", "output2" ]
+        },
+        "m4": {
+          "name": "Relu"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+
+      },
+      "connections": {
+        "m1": {
+          "input": "input1"
+        },
+        "m2": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input1": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "input2": {
+            "key": {
+              "connect": [
+                [ "m2", "output" ]
+              ]
+            }
+          },
+          "output1": "output1",
+          "output2": "output2"
+        },
+        "m4": {
+          "input": "input2"
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "input" ]
+              ]
+            }
+          },
+          "output": "output3"
+        }
+      },
+      "exposed_keys": [ "output1", "output2", "output3" ]
+    },
+    "static_input_shapes": {},
+
+    "results": {
+      "static_keys": [ "input1", "input2" ]
+    }
+  },
+  "test_composite_6": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Add"
+        },
+        "m2": {
+          "name": "Add"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            }
+          },
+          "connections": {
+            "m1": {
+              "left": {
+                "key": {
+                  "name": "input1",
+                  "type": {
+                    "Tensor": [ "int", "float", "bool" ]
+                  }
+                }
+              },
+              "right": "input1"
+            },
+            "m2": {
+              "left": {
+                "key": {
+                  "name": "input2",
+                  "type": {
+                    "Tensor": [ "int", "float", "bool" ]
+                  }
+                }
+              },
+              "right": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              },
+              "output": "output"
+            }
+          },
+          "exposed_keys": [ "output" ]
+        },
+        "m4": {
+          "name": "Add"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+      },
+      "connections": {
+        "m1": {
+          "left": {
+            "key": {
+              "name": "input1",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          },
+          "right": {
+            "key": {
+              "name": "input2",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          }
+        },
+        "m2": {
+          "left": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "right": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input1": "input1",
+          "input2": "input1",
+          "output": "output1"
+        },
+        "m4": {
+          "left": "input2",
+          "right": {
+            "key": {
+              "name": "input3",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          }
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          },
+          "output": "output2"
+        }
+      },
+      "exposed_keys": [ "output1", "output2" ]
+    },
+    "static_input_shapes": {
+      "input1": [ 3, 4, 5 ]
+    },
+
+    "results": {
+      "static_keys": [ "input2", "input3", "output1" ]
+    }
+  },
+  "test_composite_7": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Add"
+        },
+        "m2": {
+          "name": "Add"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            }
+          },
+          "connections": {
+            "m1": {
+              "left": {
+                "key": {
+                  "name": "input1",
+                  "type": {
+                    "Tensor": [ "int", "float", "bool" ]
+                  }
+                }
+              },
+              "right": "input1"
+            },
+            "m2": {
+              "left": {
+                "key": {
+                  "name": "input2",
+                  "type": {
+                    "Tensor": [ "int", "float", "bool" ]
+                  }
+                }
+              },
+              "right": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              },
+              "output": "output"
+            }
+          }
+        },
+        "m4": {
+          "name": "Add"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+      },
+      "connections": {
+        "m1": {
+          "left": {
+            "key": {
+              "name": "input1",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          },
+          "right": {
+            "key": {
+              "name": "input2",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          }
+        },
+        "m2": {
+          "left": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "right": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "output": "output3"
+        },
+        "m3": {
+          "input1": "input1",
+          "input2": "input1",
+          "output": "output1"
+        },
+        "m4": {
+          "left": "input2",
+          "right": {
+            "key": {
+              "name": "input3",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          }
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          },
+          "output": "output2"
+        }
+      }
+    },
+    "static_input_shapes": {
+      "input1": [ 3, 4, 5 ],
+      "input2": [ 3, 4, 5 ]
+    },
+
+    "results": {
+      "static_keys": [ "input2", "input3", "output1", "output3" ]
+    }
+  },
+  "test_composite_8": {
+    "model": {
+      "name": "Model",
+      "submodels": {
+        "m1": {
+          "name": "Add"
+        },
+        "m2": {
+          "name": "Add"
+        },
+        "m3": {
+          "name": "Model",
+          "submodels": {
+            "m1": {
+              "name": "Add"
+            },
+            "m2": {
+              "name": "Multiply"
+            }
+          },
+          "connections": {
+            "m1": {
+              "left": {
+                "key": {
+                  "name": "input1",
+                  "type": {
+                    "Tensor": [ "int", "float", "bool" ]
+                  }
+                }
+              },
+              "right": "input1"
+            },
+            "m2": {
+              "left": {
+                "key": {
+                  "name": "input2",
+                  "type": {
+                    "Tensor": [ "int", "float", "bool" ]
+                  }
+                }
+              },
+              "right": {
+                "key": {
+                  "connect": [
+                    [ "m1", "output" ]
+                  ]
+                }
+              },
+              "output": "output"
+            }
+          }
+        },
+        "m4": {
+          "name": "Add"
+        },
+        "m5": {
+          "name": "Relu"
+        }
+      },
+      "connections": {
+        "m1": {
+          "left": {
+            "key": {
+              "name": "input1",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          },
+          "right": {
+            "key": {
+              "name": "input2",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          }
+        },
+        "m2": {
+          "left": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          },
+          "right": {
+            "key": {
+              "connect": [
+                [ "m1", "output" ]
+              ]
+            }
+          }
+        },
+        "m3": {
+          "input1": "input1",
+          "input2": "input1",
+          "output": "output1"
+        },
+        "m4": {
+          "left": "input2",
+          "right": {
+            "key": {
+              "name": "input3",
+              "type": {
+                "Tensor": [ "int", "float", "bool" ]
+              }
+            }
+          }
+        },
+        "m5": {
+          "input": {
+            "key": {
+              "connect": [
+                [ "m4", "output" ]
+              ]
+            }
+          },
+          "output": "output2"
+        }
+      },
+      "exposed_keys": [ "output1", "output2" ]
+    },
+    "static_input_shapes": {
+      "input2": [ 3, 4, 5 ],
+      "input3": [ 3, 4, 5 ]
+    },
+
+    "results": {
+      "static_keys": [ "input1", "output2" ]
+    }
+  }
 }
