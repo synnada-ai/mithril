@@ -733,7 +733,13 @@ class Model(BaseModel):
             if isinstance(source := mp.provisional_source, BaseModel):
                 source.provisional_model = None
             mp.provisional_source = False
-
+        # Find if any connection is already in the model after unrolling
+        # and replace it with the existing connection.
+        for key, value in kwargs.items():
+            if isinstance(value, ConnectionData) and self.conns.get_con_by_metadata(
+                value.metadata
+            ):
+                kwargs[key] = self.conns.get_con_by_metadata(value.metadata)  # type: ignore
         self.extend(model, trace, **kwargs)
         return self
 

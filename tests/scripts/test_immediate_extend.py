@@ -590,6 +590,20 @@ def test_multihead():
         assert con.model is block
 
 
+def test_rearrange():
+    # This test is to check that the model can be extended with a provisional model's
+    # input connection properly.
+    block = Model()
+    input = IOKey("input")
+    input_shape = input.shape
+    B, L = input_shape[0], input_shape[1]
+    block |= Reshape().connect(input, shape=(B, L, 3, 10, -1))
+    block += Transpose(axes=(2, 0, 3, 1, 4)).connect(output=IOKey("output"))
+    block.expose_keys("output")
+    for con in block.conns.input_connections:
+        assert con.model is block
+
+
 def test_extend_new_model_with_provisional_ref_count():
     submodel = Model()
     submodel |= (mult := Multiply())
