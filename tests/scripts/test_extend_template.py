@@ -134,9 +134,8 @@ def test_template_template():
     add_2 = lin_2.input + lin_2.bias  # Second ExtendTemplate
     # Now add 2 ExtendTemplates
     add_3 = add_1 + add_2
-    model_1 |= Add().connect(
-        left=tensor.output, right=add_3, output=IOKey(name="output")
-    )
+    model_1 |= Add().connect(left=tensor.output, right=add_3, output="output")
+    model_1.expose_keys("output")
 
     # Create with extend.
     model_2 = Model()
@@ -150,9 +149,8 @@ def test_template_template():
     model_2 |= (add_4 := Add()).connect(left=lin_3.input, right=lin_3.bias)
     model_2 |= (add_5 := Add()).connect(left=lin_4.input, right=lin_4.bias)
     model_2 |= (add_6 := Add()).connect(left=add_4.output, right=add_5.output)
-    model_2 |= Add().connect(
-        left=tensor.output, right=add_6.output, output=IOKey(name="output")
-    )
+    model_2 |= Add().connect(left=tensor.output, right=add_6.output, output="output")
+    model_2.expose_keys("output")
 
     # Provide backend and data.
     backend = JaxBackend()
@@ -355,25 +353,29 @@ def test_right_pow():
     model_1 = Model()
     model_1 |= Linear(dimension=2).connect(input="input", weight="weight", bias="bias")
     pow_1 = model_1.input ** Tensor(2.0)  # type: ignore
-    model_1 |= Mean().connect(input=pow_1, output=IOKey(name="output"))
+    model_1 |= Mean().connect(input=pow_1, output="output")
+    model_1.expose_keys("output")
 
     # Create with shortcut using right add.
     model_2 = Model()
     model_2 |= Linear(dimension=2).connect(input="input", weight="weight", bias="bias")
     pow_2 = Tensor(2.0) ** model_2.input  # type: ignore
-    model_2 |= Mean().connect(input=pow_2, output=IOKey(name="output"))
+    model_2 |= Mean().connect(input=pow_2, output="output")
+    model_2.expose_keys("output")
 
     # Create first model with extend.
     model_3 = Model()
     model_3 |= Linear(dimension=2).connect(input="input", weight="weight", bias="bias")
     model_3 |= (pow_3 := Power()).connect(base=model_3.input, exponent=Tensor(2.0))  # type: ignore
-    model_3 |= Mean().connect(input=pow_3.output, output=IOKey(name="output"))
+    model_3 |= Mean().connect(input=pow_3.output, output="output")
+    model_3.expose_keys("output")
 
     # Create second model with extend.
     model_4 = Model()
     model_4 |= Linear(dimension=2).connect(input="input", weight="weight", bias="bias")
     model_4 |= (pow_4 := Power()).connect(base=Tensor(2.0), exponent=model_4.input)  # type: ignore
-    model_4 |= Mean().connect(input=pow_4.output, output=IOKey(name="output"))
+    model_4 |= Mean().connect(input=pow_4.output, output="output")
+    model_4.expose_keys("output")
 
     # Provide backend and data.
     backend = JaxBackend()
@@ -450,7 +452,8 @@ def test_sequence_slice_1():
     model = Model()
     model |= Indexer().connect(input="input")
     output = model.input[1:3].tensor()  # type: ignore
-    model |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model |= Buffer().connect(input=output, output="output")
+    model.expose_keys("output")
 
     pm = mithril.compile(
         model=model, backend=backend, constant_keys=data, inference=True
@@ -465,7 +468,8 @@ def test_sequence_slice_2():
     model = Model()
     model |= Indexer().connect(input="input")
     output = model.input[1::2].tensor()  # type: ignore
-    model |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model |= Buffer().connect(input=output, output="output")
+    model.expose_keys("output")
 
     pm = mithril.compile(
         model=model, backend=backend, constant_keys=data, inference=True
@@ -480,7 +484,8 @@ def test_sequence_slice_3():
     model = Model()
     model |= Indexer().connect(input="input")
     output = model.input[::2].tensor()  # type: ignore
-    model |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model |= Buffer().connect(input=output, output="output")
+    model.expose_keys("output")
 
     pm = mithril.compile(
         model=model, backend=backend, constant_keys=data, inference=True
@@ -495,7 +500,8 @@ def test_sequence_slice_4():
     model = Model()
     model |= Indexer().connect(input="input")
     output = model.input[2].tensor()  # type: ignore
-    model |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model |= Buffer().connect(input=output, output="output")
+    model.expose_keys("output")
 
     pm = mithril.compile(
         model=model, backend=backend, constant_keys=data, inference=True
@@ -510,12 +516,14 @@ def test_mul():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input * Tensor(2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (mul := Multiply()).connect(left="input", right=Tensor(2))
-    model2 |= Buffer().connect(input=mul.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=mul.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -531,12 +539,14 @@ def test_rmul():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = Tensor(2) * model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (mul := Multiply()).connect(left=Tensor(2), right="input")
-    model2 |= Buffer().connect(input=mul.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=mul.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -552,12 +562,14 @@ def test_div():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input / Tensor(2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (div := Divide()).connect(numerator="input", denominator=Tensor(2))
-    model2 |= Buffer().connect(input=div.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=div.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -575,12 +587,14 @@ def test_rdiv():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = Tensor(2) / model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (div := Divide()).connect(numerator=Tensor(2), denominator="input")
-    model2 |= Buffer().connect(input=div.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=div.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -598,12 +612,14 @@ def test_floor_div():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input // Tensor(2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (div := FloorDivide()).connect(numerator="input", denominator=Tensor(2))
-    model2 |= Buffer().connect(input=div.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=div.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -621,12 +637,14 @@ def test_rfloor_div():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = Tensor(2) // model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (div := FloorDivide()).connect(numerator=Tensor(2), denominator="input")
-    model2 |= Buffer().connect(input=div.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=div.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
@@ -643,12 +661,14 @@ def test_pow():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input ** Tensor(2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (div := Power()).connect(base="input", exponent=Tensor(2))
-    model2 |= Buffer().connect(input=div.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=div.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -666,12 +686,14 @@ def test_rpow():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = Tensor(2) ** model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (div := Power()).connect(base=Tensor(2), exponent="input")
-    model2 |= Buffer().connect(input=div.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=div.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -689,12 +711,14 @@ def test_absolute():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.abs()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (abs := Absolute()).connect(input="input")
-    model2 |= Buffer().connect(input=abs.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=abs.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -712,12 +736,14 @@ def test_exp():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.exp()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (exp := Exponential()).connect(input="input")
-    model2 |= Buffer().connect(input=exp.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=exp.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -735,12 +761,14 @@ def test_mean():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.mean()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (mean := Mean()).connect(input="input")
-    model2 |= Buffer().connect(input=mean.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=mean.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, check_internals=False, inference=True)
 
     pm = mithril.compile(
@@ -758,12 +786,14 @@ def test_max():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.max()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (max := Max()).connect(input="input")
-    model2 |= Buffer().connect(input=max.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=max.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, check_internals=False, inference=True)
 
     pm = mithril.compile(
@@ -781,12 +811,14 @@ def test_sum():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.sum()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (sum := Sum()).connect(input="input")
-    model2 |= Buffer().connect(input=sum.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sum.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, check_internals=False, inference=True)
 
     pm = mithril.compile(
@@ -804,12 +836,14 @@ def test_min():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.min()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (min := Min()).connect(input="input")
-    model2 |= Buffer().connect(input=min.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=min.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, check_internals=False, inference=True)
 
     pm = mithril.compile(
@@ -827,12 +861,14 @@ def test_prod():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.prod()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (prod := Prod()).connect(input="input")
-    model2 |= Buffer().connect(input=prod.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=prod.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, check_internals=False, inference=True)
 
     pm = mithril.compile(
@@ -850,12 +886,14 @@ def test_variance():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.var()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (var := Variance()).connect(input="input")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, check_internals=False, inference=True)
 
     pm = mithril.compile(
@@ -877,13 +915,15 @@ def test_greater_than():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = model1.input1 > model1.input2  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := Greater()).connect(left="input1", right="input2")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True, check_internals=False)
 
     pm = mithril.compile(
@@ -909,13 +949,15 @@ def test_greater_equal():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = model1.input1 >= model1.input2  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := GreaterEqual()).connect(left="input1", right="input2")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -941,13 +983,15 @@ def test_less_than():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = model1.input1 < model1.input2  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := Less()).connect(left="input1", right="input2")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -973,13 +1017,15 @@ def test_less_equal():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = model1.input1 <= model1.input2  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := LessEqual()).connect(left="input1", right="input2")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1005,13 +1051,15 @@ def test_equal():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = model1.input1.eq(model1.input2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := Equal()).connect(left="input1", right="input2")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1037,13 +1085,15 @@ def test_not_equal():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = model1.input1.ne(model1.input2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := NotEqual()).connect(left="input1", right="input2")
-    model2 |= Buffer().connect(input=var.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=var.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1069,14 +1119,16 @@ def test_not():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = ~(model1.input1.ne(model1.input2))  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
     model2 |= Buffer().connect(input="input2")
     model2 |= (var := NotEqual()).connect(left="input1", right="input2")
     model2 |= (lnot := LogicalNot()).connect(input=var.output)
-    model2 |= Buffer().connect(input=lnot.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=lnot.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1102,7 +1154,8 @@ def test_and():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = (model1.input1 > Tensor(0)) & (model1.input2 > Tensor(3))  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
@@ -1110,7 +1163,8 @@ def test_and():
     model2 |= (g1 := Greater()).connect(left="input1", right=Tensor(0))
     model2 |= (g2 := Greater()).connect(left="input2", right=Tensor(3))
     model2 |= (land := LogicalAnd()).connect(left=g1.output, right=g2.output)
-    model2 |= Buffer().connect(input=land.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=land.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1136,7 +1190,8 @@ def test_or():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = (model1.input1 > Tensor(0)) | (model1.input2 > Tensor(3))  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
@@ -1144,7 +1199,8 @@ def test_or():
     model2 |= (g1 := Greater()).connect(left="input1", right=Tensor(0))
     model2 |= (g2 := Greater()).connect(left="input2", right=Tensor(3))
     model2 |= (lor := LogicalOr()).connect(left=g1.output, right=g2.output)
-    model2 |= Buffer().connect(input=lor.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=lor.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1170,7 +1226,8 @@ def test_xor():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = (model1.input1 > Tensor(0)) ^ (model1.input2 > Tensor(3))  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
@@ -1178,7 +1235,8 @@ def test_xor():
     model2 |= (g1 := Greater()).connect(left="input1", right=Tensor(0))
     model2 |= (g2 := Greater()).connect(left="input2", right=Tensor(3))
     model2 |= (lor := LogicalXOr()).connect(left=g1.output, right=g2.output)
-    model2 |= Buffer().connect(input=lor.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=lor.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1204,7 +1262,8 @@ def test_xor2():
     model1 |= Buffer().connect(input="input1")
     model1 |= Buffer().connect(input="input2")
     output = Tensor([True, True, True, False, False, False]) ^ (model1.input2 > 3)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input1")
@@ -1213,7 +1272,8 @@ def test_xor2():
     model2 |= (lor := LogicalXOr()).connect(
         left=Tensor([True, True, True, False, False, False]), right=g2.output
     )
-    model2 |= Buffer().connect(input=lor.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=lor.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1239,13 +1299,15 @@ def test_lshift_1():
     model1 |= Buffer().connect(input="input")
     model1 |= Buffer().connect(input="shift")
     output = model1.input << model1.shift  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= Buffer().connect(input="shift")
     model2 |= (sl := ShiftLeft()).connect(input="input", shift="shift")
-    model2 |= Buffer().connect(input=sl.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sl.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1264,13 +1326,15 @@ def test_lshift_2():
     model1 |= Buffer().connect(input="input")
     model1 |= Buffer().connect(input="shift")
     output = model1.input << Tensor(2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= Buffer().connect(input="shift")
     model2 |= (sl := ShiftLeft()).connect(input="input", shift=Tensor(2))
-    model2 |= Buffer().connect(input=sl.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sl.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1288,12 +1352,14 @@ def test_lshift_3():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = Tensor(2) << model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (sl := ShiftLeft()).connect(input=Tensor(2), shift="input")
-    model2 |= Buffer().connect(input=sl.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sl.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1315,13 +1381,15 @@ def test_rshift_1():
     model1 |= Buffer().connect(input="input")
     model1 |= Buffer().connect(input="shift")
     output = model1.input >> model1.shift  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= Buffer().connect(input="shift")
     model2 |= (sr := ShiftRight()).connect(input="input", shift="shift")
-    model2 |= Buffer().connect(input=sr.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sr.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1340,13 +1408,15 @@ def test_rshift_2():
     model1 |= Buffer().connect(input="input")
     model1 |= Buffer().connect(input="shift")
     output = model1.input >> Tensor(2)  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= Buffer().connect(input="shift")
     model2 |= (sl := ShiftRight()).connect(input="input", shift=Tensor(2))
-    model2 |= Buffer().connect(input=sl.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sl.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1364,12 +1434,14 @@ def test_rshift_3():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = Tensor(2) >> model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (sl := ShiftRight()).connect(input=Tensor(2), shift="input")
-    model2 |= Buffer().connect(input=sl.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sl.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1389,12 +1461,14 @@ def test_negate():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = -model1.input  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (negate := Negate()).connect(input="input")
-    model2 |= Buffer().connect(input=negate.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=negate.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1441,12 +1515,14 @@ def test_sin():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.sin()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (sin := Sine()).connect(input="input")
-    model2 |= Buffer().connect(input=sin.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=sin.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1468,12 +1544,14 @@ def test_cos():
     model1 = Model()
     model1 |= Buffer().connect(input="input")
     output = model1.input.cos()  # type: ignore
-    model1 |= Buffer().connect(input=output, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=output, output="output")
+    model1.expose_keys("output")
 
     model2 = Model()
     model2 |= Buffer().connect(input="input")
     model2 |= (cos := Cosine()).connect(input="input")
-    model2 |= Buffer().connect(input=cos.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=cos.output, output="output")
+    model2.expose_keys("output")
     compare_models(model1, model2, backend, data, inference=True)
 
     pm = mithril.compile(
@@ -1491,23 +1569,27 @@ def test_use_submodel_conn_1():
     data = {"input1": backend.array([1.0, -2, 3, 0.5, -5, 6])}
 
     modelsub = Model()
-    modelsub |= Buffer().connect(input="input1", output=IOKey(name="output"))
+    modelsub |= Buffer().connect(input="input1", output="output")
     x = (modelsub.input1 + Tensor(3)) / Tensor(2)  # type: ignore
     x += Tensor(3)
+    modelsub.expose_keys("output")
 
     model1 = Model()
     model1 |= modelsub.connect(input1="input1")
-    model1 |= Buffer().connect(input=x, output=IOKey(name="output"))
+    model1 |= Buffer().connect(input=x, output="output")
+    model1.expose_keys("output")
 
     modelsub2 = Model()
-    modelsub2 |= Buffer().connect(input="input1", output=IOKey(name="output"))
+    modelsub2 |= Buffer().connect(input="input1", output="output")
+    modelsub2.expose_keys("output")
 
     model2 = Model()
     model2 |= modelsub2.connect(input1="input1")
     model2 |= (add := Add()).connect(left="input1", right=Tensor(3))
     model2 |= (div := Divide()).connect(numerator=add.output, denominator=Tensor(2))
     model2 |= (add2 := Add()).connect(left=div.output, right=Tensor(3))
-    model2 |= Buffer().connect(input=add2.output, output=IOKey(name="output"))
+    model2 |= Buffer().connect(input=add2.output, output="output")
+    model2.expose_keys("output")
 
     compare_models(model1, model2, backend, data, inference=True)
 

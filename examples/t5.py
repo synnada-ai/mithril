@@ -126,10 +126,11 @@ def multihead_attention(
     scores = block.attention_weights.cast(scores.dtype())  # type: ignore
     values_hat = (scores @ values).transpose((0, 2, 1, 3)).reshape((B, L, -1))
     block |= Linear(d_model, name="out_proj", use_bias=False).connect(
-        values_hat, output=IOKey("output")
+        values_hat, output="output"
     )
-    block |= Buffer().connect(keys, output=IOKey("keys_out"))
-    block |= Buffer().connect(values, output=IOKey("values_out"))
+    block |= Buffer().connect(keys, output="keys_out")
+    block |= Buffer().connect(values, output="values_out")
+    block.expose_keys("keys_out", "values_out", "output")
 
     return block
 
@@ -142,7 +143,8 @@ def rms_norm(dim: int, *, name: str | None = None):
         "weight", shape=[dim], differentiable=True
     )  # TODO: weight must be initialized with ones.
     rrms = input / ((input**2).mean(axis=-1, keepdim=True) + 1e-5).sqrt()
-    block += Multiply().connect(left=rrms, right=weight, output=IOKey("output"))
+    block += Multiply().connect(left=rrms, right=weight, output="output")
+    block.expose_keys("output")
     block.set_cin("input")
     return block
 
@@ -182,8 +184,9 @@ def dense_activation(config: dict[str, Any], *, name: str | None = None):
         block += Relu().connect(output="hidden_out")
 
     block += Linear(config["d_model"], name="wo", use_bias=False).connect(
-        output=IOKey("output")
+        output="output"
     )
+    block.expose_keys("output")
     return block
 
 
@@ -229,7 +232,8 @@ def relative_position_bucket(
         output="where_out",
     )
 
-    block |= Add().connect(relative_buckets, "where_out", output=IOKey("output"))
+    block |= Add().connect(relative_buckets, "where_out", output="output")
+    block.expose_keys("output")
 
     return block
 
@@ -260,7 +264,8 @@ def transformer_encoder_layer(config: dict[str, Any], *, name: str | None = None
     block |= dense_activation(config=config, name="dense").connect(
         input="norm2", output="ff_out"
     )
-    block |= Add().connect(left="attn_out2", right="ff_out", output=IOKey("output"))
+    block |= Add().connect(left="attn_out2", right="ff_out", output="output")
+    block.expose_keys("output")
     block.set_cout("output")
     return block
 
@@ -293,8 +298,9 @@ def relative_position_bias(
     block |= Embedding(
         num_embeddings=num_buckets, dim=num_heads, name="embeddings"
     ).connect(input="relative_position_buckets", output="values")
-    block |= Transpose(axes=(2, 0, 1)).connect(input="values", output=IOKey("output"))
+    block |= Transpose(axes=(2, 0, 1)).connect(input="values", output="output")
 
+    block.expose_keys("output")
     return block
 
 
@@ -308,7 +314,7 @@ def transformer_encoder(config: dict[str, Any], *, name: str | None = None):
         query_length=input.shape[1],
         key_length=input.shape[1],
         offset=0,
-        output=IOKey("pos_bias"),
+        output="pos_bias",
     )
 
     input_key = "input"
@@ -319,8 +325,10 @@ def transformer_encoder(config: dict[str, Any], *, name: str | None = None):
         input_key = f"output_{idx}"
 
     block |= rms_norm(config["d_model"], name="ln").connect(
-        input=input_key, output=IOKey("output")
+        input=input_key, output="output"
     )
+
+    block.expose_keys("pos_bias", "output")
     return block
 
 
@@ -360,9 +368,8 @@ def transformer_decoder_layer(
     block |= dense_activation(config=config, name="dense").connect(
         input="norm3", output="ff_out"
     )
-    block |= Add().connect(
-        left="cross_attn_out2", right="ff_out", output=IOKey("output")
-    )
+    block |= Add().connect(left="cross_attn_out2", right="ff_out", output="output")
+    block.expose_keys("output")
     block.set_cout("output")
 
     return block
@@ -392,7 +399,8 @@ def transformer_decoder(config: dict[str, Any], *, name: str | None = None):
         )
         input_key = f"output_{idx}"
 
-    block += rms_norm(config["d_model"], name="ln").connect(output=IOKey("output"))
+    block += rms_norm(config["d_model"], name="ln").connect(output="output")
+    block.expose_keys("output")
 
     return block
 
@@ -400,8 +408,9 @@ def transformer_decoder(config: dict[str, Any], *, name: str | None = None):
 def output_head(config: dict[str, Any], *, name: str | None = None):
     block = Model(name=name)
     block += Linear(config["vocab_size"], use_bias=False, name="linear").connect(
-        IOKey("input"), output=IOKey("output")
+        IOKey("input"), output="output"
     )
+    block.expose_keys("output")
     return block
 
 
@@ -412,8 +421,9 @@ def t5_encode(config: dict[str, Any], name: str | None = None):
         name="wte", num_embeddings=config["vocab_size"], dim=config["d_model"]
     ).connect(input, output="wte_out")
     block |= transformer_encoder(config, name="encoder").connect(
-        input="wte_out", pos_bias="pos_bias", output=IOKey("output")
+        input="wte_out", pos_bias="pos_bias", output="output"
     )
+    block.expose_keys("output")
 
     return block
 
@@ -434,14 +444,15 @@ def t5_decode(config: dict[str, Any], *, name: str | None = None):
 
     if not tie_word_embeddings:
         block |= output_head(config, name="lm_head").connect(
-            input="decoder_out", output=IOKey("output")
+            input="decoder_out", output="output"
         )
     else:
         decoder_out = block.decoder_out  # type: ignore
         decoder_out *= config["d_model"] ** -0.5
         block |= MatrixMultiply().connect(
-            decoder_out, wte.weight.transpose(), output=IOKey("output")
+            decoder_out, wte.weight.transpose(), output="output"
         )
+    block.expose_keys("output")
 
     return block
 

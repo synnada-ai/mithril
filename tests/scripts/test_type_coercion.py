@@ -892,10 +892,11 @@ def test_connect_type_conv_handling_1():
         {
             "left": "abcd",
             "right": IOKey(differentiable=True),
-            "output": IOKey(name="output"),
+            "output": "output",
         },
     )
     mat_mul.set_shapes(output=output_shape)
+    model.expose_keys("output")
     model_1 = model
 
     # Second model
@@ -909,10 +910,11 @@ def test_connect_type_conv_handling_1():
         {
             "left": "abcd",
             "right": IOKey(differentiable=True),
-            "output": IOKey(name="output"),
+            "output": "output",
         },
     )
     mat_mul.set_shapes(output=output_shape)
+    model.expose_keys("output")
     model_2 = model
 
     # Third model
@@ -926,10 +928,11 @@ def test_connect_type_conv_handling_1():
         {
             "left": "abcd",
             "right": IOKey(differentiable=True),
-            "output": IOKey(name="output"),
+            "output": "output",
         },
     )
     mat_mul.set_shapes(output=output_shape)
+    model.expose_keys("output")
     model_3 = model
 
     # Provide backend and data.
@@ -1155,7 +1158,7 @@ def test_connect_7_expose_output():
     model |= add_model_1.connect(
         left=IOKey("left", differentiable=True),
         right=IOKey("right", differentiable=True),
-        output=IOKey(name="output2"),
+        output="output2",
     )
     model |= add_model_2.connect(
         left=IOKey("left1", differentiable=True),
@@ -1164,7 +1167,8 @@ def test_connect_7_expose_output():
     conns = {add_model_2.output, model.right}  # type: ignore
     model.merge_connections(*conns, name="abcd")
     model.expose_keys("abcd")
-    model |= (buf := Buffer()).connect(input="abcd", output=IOKey(name="output"))
+    model |= (buf := Buffer()).connect(input="abcd", output="output")
+    model.expose_keys("output", "output2")
 
     assert (
         add_model_2.output.metadata

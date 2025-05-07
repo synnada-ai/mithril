@@ -208,9 +208,10 @@ class Pool1D(Model):
             stride=stride_conv.output,
             padding=pad_conv.output,
             dilation=IOKey(name="dilation", value=dilation),
-            output=IOKey(name="output"),
+            output="output",
         )
 
+        self.expose_keys("stride", "padding", "dilation", "kernel_size", "output")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -310,8 +311,10 @@ class Pool2D(Model):
             stride=st_converter.output,
             padding=pt_converter.output,
             dilation=dt_converter.output,
-            output=IOKey(name="output"),
+            output="output",
         )
+
+        self.expose_keys("stride", "padding", "dilation", "kernel_size", "output")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -397,7 +400,7 @@ class Convolution1D(Model):
         )
 
         conv_connections: dict[str, ConnectionType] = {
-            "output": IOKey(name="output"),
+            "output": "output",
             "input": IOKey("input", value=input),
             "weight": IOKey("weight", value=weight, differentiable=True),
             "stride": IOKey(name="stride", value=stride),
@@ -408,6 +411,8 @@ class Convolution1D(Model):
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
         self |= PrimitiveConvolution1D(use_bias=use_bias).connect(**conv_connections)
+
+        self.expose_keys("input", "weight", "padding", "stride", "dilation", "output")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -493,7 +498,7 @@ class Convolution2D(Model):
         self |= dt_converter.connect(input=IOKey(name="dilation", value=dilation))
 
         conv_connections: dict[str, ConnectionType] = {
-            "output": IOKey(name="output"),
+            "output": "output",
             "input": IOKey("input", value=input),
             "weight": IOKey("weight", value=weight, differentiable=True),
             "stride": st_converter.output,
@@ -504,6 +509,8 @@ class Convolution2D(Model):
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
         self |= PrimitiveConvolution2D(use_bias=use_bias).connect(**conv_connections)
+
+        self.expose_keys("output")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -557,7 +564,7 @@ class Linear(Model):
 
         mult = MatrixMultiply()
 
-        output = IOKey(name="output")
+        output = "output"
         input_key = IOKey(name="input", value=input)
         weight_key = IOKey(name="weight", value=weight, differentiable=True).transpose()
 
@@ -576,6 +583,7 @@ class Linear(Model):
             self |= mult.connect(left=input_key, right=weight_key, output=output)
             self._formula_key = "linear"
 
+        self.expose_keys("output")
         self._set_shapes(**shapes)
         self._set_cin("input", safe=False)
         self._freeze()
@@ -666,7 +674,9 @@ class Layer(Model):
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
         )
-        self += activation.connect(output=IOKey(name="output"))
+        self += activation.connect(output="output")
+
+        self.expose_keys("output")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -827,6 +837,8 @@ class GroupNorm(Model):
             add._set_shapes(**shapes)
 
         self |= Buffer().connect(input=self.cout, output=IOKey(name="output"))
+
+        self.expose_keys("output", "eps")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -996,6 +1008,8 @@ class L2(Model):
         self += Square().connect(input=IOKey("input", value=input))
         self += Sum().connect()
         self += Multiply().connect(right=0.5, output=IOKey(name="output"))
+
+        self.expose_keys("output")
         self._set_cin("input", safe=False)
         self._set_cout("output", safe=False)
         self._freeze()
@@ -1228,14 +1242,14 @@ class KernelizedSVM(Model):
                 kernel_input_args[key] = IOKey(key, value=kwargs.get(key, TBD))
 
         (kernel_output_name,) = kernel.conns.output_keys  # NOTE: Assumes single output!
-        kernel_output_args = {kernel_output_name: IOKey(name="kernel")}
+        kernel_output_args = {kernel_output_name: "kernel"}
 
         self |= kernel.connect(**kernel_input_args, **kernel_output_args)
         self |= linear_model.connect(
             input=kernel.cout,
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
-            output=IOKey(name="output"),
+            output="output",
         )
 
         # TODO: It is not clear where these "input1" and "input2" names come from.
@@ -1248,6 +1262,8 @@ class KernelizedSVM(Model):
             "output": ["N", 1],
             "kernel": ["N", "M"],
         }
+
+        self.expose_keys("kernel", "output")
         self._set_shapes(**shapes)
         self._set_cin("input1", "input2", safe=False)
         self._freeze()
@@ -1293,10 +1309,11 @@ class LinearSVM(Model):
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
-            output=IOKey(name="output"),
+            output="output",
         )
-        self += decision_model.connect(output=IOKey(name="decision_output"))
+        self += decision_model.connect(output="decision_output")
 
+        self.expose_keys("output", "decision_output")
         self._set_cout(linear_model.output)
         self._freeze()
 
@@ -1341,12 +1358,11 @@ class LogisticRegression(Model):
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
-            output=IOKey(name="output"),
+            output="output",
         )
-        self |= sigmoid_model.connect(
-            input=linear_model.output, output=IOKey(name="probs_output")
-        )
+        self |= sigmoid_model.connect(input=linear_model.output, output="probs_output")
 
+        self.expose_keys("output", "probs_output")
         self._set_cout(linear_model.output)
         self._freeze()
 
@@ -1424,11 +1440,13 @@ class MLP(Model):
             if idx == (
                 len(activations) - 2
             ):  # Loop starts to iterate from second elemets, so it is -2.
-                kwargs |= {"output": IOKey(name="output")}
+                kwargs |= {"output": "output"}
 
             # Add current layer to the model.
             self += current_layer.connect(**kwargs)
             prev_layer = current_layer
+
+        self.expose_keys("output")
         self._set_cin("input", safe=False)
         self._freeze()
 
@@ -1514,7 +1532,7 @@ class RNNCell(Cell):
         self |= tensor_item_1.connect(
             input="prev_hidden",
             index=slice_1.output,
-            output=IOKey(name="hidden_compl"),
+            output="hidden_compl",
         )
         self |= slice_2.connect(stop=scalar_item.output)
         self |= tensor_item_2.connect(input="prev_hidden", index=slice_2.output)
@@ -1530,14 +1548,14 @@ class RNNCell(Cell):
             left=sum_model_1.output,
             right=IOKey("bias_h", value=bias_h, differentiable=True),
         )
-        self |= Tanh().connect(input=sum_model_2.output, output=IOKey(name="hidden"))
+        self |= Tanh().connect(input=sum_model_2.output, output="hidden")
         self |= mult_model_3.connect(
             input="hidden", weight=IOKey("w_ho", value=w_ho, differentiable=True)
         )
         self |= Add().connect(
             left=mult_model_3.output,
             right=IOKey("bias_o", value=bias_o, differentiable=True),
-            output=IOKey(name="output"),
+            output="output",
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -1549,6 +1567,7 @@ class RNNCell(Cell):
             "bias_o": ["d_out"],
         }
 
+        self.expose_keys("output", "hidden", "hidden_compl")
         self._set_shapes(**shapes)
         self._set_cin("input", safe=False)
         self._set_cout("output")
@@ -1684,12 +1703,12 @@ class LSTMCell(Cell):
 
         self |= slice_3.connect(start=scalar_item.output)
         self |= tensor_item_3.connect(
-            input=cell_body.output, index=slice_3.output, output=IOKey(name="hidden")
+            input=cell_body.output, index=slice_3.output, output="hidden"
         )
 
         self |= slice_4.connect(stop=scalar_item.output)
         self |= tensor_item_4.connect(
-            input=cell_body.output, index=slice_4.output, output=IOKey(name="cell")
+            input=cell_body.output, index=slice_4.output, output="cell"
         )
 
         # Slice complement process.
@@ -1697,14 +1716,14 @@ class LSTMCell(Cell):
         self |= tensor_item_5.connect(
             input="prev_hidden",
             index=slice_5.output,
-            output=IOKey(name="hidden_compl"),
+            output="hidden_compl",
         )
         # Final output.
         self |= Linear().connect(
             input="hidden",
             weight=IOKey("w_out", value=w_out),
             bias=IOKey("bias_out", value=bias_out),
-            output=IOKey(name="output"),
+            output="output",
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -1724,6 +1743,7 @@ class LSTMCell(Cell):
             "cell": ["N", 1, "d_hid"],
         }
 
+        self.expose_keys("hidden", "cell", "hidden_compl", "output")
         self._set_shapes(**shapes)
         self._set_cin("input", safe=False)
         self._set_cout("output")
@@ -1954,7 +1974,7 @@ class OneToMany(RNN):
         shared_keys_kwargs = {
             key: IOKey(key, value=kwargs.get(key, TBD)) for key in cell_type.shared_keys
         }
-        output_kwargs = {cell_type.out_key: IOKey(name="output0")}
+        output_kwargs = {cell_type.out_key: "output0"}
         input_kwargs: dict[str, ConnectionType] = {"input": IOKey("input", value=input)}
         initial_state_kwargs = {
             f"prev_{key}": IOKey(
@@ -1962,6 +1982,7 @@ class OneToMany(RNN):
             )
             for key in cell_type.state_keys
         }
+        exposed_keys = ["output0"]
 
         self += prev_cell.connect(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
@@ -1997,7 +2018,9 @@ class OneToMany(RNN):
             self |= tensor_item.connect(input=slice_input_1, index=slice_model.output)
 
             input_kwargs = {"input": tensor_item.output}
-            output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
+            out_name = f"output{idx}"
+            output_kwargs = {cell_type.out_key: out_name}
+            exposed_keys.append(out_name)
 
             self |= current_cell.connect(
                 **(
@@ -2009,6 +2032,8 @@ class OneToMany(RNN):
             )
 
             prev_cell = current_cell
+
+        self.expose_keys(*exposed_keys)
         self._set_cin("input")
         self._set_cout(current_cell.output)
         self._freeze()
@@ -2039,7 +2064,7 @@ class OneToManyInference(RNN):
         prev_cell = cell
 
         shared_keys_kwargs = {key: key for key in cell_type.shared_keys}
-        output_kwargs = {cell_type.out_key: IOKey(name="output0")}
+        output_kwargs = {cell_type.out_key: "output0"}
         input_kwargs: dict[str, ConnectionType] = {"input": IOKey("input", value=input)}
         initial_state_kwargs = {
             f"prev_{key}": IOKey(
@@ -2050,20 +2075,23 @@ class OneToManyInference(RNN):
         self += prev_cell.connect(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
         )
-
+        exposed_keys = ["output0"]
         for idx in range(1, max_sequence_length):
             current_cell = deepcopy(cell_type)
 
             state_keys_kwargs = {
                 f"prev_{key}": getattr(prev_cell, key) for key in cell_type.state_keys
             }
-            output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
+            output_kwargs = {cell_type.out_key: f"output{idx}"}
 
             self += current_cell.connect(
                 **(shared_keys_kwargs | state_keys_kwargs | output_kwargs)
             )
 
             prev_cell = current_cell
+            exposed_keys.append(f"output{idx}")
+
+        self.expose_keys(*exposed_keys)
         self._freeze()
 
     def connect(  # type: ignore[override]
@@ -2093,7 +2121,7 @@ class ManyToOne(RNN):
         concat_model = Concat()
         concat_input_args: list[ConnectionType] = []
         shared_keys_kwargs = {key: key for key in cell_type.shared_keys}
-        output_kwargs = {cell_type.out_key: IOKey(name="output0")}
+        output_kwargs = {cell_type.out_key: "output0"}
         input_kwargs = {"input": IOKey("input0", value=kwargs.get("input0", TBD))}
         initial_state_kwargs = {
             f"prev_{key}": IOKey(
@@ -2101,6 +2129,7 @@ class ManyToOne(RNN):
             )
             for key in cell_type.state_keys
         }
+        exposed_keys = ["output0"]
 
         self |= prev_cell.connect(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
@@ -2114,7 +2143,7 @@ class ManyToOne(RNN):
             input_kwargs = {
                 "input": IOKey(f"input{idx}", value=kwargs.get(f"input{idx}", TBD))
             }
-            output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
+            output_kwargs = {cell_type.out_key: f"output{idx}"}
 
             # For the last cell, include hidden
             self |= cur_cell.connect(
@@ -2126,6 +2155,7 @@ class ManyToOne(RNN):
                 )
             )
 
+            self.expose_keys(f"output{idx}")
             # For the last cell, include hidden
             if idx < max_sequence_length - 1:
                 concat_input_args.append(cur_cell.hidden_compl)
@@ -2133,12 +2163,16 @@ class ManyToOne(RNN):
                 concat_input_args.extend([cur_cell.hidden, cur_cell.hidden_compl])
 
             prev_cell = cur_cell
+            exposed_keys.append(f"output{idx}")
 
         # Add concat model with accumulated hidden states.
         self |= concat_model.connect(
             input=concat_input_args,
             output=IOKey(name="hidden_concat", value=hidden_concat),
         )
+        exposed_keys.append("hidden_concat")
+
+        self.expose_keys(*exposed_keys)
         self._set_cin("input0")
         self._set_cout("hidden_concat")
         self._freeze()
@@ -2188,7 +2222,7 @@ class EncoderDecoder(Model):
             if "$" not in key and key != "initial_hidden"
         }
 
-        dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
+        dec_output_mapping = {key: key for key in decoder.conns.output_keys}
 
         self |= encoder.connect(**enc_input_mapping)
         self |= permutation_model.connect(
@@ -2198,8 +2232,9 @@ class EncoderDecoder(Model):
             initial_hidden=permutation_model.output,
             **(dec_input_mapping | dec_output_mapping),
         )
-        self._set_cout(decoder.cout)
 
+        self.expose_keys(*dec_output_mapping.values())
+        self._set_cout(decoder.cout)
         self._freeze()
 
     def connect(  # type: ignore[override]
@@ -2241,13 +2276,14 @@ class EncoderDecoderInference(Model):
             if "$" not in key and key != "initial_hidden"
         }
 
-        dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
+        dec_output_mapping = {key: key for key in decoder.conns.output_keys}
 
         self |= encoder.connect(**enc_input_mapping)
         self |= decoder.connect(
             initial_hidden=encoder.hidden_concat,
             **(dec_input_mapping | dec_output_mapping),
         )
+        self.expose_keys(*dec_output_mapping.values())
         self._set_cout(decoder.cout)
         self._freeze()
 
@@ -3065,10 +3101,11 @@ class Metric(Model):
             pred_key = self.pred_argmax
 
         result = pred_key - label_key
-        self |= Buffer().connect(input=pred_key, output=IOKey("pred_formatted"))
-        self |= Buffer().connect(input=label_key, output=IOKey("label_formatted"))
-        self |= Buffer().connect(input=result, output=IOKey("output"))
+        self |= Buffer().connect(input=pred_key, output="pred_formatted")
+        self |= Buffer().connect(input=label_key, output="label_formatted")
+        self |= Buffer().connect(input=result, output="output")
 
+        self.expose_keys("pred_formatted", "label_formatted", "output")
         self._set_cin(self.pred)
         self._freeze()
 
@@ -3129,9 +3166,13 @@ class Accuracy(Model):
         self |= Divide().connect(
             numerator="n_true_predictions",
             denominator=n_prediction.tensor(),
-            output=IOKey(name="output"),
+            output="output",
         )
+
+        self.expose_keys("output")
         self._set_cin(self.pred)
+        self._set_cout(self.output)
+        self._freeze()
 
     def connect(  # type: ignore[override]
         self,
@@ -3297,7 +3338,9 @@ class Precision(Model):
 
             self |= Buffer().connect(input=precision, output=IOKey(name="output"))
 
+        self.expose_keys("output")
         self._set_cin(self.pred)
+        self._set_cout(self.output)
         self._freeze()
 
     def connect(  # type: ignore[override]
@@ -3464,7 +3507,9 @@ class Recall(Model):
 
             self |= Buffer().connect(input=recall, output=IOKey(name="output"))
 
+        self.expose_keys("output")
         self._set_cin(self.pred)
+        self._set_cout(self.output)
         self._freeze()
 
     def connect(  # type: ignore[override]
@@ -3538,7 +3583,7 @@ class F1(Model):
             self |= Buffer().connect(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
-                output=IOKey(name="output"),
+                output="output",
             )
 
         if average == "macro":
@@ -3640,7 +3685,9 @@ class F1(Model):
 
             self |= Buffer().connect(input=precision, output=IOKey(name="output"))
 
+        self.expose_keys("output")
         self._set_cin(self.pred)
+        self._set_cout(self.output)
         self._freeze()
 
     def connect(  # type: ignore[override]
@@ -3772,8 +3819,10 @@ class Randn(Model):
                 key=_key, output="new_key"
             )
             self.bind_state_keys(_key, "new_key", Tensor(42))
-        self |= PrimitiveRandn().connect(_shape, _key, _dtype, output=IOKey("output"))
+            self.expose_keys("new_key")
+        self |= PrimitiveRandn().connect(_shape, _key, _dtype, output="output")
 
+        self.expose_keys("output", "shape", "dtype")
         self._freeze()
 
     def connect(  # type: ignore[override]
@@ -3887,8 +3936,9 @@ class Split(Model):
             )
             to_list_kwargs[f"input{idx+1}"] = indexer.output
         # Finally collect all the split tensors into a list.
-        self |= ToList(n=split_size).connect(**to_list_kwargs, output=IOKey("output"))
+        self |= ToList(n=split_size).connect(**to_list_kwargs, output="output")
 
+        self.expose_keys("split_size", "axis", "output")
         self._freeze()
 
     def connect(  # type: ignore[override]

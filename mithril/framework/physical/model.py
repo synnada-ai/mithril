@@ -812,7 +812,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # if verbose, find the name of the model and create the table object and
             # display it based on extracted infos
             if name is None:
-                name = model.class_name if model else self.__class__.__name__
+                name = model.default_name if model else self.__class__.__name__
             table = get_summary(
                 conns=conn_info,
                 name=name,

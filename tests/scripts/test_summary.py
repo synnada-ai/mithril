@@ -91,15 +91,10 @@ def test_extract_logical_connections_1():
     lin1 = Linear()
     lin2 = Linear()
     lin3 = Linear()
-    model1 |= lin1.connect(
-        input="input", weight="weight", bias="bias", output=IOKey(name="output")
-    )
-    model1 |= lin2.connect(
-        input=lin1.output, weight=lin1.output, output=IOKey(name="output2")
-    )
-    model1 |= lin3.connect(
-        input=lin1.weight, weight=lin1.weight, output=IOKey(name="output3")
-    )
+    model1 |= lin1.connect(input="input", weight="weight", bias="bias", output="output")
+    model1 |= lin2.connect(input=lin1.output, weight=lin1.output, output="output2")
+    model1 |= lin3.connect(input=lin1.weight, weight=lin1.weight, output="output3")
+    model1.expose_keys("output", "output2", "output3")
     name_mappings = define_unique_names(model1.dag.keys())
     conns = model1.extract_connection_info(name_mappings)
     assert conns == {
@@ -134,8 +129,9 @@ def test_extract_logical_connections_2():
     model = Model()
     sig1 = Sigmoid()
     sig2 = Sigmoid()
-    model |= sig1.connect(input="input1", output=IOKey(name="output1"))
-    model |= sig2.connect(input="input2", output=IOKey(name="output2"))
+    model |= sig1.connect(input="input1", output="output1")
+    model |= sig2.connect(input="input2", output="output2")
+    model.expose_keys("output1", "output2")
     model.set_cin("input1")
     model.set_cout("output1")
     buff3 = Relu()
@@ -173,27 +169,29 @@ def test_extract_logical_connections_3():
 
 def test_extract_logical_connections_4():
     three_out_model = Model()
-    three_out_model |= Buffer().connect(input="input1", output=IOKey(name="output1"))
-    three_out_model |= Buffer().connect(input="output1", output=IOKey(name="output2"))
-    three_out_model |= Buffer().connect(input="input2", output=IOKey(name="output3"))
+    three_out_model |= Buffer().connect(input="input1", output="output1")
+    three_out_model |= Buffer().connect(input="output1", output="output2")
+    three_out_model |= Buffer().connect(input="input2", output="output3")
+    three_out_model.expose_keys("output1", "output2", "output3")
 
     model = Model()
 
     model_1, model_2 = deepcopy(three_out_model), deepcopy(three_out_model)
 
     model |= model_1.connect(
-        output1=IOKey(name="out_1"),
-        output2=IOKey(name="out_2"),
-        output3=IOKey(name="out_3"),
+        output1="out_1",
+        output2="out_2",
+        output3="out_3",
     )
     model.merge_connections(model_1.input1, model_1.input2)  # type: ignore
     model |= model_2.connect(
         output1=model_1.input1,  # type: ignore
-        output2=IOKey(name="out_4"),
-        output3=IOKey(name="out_5"),
+        output2="out_4",
+        output3="out_5",
         input1="in1",
         input2="in2",
     )
+    model.expose_keys("out_1", "out_2", "out_3", "out_4", "out_5")
 
     name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
@@ -270,9 +268,10 @@ def test_extract_logical_connections_5():
 
 def test_extract_logical_connections_6():
     model = Model()
-    model += Linear(dimension=3).connect(input="input", output=IOKey(name="output"))
+    model += Linear(dimension=3).connect(input="input", output="output")
     model += Flatten()
     model += Mean(keepdim=True)
+    model.expose_keys("output")
     name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
@@ -298,9 +297,10 @@ def test_extract_logical_connections_6():
 
 def test_extract_logical_connections_7():
     model = Model()
-    model += Linear(dimension=3).connect(input="input", output=IOKey(name="output"))
+    model += Linear(dimension=3).connect(input="input", output="output")
     model += Sigmoid()
     model += Mean(keepdim=True)
+    model.expose_keys("output")
     model_1, model_2 = deepcopy(model), deepcopy(model)
     model += model_1
     model += model_2
@@ -351,8 +351,9 @@ def test_extract_logical_connections_7():
 def test_extract_logical_connections_8():
     model_1 = Model()
     buff_1 = Buffer()
-    model_1 |= Buffer().connect(input="input", output=IOKey(name="output1"))
-    model_1 |= Sigmoid().connect(input="output1", output=IOKey(name="output2"))
+    model_1 |= Buffer().connect(input="input", output="output1")
+    model_1 |= Sigmoid().connect(input="output1", output="output2")
+    model_1.expose_keys("output1", "output2")
     model_2 = Model()
     model_2 |= model_1
     model_2 += buff_1
@@ -1400,14 +1401,15 @@ def test_logical_model_summary_3():
     model |= Add().connect(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
-        output=IOKey(name="output1"),
+        output="output1",
     )
     model |= Add().connect(
         left="input1",
         right=IOKey("input3", type=Tensor),
-        output=IOKey(name="output2"),
+        output="output2",
     )
-    model |= Add().connect(left="input2", right="input3", output=IOKey(name="output3"))
+    model |= Add().connect(left="input2", right="input3", output="output3")
+    model.expose_keys("output1", "output2", "output3")
     model.set_cin("input1")
     model.set_cout("output1")
 
@@ -1490,8 +1492,9 @@ def test_logical_model_summary_7():
     model_1 = Model()
     buff_1 = Sigmoid()
     buff_2 = Sigmoid()
-    model_1 |= buff_1.connect(input="input", output=IOKey(name="output1"))
-    model_1 |= buff_2.connect(input="output1", output=IOKey(name="output2"))
+    model_1 |= buff_1.connect(input="input", output="output1")
+    model_1 |= buff_2.connect(input="output1", output="output2")
+    model_1.expose_keys("output1", "output2")
     model_n = Model()
     for model in (deepcopy(model_1) for n in range(3)):
         model_n += model
@@ -1513,14 +1516,14 @@ def test_logical_model_summary_8():
     model = Model()
     sig1, sig2, sig3, sig4 = Sigmoid(), Sigmoid(), Sigmoid(), Sigmoid()
     model |= sig1.connect(input="input")
-    model |= sig2.connect(input=sig1.output, output=IOKey(name="out_1"))
-    model |= sig3.connect(input=sig1.output, output=IOKey(name="out_2"))
+    model |= sig2.connect(input=sig1.output, output="out_1")
+    model |= sig3.connect(input=sig1.output, output="out_2")
+    out_name = "outputoutputoutputoutputoutputoutputoutputoutputoutputoutput3"
     model |= sig4.connect(
         input=sig1.output,
-        output=IOKey(
-            name="outputoutputoutputoutputoutputoutputoutputoutputoutputoutput3"
-        ),
+        output=out_name,
     )
+    model.expose_keys("out_1", "out_2", out_name)
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1558,8 +1561,9 @@ def test_logical_model_summary_10():
     add_2.set_types(left=Tensor, right=Tensor)
     add_1.set_cin("left")
     add_2.set_cin("left")
-    model |= add_1.connect(left="left", right="right", output=IOKey(name="output"))
-    model |= add_2.connect(left=add_1.left, output=IOKey(name="output1"))
+    model |= add_1.connect(left="left", right="right", output="output")
+    model |= add_2.connect(left=add_1.left, output="output1")
+    model.expose_keys("output", "output1")
 
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=False)
@@ -1574,9 +1578,10 @@ def test_logical_model_summary_10():
 def test_logical_model_summary_11():
     model = Model()
     sig_1, sig_2, sig_3 = Sigmoid(), Sigmoid(), Sigmoid()
-    model |= sig_1.connect(input="input1", output=IOKey(name="output1"))
-    model |= sig_2.connect(input="input2", output=IOKey(name="output2"))
-    model |= sig_3.connect(input="input3", output=IOKey(name="output3"))
+    model |= sig_1.connect(input="input1", output="output1")
+    model |= sig_2.connect(input="input2", output="output2")
+    model |= sig_3.connect(input="input3", output="output3")
+    model.expose_keys("output1", "output2", "output3")
     model.set_cin("input1")
     model.set_cout("output1")
 
@@ -1585,18 +1590,19 @@ def test_logical_model_summary_11():
     model_n = Model()
 
     model_n |= model_3.connect(
-        output1=IOKey(name="output1"),
-        output2=IOKey(name="output2"),
-        output3=IOKey(name="output3"),
+        output1="output1",
+        output2="output2",
+        output3="output3",
     )
     model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
     model_n |= model_2.connect(
         output1=model_3.input1,  # type: ignore
-        output2=IOKey(name="output4"),
-        output3=IOKey(name="output5"),
+        output2="output4",
+        output3="output5",
     )
     model_n.merge_connections(model_2.input1, model_2.input2, model_2.input3)  # type: ignore
     model_n |= model_1.connect(output1=model_2.input1)  # type: ignore
+    model_n.expose_keys("output1", "output2", "output3", "output4", "output5")
 
     with redirect_stdout(StringIO()) as summary:
         model_n.summary(shapes=True, symbolic=True)
@@ -1611,18 +1617,19 @@ def test_logical_model_summary_11():
 def test_logical_model_summary_12():
     model = Model()
     sig_1, sig_2, sig_3 = Sigmoid(), Sigmoid(), Sigmoid()
-    model |= sig_1.connect(input="input1", output=IOKey(name="output1"))
-    model |= sig_2.connect(input="input2", output=IOKey(name="output2"))
-    model |= sig_3.connect(input="input3", output=IOKey(name="output3"))
+    model |= sig_1.connect(input="input1", output="output1")
+    model |= sig_2.connect(input="input2", output="output2")
+    model |= sig_3.connect(input="input3", output="output3")
+    model.expose_keys("output1", "output2", "output3")
 
     model_1, model_2, model_3 = deepcopy(model), deepcopy(model), deepcopy(model)
 
     model_n = Model()
 
     model_n |= model_3.connect(
-        output1=IOKey(name="output1"),
-        output2=IOKey(name="output2"),
-        output3=IOKey(name="output3"),
+        output1="output1",
+        output2="output2",
+        output3="output3",
     )
     model_n |= model_1.connect(input1="input1", input2="input2", input3="input3")  # type: ignore
     model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
@@ -1631,9 +1638,10 @@ def test_logical_model_summary_12():
         input2=model_1.output2,  # type: ignore
         input3=model_1.output3,  # type: ignore
         output1=model_3.input1,  # type: ignore
-        output2=IOKey(name="output4"),
-        output3=IOKey(name="output5"),
+        output2="output4",
+        output3="output5",
     )
+    model_n.expose_keys("output1", "output2", "output3", "output4", "output5")
 
     with redirect_stdout(StringIO()) as summary:
         model_n.summary(shapes=True, symbolic=True)
@@ -1651,8 +1659,9 @@ def test_logical_model_summary_13():
     linear1 = Linear()
     linear2 = Linear()
     linear3 = Linear()
-    model |= linear1.connect(output=IOKey("output1"))
+    model |= linear1.connect(output="output1")
     model |= linear2.connect(input=model.output1)  # type: ignore
+    model.expose_keys("output1")
     model1 += model
     model1 |= linear3.connect(input=model.output1)  # type: ignore
     model1.set_cout(linear3.output)
@@ -1815,10 +1824,11 @@ def test_summary_nontensor_models():
     to_tensor_model = ToTensor()
 
     model |= lin_model.connect(input="input", weight="weight", bias="b")
-    model |= shape_model.connect(input=lin_model.output, output=IOKey("output1"))
-    model |= mean_model.connect(input=lin_model.output, output=IOKey("output2"))
-    model |= size_model.connect(input=lin_model.output, output=IOKey("output3"))
-    model |= to_tensor_model.connect(input=size_model.output, output=IOKey("output4"))
+    model |= shape_model.connect(input=lin_model.output, output="output1")
+    model |= mean_model.connect(input=lin_model.output, output="output2")
+    model |= size_model.connect(input=lin_model.output, output="output3")
+    model |= to_tensor_model.connect(input=size_model.output, output="output4")
+    model.expose_keys("output1", "output2", "output3", "output4")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1859,11 +1869,10 @@ def test_traincontext_summary_2():
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
-    model |= add_1.connect(left="input1", right="input2", output=IOKey(name="output1"))
-    model |= add_2.connect(left="input3", right="input4", output=IOKey(name="output2"))
-    model |= matmul_1.connect(
-        left="input5", right="input6", output=IOKey(name="output3")
-    )
+    model |= add_1.connect(left="input1", right="input2", output="output1")
+    model |= add_2.connect(left="input3", right="input4", output="output2")
+    model |= matmul_1.connect(left="input5", right="input6", output="output3")
+    model.expose_keys("output1", "output2", "output3")
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),
@@ -1901,10 +1910,11 @@ def test_traincontext_summary_3():
     model |= add_1.connect(
         left=IOKey("in1", differentiable=True),
         right="in2",
-        output=IOKey(name="output1"),
+        output="output1",
     )
-    model |= add_2.connect(left="", output=IOKey(name="output2"))
-    model |= matmul_1.connect(left="", output=IOKey(name="output3"))
+    model |= add_2.connect(left="", output="output2")
+    model |= matmul_1.connect(left="", output="output3")
+    model.expose_keys("output1", "output2", "output3")
     model.set_cin(matmul_1.left)
     ctx = TrainModel(model)
     ctx.add_loss(
@@ -1946,10 +1956,11 @@ def test_traincontext_summary_4():
     model |= add_1.connect(
         left=IOKey("in1", differentiable=True),
         right=IOKey("in2", differentiable=True),
-        output=IOKey(name="output1"),
+        output="output1",
     )
-    model |= add_2.connect(left="", output=IOKey(name="output2"))
-    model |= matmul_1.connect(left="", output=IOKey(name="output3"))
+    model |= add_2.connect(left="", output="output2")
+    model |= matmul_1.connect(left="", output="output3")
+    model.expose_keys("output1", "output2", "output3")
     model.set_cin(matmul_1.left)
 
     ctx = TrainModel(model)
@@ -1993,10 +2004,11 @@ def test_traincontext_summary_5():
     model |= add_1.connect(
         left=IOKey("in1", differentiable=True),
         right=IOKey("in2", differentiable=True),
-        output=IOKey(name="output1"),
+        output="output1",
     )
-    model += add_2.connect(output=IOKey(name="output2"))
-    model += matmul_1.connect(output=IOKey(name="output3"))
+    model += add_2.connect(output="output2")
+    model += matmul_1.connect(output="output3")
+    model.expose_keys("output1", "output2", "output3")
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),
@@ -2059,6 +2071,7 @@ def test_traincontext_summary_7():
     model += MLP(
         dimensions=[10 for _ in range(10)], activations=[Relu() for _ in range(10)]
     ).connect(input="input", output=IOKey(name="output"))
+    model.expose_keys("output")
 
     ctx = TrainModel(model)
 
