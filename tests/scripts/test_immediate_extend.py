@@ -499,7 +499,7 @@ def test_immediate_extend_integration_str_matching2():
     block |= Buffer().connect(input=input, output="b_odsfut")
 
 
-def test_apply_rope():
+def test_apply_rope_partial():
     block = Model()
     # We define the input connections
     xq = IOKey("xq", type=ml.Tensor)
@@ -533,7 +533,7 @@ def apply_rope(*, name: str | None = None) -> Model:
     return block
 
 
-def test_apply_rope_2():
+def test_apply_rope():
     block = apply_rope()
     for con in block.conns.input_connections:
         assert con.model is block
@@ -661,6 +661,15 @@ def test_flat_model_key_naming_matching():
         short_namings=False,
     )
     assert flat_model.queued_models == {}
+
+
+def test_existing_cons_model_attribute_maps_to_model():
+    input_key = IOKey("input")
+    out = input_key + 2
+    model = Model()
+    model |= Buffer().connect(input=out)
+    model |= Buffer().connect(input=input_key)
+    assert input_key.model is not None
 
 
 def test_functional_model():

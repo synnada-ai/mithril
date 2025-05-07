@@ -636,19 +636,13 @@ class BaseModel:
                 # If a Connection without any model but with a name
                 # that exists in the model provided, match its metadata
                 # with the one existing in the model.
-                given_key = given_connection.get_key()
-                if (
-                    given_key is not None
-                    and (existing_conn := self.conns.get_connection(given_key))
-                    and given_connection.metadata not in self.conns.metadata_dict
-                ):
-                    # TODO: Last if condition should be removed After solving
-                    # provisional model issue, which sets model of connection to None.
+                _key = given_connection.get_key()
+                if _key is not None and (existing_c := self.conns.get_connection(_key)):
                     updates |= self._match_hyper_edges(
-                        existing_conn.metadata, given_connection.metadata
+                        existing_c.metadata, given_connection.metadata
                     )
                     # Replace Connection metadata with the matched one.
-                    given_connection.metadata = existing_conn.metadata
+                    given_connection.metadata = existing_c.metadata
             case _ if isinstance(given_connection, MainValueInstance | Tensor):
                 if local_connection in model.dependency_map.local_output_dependency_map:
                     raise KeyError(
@@ -661,16 +655,13 @@ class BaseModel:
                 given_connection = self._create_connection(edge, None)
         assert isinstance(given_connection, ConnectionData)
 
-        if (
-            given_connection.metadata.differentiable is not None
-            and given_connection.metadata.differentiable != edge.differentiable
-        ):
-            set_diff = given_connection.metadata.differentiable
+        is_diff = given_connection.metadata.differentiable
+        if is_diff is not None and is_diff != edge.differentiable:
+            set_diff = is_diff
 
         # Connection is given as a Connection object.
-        if (
-            con_obj := self.conns.get_con_by_metadata(given_connection.metadata)
-        ) is None:
+        con_obj = self.conns.get_con_by_metadata(given_connection.metadata)
+        if con_obj is None:
             if given_connection.model is not None:
                 raise KeyError("Requires accessible connection to be processed!")
             is_new_connection = True
