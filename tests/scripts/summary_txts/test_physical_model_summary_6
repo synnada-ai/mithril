@@ -35,9 +35,9 @@ Relu         |   Inputs  : input  : [u1, u2] : Add.output     :          0
 --------------------------------------------------------------------------
 Sigmoid      |   Inputs  : input  : [u1, u2] : Relu.output    :          0
              |   ---------------------------------------------------------
-             |   Outputs : output : [u1, u2] : .input         :          0
+             |   Outputs : output : [u1, u2] : Operator.input :          0
 --------------------------------------------------------------------------
-             |   Inputs  : weight : [u3, u2] : 'weight'       :    Unknown
+Operator     |   Inputs  : weight : [u3, u2] : 'weight'       :    Unknown
              |             input  : [u1, u2] : Sigmoid.output :          0
              |             bias   :     [u3] : 'b'            :    Unknown
              |   ---------------------------------------------------------
