@@ -162,13 +162,6 @@ def compile(
         jit=jit,
     )
 
-    if jit and file_path is not None:
-        # TODO Fix warning
-        raise RuntimeError(
-            "Cannot create file while 'jit' flag is true. To write model file set "
-            "'jit' flag to 'False'"
-        )
-
     # Pick code generator based on backend and generate code.
     CodeGen_Cls = code_gen_map[backend.__class__]
     codegen = CodeGen_Cls(pm)
