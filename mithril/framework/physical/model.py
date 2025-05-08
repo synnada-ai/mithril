@@ -545,6 +545,120 @@ class PhysicalModel(GenericDataType[DataType]):
 
         return shapes
 
+    def propose_shardings(
+        self, given_shards: dict[str, tuple[int, ...]] | None = None
+    ) -> dict[str, tuple[int, ...] | None]:
+        """
+        Compute and return a mapping from input keys to
+        sharding tuples for a parallel backend.
+
+        This method proposes a sharding configuration based on the shapes
+        of the inputs and the device mesh of the backend. It optionally allows preset
+        shardings via the given_shards parameter.
+
+        Parameters:
+            given_shards (dict[str, tuple[int, ...]] | None):
+                An optional dictionary of pre-determined shardings to override proposed
+                computation. Keys present in this dictionary will not be computed and
+                will take the provided sharding tuple. If None, no override is applied
+                and all keys are processed for proposing sharding.
+
+        Returns:
+            dict[str, tuple[int, ...] | None]:
+                A dictionary mapping input keys to their computed sharding tuples.
+                A tuple represents the sharding factors for each dimension of the
+                input tensor, or None if sharding could not be determined.
+
+        Raises:
+            TypeError:
+                If the backend is not an instance of ParallelBackend, since sharding
+                is only supported for parallel backends.
+
+        Method Details:
+            - Default sharding is set to None for each input key.
+            - For each input key, if the corresponding shape is undefined, already
+                provided in given_shards, or if the shape contains ellipsis ("..."),
+                the computation is skipped.
+            - A default sharding list initializing each dimension with a factor of 1
+                is created.
+            - Non-singleton dims in the device mesh are matched with tensor dimensions:
+                * The method iterates over the device mesh and seeks a tensor dimension
+                  whose size is divisible by the mesh dimension value.
+                * When a suitable tensor dimension is found, its sharding factor is
+                  updated with the mesh dimension value, and the search continues
+                  with the next mesh value.
+            - If a mesh dimension cannot be matched to any tensor dimension,
+                the sharding for that key remains None.
+
+        Note:
+            This method is intended to facilitate parallel execution by partitioning
+            tensor data appropriately across devices in a device mesh.
+
+            This method uses simple eager evaluation to determine the sharding
+            configuration. This method will be updated with a more sophisticated
+            approach which will consider the entire model graph and its execution plan.
+        """
+        if (
+            not isinstance(self.backend, ParallelBackend)
+            or (_raw_device_mesh := self.backend._raw_device_mesh) is None
+        ):
+            raise TypeError("Sharding is only supported for parallel backends!")
+        if given_shards is None:
+            given_shards = {}
+        _shardings: dict[str, tuple[int, ...] | None] = {}
+        shapes = self.shapes
+        for key in self.input_keys:
+            _shardings[key] = None  # Default value in case of issues
+            shape = shapes[key]
+            if shape is None or key in given_shards or any(d == "..." for d in shape):
+                continue
+
+            # Create a sharding tuple with default value 1 for each dimension
+            sharding = [1] * len(shape)
+
+            # Flatten the device mesh into a 1D array of devices
+            mesh_dims = _raw_device_mesh
+
+            # Try to match each mesh dimension with a tensor dimension
+            mesh_idx = 0
+            while mesh_idx < len(mesh_dims):
+                mesh_dim = mesh_dims[mesh_idx]
+
+                # Skip mesh dimensions of size 1 as they don't affect sharding
+                if mesh_dim == 1:
+                    mesh_idx += 1
+                    continue
+
+                # Find a tensor dimension that can be divided by this mesh dimension
+                found_match = False
+                for shape_idx, shp_dim in enumerate(shape):
+                    # Skip if this dimension already has a sharding value > 1
+                    if shp_dim is None or sharding[shape_idx] > 1:
+                        continue
+
+                    # Check if this dimension is divisible by the mesh dimension
+                    assert isinstance(shp_dim, int)
+                    if shp_dim % mesh_dim == 0:
+                        sharding[shape_idx] = mesh_dim
+                        found_match = True
+                        mesh_idx += 1
+                        break
+
+                # If no matching dimension found, we can't use this mesh dimension
+                if not found_match:
+                    # Reset sharding to None as we can't find a valid sharding
+                    _shardings[key] = None
+                    break
+
+            # Only assign the sharding if all mesh dimensions were successfully placed
+            if mesh_idx == len(mesh_dims):
+                _shardings[key] = tuple(sharding)
+
+        # Update with known shardings
+        _shardings.update(given_shards)
+
+        return _shardings
+
     def _pre_compile(
         self,
         constant_keys: dict[
