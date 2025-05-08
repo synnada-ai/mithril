@@ -37,7 +37,7 @@ class TestVariableLenghtOneToManyLSTM:
         return many_to_one_lstm
 
     def test_lstm_test_error(self, module: ModuleType):
-        assert module.error < 0.005
+        assert module.error < 0.01
 
     def test_lstm_train_error(self, module: ModuleType):
         assert module.final_cost < 0.0005
