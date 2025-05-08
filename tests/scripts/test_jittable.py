@@ -202,7 +202,7 @@ def test_mymodel_jax_jit(file_path: str):
 @with_temp_file(".py")
 def test_mymodel_torch_jit(file_path: str):
     model = MyModel(dimension=1)
-    backend = JaxBackend()
+    backend = TorchBackend()
     static_inputs = {"input": backend.array(np_input)}
     compiled_model = compile(
         model=model,
