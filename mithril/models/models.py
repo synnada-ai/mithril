@@ -50,6 +50,7 @@ from .primitives import (
     CartesianDifference,
     Cast,
     Cholesky,
+    Clamp,
     Concat,
     DistanceMatrix,
     Divide,
@@ -58,6 +59,7 @@ from .primitives import (
     Exponential,
     Eye,
     EyeComplement,
+    Floor,
     GPRAlpha,
     GPRVOuter,
     Greater,
@@ -156,6 +158,8 @@ __all__ = [
     "Split",
     "Randn",
     "RandInt",
+    "Clamp",
+    "Floor",
 ]
 
 

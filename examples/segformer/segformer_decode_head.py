@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mithril.framework import Connection, IOKey, Tensor
+from mithril.framework import IOKey, Tensor
 from mithril.models import (
     Arange,
     BatchNorm2D,
@@ -30,6 +30,7 @@ def segformer_bilinear_interpolate(*, name: str | None = None):
     input = IOKey("input", type=Tensor[float])
     size = IOKey("size", type=tuple[int, ...])
 
+    input_dtype = input.dtype()
     shape = input.shape
     H_in, W_in = shape[2], shape[3]
     H_out, W_out = size[0], size[1]
@@ -46,8 +47,8 @@ def segformer_bilinear_interpolate(*, name: str | None = None):
     y1 = (y0 + 1).clamp(0, H_in - 1)
     x1 = (x0 + 1).clamp(0, W_in - 1)
 
-    ly = (yy - y0.cast(Dtype.float32)).reshape((1, 1, H_out, 1))
-    lx = (xx - x0.cast(Dtype.float32)).reshape((1, 1, 1, W_out))
+    ly = (yy - y0.cast(input_dtype)).reshape((1, 1, H_out, 1))
+    lx = (xx - x0.cast(input_dtype)).reshape((1, 1, 1, W_out))
     hy = 1.0 - ly
     hx = 1.0 - lx
 
@@ -87,10 +88,10 @@ def segformer_decode_head(config, *, name: str | None = None) -> Model:
     batch_size = hidden_states[0].shape[0]
     size = hidden_states[0].shape[2:]
     num_encoder_blocks = config.num_encoder_blocks
-    all_hidden_states: list[Connection] = []
+    all_hidden_states: list[IOKey] = []
 
     for i in range(num_encoder_blocks):
-        encoder_hidden_state: Connection = hidden_states[i]
+        encoder_hidden_state: IOKey = hidden_states[i]
         encoder_hidden_state.set_shapes(hidden_shapes[i])
         # Unify channel dimension.
         shape = encoder_hidden_state.shape

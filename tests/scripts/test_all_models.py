@@ -35,6 +35,7 @@ from mithril.models import (
     BroadcastTo,
     Buffer,
     Cast,
+    Clamp,
     Concat,
     Connection,
     Convolution1D,
@@ -42,6 +43,7 @@ from mithril.models import (
     Equal,
     Eye,
     EyeComplement,
+    Floor,
     Greater,
     GreaterEqual,
     GroupNorm,
@@ -3618,6 +3620,108 @@ def test_unique_4():
         reference_gradients=None,
         tolerances=None,
         assert_shapes=False,
+    )
+
+
+def test_clamp_1():
+    model = Clamp(min_val=0, max_val=1)
+    inputs = {"input": [-1.0, 0.0, 0.5, 1.0, 2.0]}
+    reference_outputs = {"output": [0.0, 0.0, 0.5, 1.0, 1.0]}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "inference": True},
+        data=inputs,
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_clamp_2():
+    model = Clamp(min_val=-1, max_val=2)
+    inputs = {"input": [-3.0, -1.0, 0.0, 1.0, 3.0]}
+    reference_outputs = {"output": [-1.0, -1.0, 0.0, 1.0, 2.0]}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "inference": True},
+        data=inputs,
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_clamp_3():
+    model = Clamp(min_val=-3, max_val=0)
+    inputs = {"input": [-2.0, -1.0, 0.0, 1.0, 2.0]}
+    reference_outputs = {"output": [-2.0, -1.0, 0.0, 0.0, 0.0]}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "inference": True},
+        data=inputs,
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_clamp_4():
+    model = Clamp(min_val=-1.5, max_val=1.5)
+    inputs = {"input": [-2.0, -1.0, 0.0, 1.0, 2.0]}
+    reference_outputs = {"output": [-1.5, -1.0, 0.0, 1.0, 1.5]}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "inference": True},
+        data=inputs,
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_floor_1():
+    model = Floor()
+    inputs = {"input": [1.5, -1.5, 0.0, 2.3, -2.3]}
+    reference_outputs = {"output": [1.0, -2.0, 0.0, 2.0, -3.0]}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "inference": True},
+        data=inputs,
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_floor_2():
+    model = Floor()
+    inputs = {"input": [[1.9, -1.1], [0.0, 2.7]]}
+    reference_outputs = {"output": [[1.0, -2.0], [0.0, 2.0]]}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "inference": True},
+        data=inputs,
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
     )
 
 

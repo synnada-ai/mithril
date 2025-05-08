@@ -29,10 +29,10 @@ def segformer(config, *, name: str | None = None):
     )
 
 
-def segformer_semantic_segmentation(config):
+def segformer_semantic_segmentation(config, *, name: str | None = None):
     pixel_values = IOKey("input", type=Tensor[float])
     last_hidden_state, hidden_states = segformer(config, name="segformer")(
         input=pixel_values
     )
     logits = segformer_decode_head(config, name="decode_head")(input=hidden_states)
-    return Model.create(name="segformer_semantic_segmentation", logits=logits)
+    return Model.create(name=name, logits=logits)

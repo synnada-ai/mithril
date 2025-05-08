@@ -470,7 +470,6 @@ class TestSegformerLayers:
     def test_segformer_semantic_segmentation(self, backend_type: type[ml.Backend]):
         input_shape = [1, 3, 512, 512]
         o_model = self.segmentation_model
-        # config = o_model.segformer.config
         m_model = segformer_semantic_segmentation(self.config)
 
         backend = backend_type()
