@@ -531,15 +531,12 @@ class FlatGraph(GenericDataType[DataType]):
                     # Check tensors are equal
                     elif self.is_tensor_type(ref_value) and self.is_tensor_type(value):
                         is_equal = (
-                            (
-                                not isinstance(ref_value, PyArray)
-                                and not isinstance(value, PyArray)
-                            )
-                            and (
-                                id(ref_value) == id(value)
-                                or ref_value.shape == value.shape  # type: ignore
-                                and (ref_value == value).all().item()
-                            )  # type: ignore
+                            not isinstance(ref_value, PyArray)
+                            and not isinstance(value, PyArray)
+                        ) and (
+                            id(ref_value) == id(value)
+                            or ref_value.shape == value.shape  # type: ignore
+                            and (ref_value == value).all().item()  # type: ignore
                         )
                     else:
                         is_equal = ref_value == value  # type: ignore
