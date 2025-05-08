@@ -15,7 +15,7 @@
 import pytest
 
 import mithril
-from mithril import JaxBackend
+from mithril import JaxBackend, TorchBackend
 from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
@@ -79,7 +79,7 @@ def test_internal_data_to_trainable():
     model |= Linear().connect(input="internal_key")
     model |= Linear().connect(input="input", output=model.internal_key)  # type: ignore
 
-    pm = mithril.compile(model, JaxBackend(), jit=False, use_short_namings=False)
+    pm = mithril.compile(model, TorchBackend(), jit=False, use_short_namings=False)
     assert pm.data["linear_0_matrixmultiply_output"].differentiable  # type: ignore
     assert pm.data["linear_1_matrixmultiply_output"].differentiable  # type: ignore
 

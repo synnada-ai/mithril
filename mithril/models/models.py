@@ -588,8 +588,10 @@ class Linear(Model):
             self |= mult.connect(left=input_key, right=weight_key)
             self |= Add().connect(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
+            self._formula_key = "linear_bias"
         else:
             self |= mult.connect(left=input_key, right=weight_key, output=output)
+            self._formula_key = "linear"
 
         self.expose_keys("output")
         self._set_shapes(**shapes)

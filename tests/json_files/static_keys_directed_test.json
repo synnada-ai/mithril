@@ -228,7 +228,7 @@
     },
 
     "results": {
-      "static_keys": [ "input2", "output1", "output2", "output4" ]
+      "static_keys": [ "input2", "output1", "output2", "output_3" ]
     }
   },
   "test_composite_3": {

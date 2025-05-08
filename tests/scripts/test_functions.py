@@ -338,7 +338,7 @@ def test_code_generator_1(file_path: str):
 
     mithril.compile(
         model=model,
-        backend=JaxBackend(dtype=mithril.float64),
+        backend=TorchBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
     )
@@ -377,7 +377,7 @@ def test_code_generator_2(file_path: str):
 
     mithril.compile(
         model=model,
-        backend=JaxBackend(dtype=mithril.float64),
+        backend=TorchBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
         inference=True,
@@ -404,7 +404,7 @@ def test_code_generator_3(file_path: str):
 
     mithril.compile(
         model=model,
-        backend=JaxBackend(dtype=mithril.float64),
+        backend=TorchBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
     )

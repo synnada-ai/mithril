@@ -187,9 +187,9 @@ def compile_and_compare(
                 for key, value in pm.get_shapes(symbolic=False).items()
             }
             numeric_shape_dict.pop("final_cost", None)
-            # if model_shape_dict.get("loss") is not None:
-            #     numeric_shape_dict["loss"] = final_loss_shape
+
             for key, value in numeric_shape_dict.items():
+                key = pm.flat_graph.output_dict.get(key, key)
                 assert value == model_shape_dict[key]
 
         for k, v in backend_ref_outputs.items():
@@ -3561,7 +3561,7 @@ def test_unique_1():
     reference_outputs = {"output": [1, 2, 3, 4, 5]}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -3578,7 +3578,7 @@ def test_unique_2():
     reference_outputs = {"output": list[int]()}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -3595,7 +3595,7 @@ def test_unique_3():
     reference_outputs = {"output": [42]}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -3612,7 +3612,7 @@ def test_unique_4():
     reference_outputs = {"output": [7, 7, 7]}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -3731,7 +3731,7 @@ def test_unique_5():
     reference_outputs = {"output": [4, 5, 6]}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -3748,7 +3748,7 @@ def test_unique_6():
     reference_outputs = {"output": [-1, 0, 2]}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},

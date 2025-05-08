@@ -676,6 +676,8 @@ class PhysicalModel(GenericDataType[DataType]):
         # Post process the graph
         self.flat_graph.graph_update()
 
+        self.traverse_graph()
+
         # Infer and store all static keys using user provided constant keys and
         # the non-tensor constants defined in logical model.
         self.flat_graph.infer_static_keys()
@@ -689,8 +691,6 @@ class PhysicalModel(GenericDataType[DataType]):
                     f"Given '{key}' key is unused for the model, "
                     "no need to provide data for it."
                 )
-
-        self.traverse_graph()
 
         self.discarded_keys |= {
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys

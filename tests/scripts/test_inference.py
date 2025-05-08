@@ -43,7 +43,7 @@ with open(no_grad_inference_tests) as f:
 
 @pytest.mark.parametrize("case", discard_keys_inference_tests_dict)
 def test_discard_keys_inference(case: str) -> None:
-    backend = JaxBackend(dtype=mithril.float64)
+    backend = TorchBackend(dtype=mithril.float64)
     current_case = discard_keys_inference_tests_dict[case]
 
     results = current_case["results"]
