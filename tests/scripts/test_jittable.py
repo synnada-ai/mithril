@@ -53,6 +53,7 @@ from mithril.models import (
     Unique,
 )
 
+from ..utils import with_temp_file
 from .test_utils import assert_results_equal
 
 to_tensor = partial(to_tensor, device="cpu")
@@ -176,6 +177,44 @@ def test_mymodel_numpy():
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
     ref_output = {"output": np.array(8.0)}
+    assert_results_equal(result, ref_output)
+
+
+@with_temp_file(".py")
+def test_mymodel_jax_jit(file_path: str):
+    model = MyModel(dimension=1)
+    backend = JaxBackend()
+    static_inputs = {"input": backend.array(np_input)}
+    compiled_model = compile(
+        model=model,
+        backend=backend,
+        constant_keys=static_inputs,
+        jit=True,
+        file_path=file_path,
+        inference=True,
+    )
+    inputs = compiled_model.randomize_params()
+    result = compiled_model.evaluate(inputs)
+    ref_output = {"output": backend.array(8.0)}
+    assert_results_equal(result, ref_output)
+
+
+@with_temp_file(".py")
+def test_mymodel_torch_jit(file_path: str):
+    model = MyModel(dimension=1)
+    backend = JaxBackend()
+    static_inputs = {"input": backend.array(np_input)}
+    compiled_model = compile(
+        model=model,
+        backend=backend,
+        constant_keys=static_inputs,
+        jit=True,
+        file_path=file_path,
+        inference=True,
+    )
+    inputs = compiled_model.randomize_params()
+    result = compiled_model.evaluate(inputs)
+    ref_output = {"output": backend.array(8.0)}
     assert_results_equal(result, ref_output)
 
 
