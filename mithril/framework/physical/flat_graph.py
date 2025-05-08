@@ -534,6 +534,23 @@ class FlatGraph(GenericDataType[DataType]):
                             or ref_value.shape == value.shape  # type: ignore
                             and (ref_value == value).all().item()  # type: ignore
                         )
+                    elif (
+                        isinstance(ref_value, tuple)
+                        and isinstance(value, tuple)
+                        or isinstance(ref_value, list)
+                        and isinstance(value, list)
+                    ):
+                        # TODO: Should we handle dict type values too?
+                        if len(ref_value) != len(value):
+                            is_equal = False
+                        else:
+                            array_type = self.backend.get_backend_array_type()
+                            is_equal = all(
+                                type(a) is type(b) and self.backend.all(a == b)
+                                if isinstance(a, array_type)
+                                else a == b
+                                for a, b in zip(ref_value, value, strict=True)
+                            )
                     else:
                         is_equal = ref_value == value  # type: ignore
 

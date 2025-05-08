@@ -719,6 +719,7 @@ def test_functional_model_with_lin():
     assert_models_equal(x.model.parent, model)  # type: ignore
 
 
+# TODO: Remove set_cout from second model after fixing the issue with couts.
 def test_exposing_existing_output_connection():
     input = IOKey("input")
     out = Buffer()(input=input)
@@ -729,6 +730,7 @@ def test_exposing_existing_output_connection():
     model |= (buff := Buffer()).connect("input", "buff_out")
     model |= Power(exponent=2).connect(buff.output, output="output")
     model.expose_keys("output", "buff_out")
+    model.set_cout("output", "buff_out")
     model._freeze()
 
     assert_models_equal(m, model)  # type: ignore

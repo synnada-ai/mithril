@@ -541,6 +541,7 @@ class TrainModel(Model):
                 # loss_con = self.conns.get_connection(LossKey)
                 # assert loss_con is not None
                 self.conns.set_connection_type(loss_conn, KeyType.INTERNAL)
+            self.expose_keys("final_cost")
             self._freeze()
 
         self.dependency_map.update_all_keys()

@@ -348,6 +348,7 @@ def test_data_store_12():
         "input1",
         "output_7",
         "dilation",
+        "groups",
         "output_6",
         "start",
         "index",
@@ -417,6 +418,7 @@ def test_data_store_13():
         "weight",
         "output_8",
         "dilation",
+        "groups",
         "output_0",
     }
 

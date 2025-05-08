@@ -45,12 +45,14 @@ from .operators import (
     AddOp,
     AtLeast1DOp,
     CastOp,
+    ClampOp,
     CosineOp,
     DivideOp,
     DtypeOp,
     EqualOp,
     ExponentialOp,
     FloorDivideOp,
+    FloorOp,
     GreaterEqualOp,
     GreaterOp,
     IndexerOp,
@@ -388,6 +390,18 @@ class Connection(ConnectionData):
     def atleast_1d(self) -> Connection:
         return _extend_with_op_model(connections=[self], model=AtLeast1DOp)
 
+    def floor(self) -> Connection:
+        return _extend_with_op_model(connections=[self], model=FloorOp)
+
+    def clamp(
+        self,
+        min_val: Connection | int | float | None = None,
+        max_val: Connection | int | float | None = None,
+    ) -> Connection:
+        return _extend_with_op_model(
+            connections=[self, min_val, max_val], model=ClampOp
+        )
+
 
 IOKey = Connection
 
@@ -453,14 +467,17 @@ class Model(BaseModel):
 
         # Iterate over the input arguments and keyword arguments
         # and extract the submodels from them.
+        couts = set()
         for value in itertools.chain(args, kwargs.values()):
             assert value.model is not None
             extract_m = value.model.get_outermost_parent()
             assert isinstance(extract_m, Model)
             if extract_m is not model:
                 model.extend_extracted_model(extract_m, value)
+            couts.add(value)
 
         model.expose_keys(**kwargs)
+        model.set_cout(*couts)
         # Freeze the model to prevent further modifications
         model._freeze()
         return model

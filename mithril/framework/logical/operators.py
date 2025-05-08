@@ -113,6 +113,8 @@ __all__ = [
     "MaximumOp",
     "AtLeast1DOp",
     "ConstantType",
+    "FloorOp",
+    "ClampOp",
 ]
 
 ConstantType = float | int | types.Constant
@@ -1865,4 +1867,45 @@ class AtLeast1DOp(SingleInputOperationOp):
                 shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
             ),
             output=BaseKey(shape=[("Var", ...), "d"], type=Tensor[int | float | bool]),
+        )
+
+
+class FloorOp(SingleInputOperationOp):
+    _model_name: str = "Floor"
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="floor",
+            polymorphic_constraint=False,
+            name=name,
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int]),
+        )
+
+
+class ClampOp(Operator):
+    _model_name: str = "Clamp"
+
+    def __init__(
+        self,
+        min_val: int | float | None | ToBeDetermined = None,
+        max_val: int | float | None | ToBeDetermined = None,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="clamp",
+            name=name,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float], value=input),
+            min_val=BaseKey(type=int | float, value=min_val),
+            max_val=BaseKey(type=int | float, value=max_val),
         )

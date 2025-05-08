@@ -71,6 +71,7 @@ from mithril.models import (
     Exponential,
     ExtendInfo,
     Flatten,
+    Floor,
     Gelu,
     GPRAlpha,
     GPRVOuter,
@@ -347,18 +348,23 @@ def test_shapes_2():
         "$_Convolution2D_0_padding": None,
         "$_Convolution2D_0_stride": None,
         "$_Convolution2D_0_dilation": None,
+        "$_Convolution2D_0_groups": None,
         "$_Convolution2D_1_padding": None,
         "$_Convolution2D_1_stride": None,
         "$_Convolution2D_1_dilation": None,
+        "$_Convolution2D_1_groups": None,
         "$_Convolution2D_2_padding": None,
         "$_Convolution2D_2_stride": None,
         "$_Convolution2D_2_dilation": None,
+        "$_Convolution2D_2_groups": None,
         "$_Convolution2D_3_padding": None,
         "$_Convolution2D_3_stride": None,
         "$_Convolution2D_3_dilation": None,
+        "$_Convolution2D_3_groups": None,
         "$_Convolution2D_4_padding": None,
         "$_Convolution2D_4_stride": None,
         "$_Convolution2D_4_dilation": None,
+        "$_Convolution2D_4_groups": None,
     }
     physical_ref = {
         "weight_0": [64, 3, 3, 3],
@@ -392,6 +398,11 @@ def test_shapes_2():
         "output_38": None,
         "bias_4": [1, 64, 1, 1],
         "output": [8, 64, 64, 64],
+        "groups_0": None,
+        "groups_1": None,
+        "groups_2": None,
+        "groups_3": None,
+        "groups_4": None,
     }
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
@@ -470,9 +481,11 @@ def test_shapes_3():
         "$_Convolution2D_0_padding": None,
         "$_Convolution2D_0_stride": None,
         "$_Convolution2D_0_dilation": None,
+        "$_Convolution2D_0_groups": None,
         "$_Convolution2D_4_padding": None,
         "$_Convolution2D_4_stride": None,
         "$_Convolution2D_4_dilation": None,
+        "$_Convolution2D_4_groups": None,
     }
 
     physical_ref = {
@@ -579,6 +592,23 @@ def test_shapes_3():
         "output_134": None,
         "bias_16": [1, 64, 1, 1],
         "output": [8, 64, 6, 6],
+        "groups_0": None,
+        "groups_1": None,
+        "groups_2": None,
+        "groups_3": None,
+        "groups_4": None,
+        "groups_5": None,
+        "groups_6": None,
+        "groups_7": None,
+        "groups_8": None,
+        "groups_9": None,
+        "groups_10": None,
+        "groups_11": None,
+        "groups_12": None,
+        "groups_13": None,
+        "groups_14": None,
+        "groups_15": None,
+        "groups_16": None,
     }
 
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
@@ -6802,6 +6832,7 @@ def test_total_repr_count_1():
         Trapezoid: 2,
         AUCCore: 2,
         ZerosLike: 1,
+        Floor: 1,
     }
     # find all primitives that are defined in primitives.py
 
@@ -6851,6 +6882,8 @@ def test_total_repr_count_1():
                     model = primitive_model(**kwargs)
                 assert len(reprs) == ref_result
             else:
+                if len(reprs) != len(all_tensor_conns):
+                    ...
                 assert len(reprs) == len(all_tensor_conns)
 
 

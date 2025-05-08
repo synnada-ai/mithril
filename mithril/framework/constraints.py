@@ -2474,10 +2474,18 @@ def conv_2d_constraints(
     stride: IOHyperEdge,
     padding: IOHyperEdge,
     dilation: IOHyperEdge,
+    groups: IOHyperEdge,
     kernel: IOHyperEdge,
 ) -> ConstrainResultType:
     assert isinstance(kernel._temp_shape, ShapeRepr)
+    assert isinstance(input._temp_shape, ShapeRepr)
+    assert isinstance(output._temp_shape, ShapeRepr)
     kernel_shp: ShapeRepr = kernel._temp_shape
+    input_shp: ShapeRepr = input._temp_shape
+    output_shp: ShapeRepr = output._temp_shape
+    groups_val = groups.value
+
+    updates = Updates()
 
     if len(kernel_shp.reverse) >= 2:
         kernel_w = kernel_shp[-2].value if kernel_shp[-2].value is not None else TBD
@@ -2489,6 +2497,7 @@ def conv_2d_constraints(
         kernel_w = TBD
         kernel_h = TBD
 
+    assert isinstance(groups_val, int | ToBeDetermined)
     assert enhanced_isinstance(
         stride.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
     )
@@ -2505,9 +2514,30 @@ def conv_2d_constraints(
         dilation.value, tuple[int | ToBeDetermined, int | ToBeDetermined]
     )
 
-    return sliding_window_2d_constraints_helper(
+    in_channels_updated = False
+    if not isinstance(groups_val, ToBeDetermined) and groups_val != 1:
+        # out_channels must be divisible by groups.
+        out_channels = output_shp.prefix[1].value
+        if out_channels is not None and (out_channels % groups_val) != 0:
+            raise ValueError(
+                "Output channels must be divisible by groups for Conv2D operation!"
+            )
+        # Shape of kernel is (out_channels, in_channels // 4,
+        # kernel_size_0, kernel_size_1)
+        in_channels = input_shp.prefix[1].value
+        if out_channels is not None and in_channels is not None:
+            if kernel_shp.prefix[1].set_value(in_channels // groups_val):
+                updates.add(kernel_shp.prefix[1])
+            in_channels_updated = True
+    elif groups_val == 1:
+        updates |= input_shp.prefix[1].match(kernel_shp.prefix[1])
+        in_channels_updated = True
+
+    status, helper_updates = sliding_window_2d_constraints_helper(
         output, input, stride.value, padding.value, dilation.value, (kernel_w, kernel_h)
     )
+    updates |= helper_updates
+    return status and in_channels_updated, updates
 
 
 def flatten_constrains(
@@ -2937,8 +2967,8 @@ def reshape_constraints(
                 input_values = [uni.value for uni in input_shape.prefix]
                 if input_values.count(None) == 1:
                     none_index = input_values.index(None)
-                    uni_val = reduce(prod_fn, shape_val) // reduce(
-                        prod_fn, filter(None, input_values)
+                    uni_val = reduce(prod_fn, shape_val, 1) // reduce(
+                        prod_fn, filter(None, input_values), 1
                     )
                     if (uni := input_shape.prefix[none_index]).set_value(uni_val):
                         updates.add(uni)

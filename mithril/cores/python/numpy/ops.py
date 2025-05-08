@@ -170,6 +170,8 @@ __all__ = [
     "zeros_like",
     "avg_pool2d",
     "ones",
+    "floor",
+    "clamp",
 ]
 
 
@@ -1711,6 +1713,21 @@ def cartesian_diff(
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     return left[:, None, :] - right[None, :, :]
+
+
+def floor(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return np.floor(input)
+
+
+def clamp(
+    input: np.ndarray[Any, Any],
+    min_val: np.ndarray[Any, Any] | int | float,
+    max_val: np.ndarray[Any, Any] | int | float,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.clip(input, min_val, max_val)
 
 
 array_creation_funcs = [

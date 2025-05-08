@@ -69,6 +69,7 @@ from ..framework.logical.operators import (
     AtLeast1DOp,
     BufferOp,
     CastOp,
+    ClampOp,
     ConstantType,
     CosineOp,
     DivideOp,
@@ -76,6 +77,7 @@ from ..framework.logical.operators import (
     EqualOp,
     ExponentialOp,
     FloorDivideOp,
+    FloorOp,
     GreaterEqualOp,
     GreaterOp,
     IndexerOp,
@@ -235,6 +237,7 @@ __all__ = [
     "Minimum",
     "Maximum",
     "AtLeast1D",
+    "Floor",
 ]
 
 
@@ -1306,6 +1309,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
     stride: Connection
     padding: Connection
     dilation: Connection
+    groups: Connection
     output: Connection
     bias: Connection
 
@@ -1320,6 +1324,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
+        groups: int | ToBeDetermined = TBD,
         *,
         bias: Tensor[int | float] | ToBeDetermined = TBD,
         name: str | None = None,
@@ -1334,7 +1339,12 @@ class PrimitiveConvolution2D(PrimitiveModel):
                 shape=["N", "C_in", "H", "W"], type=Tensor[int | float], value=input
             ),
             "weight": BaseKey(
-                shape=["out_channels", "C_in", "kernel_size_0", "kernel_size_1"],
+                shape=[
+                    "out_channels",
+                    "C_in" if groups == 1 else "_C_in",
+                    "kernel_size_0",
+                    "kernel_size_1",
+                ],
                 type=Tensor[int | float],
                 value=weight,
             ),
@@ -1347,6 +1357,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
                 value=padding,
             ),
             "dilation": BaseKey(type=int | tuple[int, int], value=dilation),
+            "groups": BaseKey(type=int, value=groups),
         }
 
         if not use_bias:
@@ -1357,7 +1368,15 @@ class PrimitiveConvolution2D(PrimitiveModel):
 
         self._add_constraint(
             fn=conv_2d_constraints,
-            keys=["output", "input", "stride", "padding", "dilation", "weight"],
+            keys=[
+                "output",
+                "input",
+                "stride",
+                "padding",
+                "dilation",
+                "groups",
+                "weight",
+            ],
         )
 
         constraint_keys = ["input", "weight"]
@@ -1391,6 +1410,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         dilation: ConnectionType
         | int
         | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        groups: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
         bias: ConnectionType | Tensor[int | float] = NOT_GIVEN,
@@ -1401,6 +1421,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
             "stride": stride,
             "padding": padding,
             "dilation": dilation,
+            "groups": groups,
             "output": output,
         }
 
@@ -3950,3 +3971,32 @@ class AtLeast1D(SingleInputModel):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=AtLeast1DOp(input=input))
+
+
+class Floor(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=FloorOp(input=input))
+
+
+class Clamp(OperatorModel):
+    input: Connection
+    min_val: Connection
+    max_val: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        min_val: int | float | ToBeDetermined = TBD,
+        max_val: int | float | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            name=name, model=ClampOp(input=input, min_val=min_val, max_val=max_val)
+        )
