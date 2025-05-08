@@ -151,7 +151,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             # print(f"Warning: empty_cache is not implemented for {self.device_type}")
 
     def register_callable(
-        self, fn: Callable[..., torch.Tensor], fn_name: str, jit: bool = False
+        self, fn: Callable[..., torch.Tensor], jit: bool = False
     ) -> None:
         """
         Register a callable function with the backend.
@@ -165,10 +165,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
 
-        fn_name = str(id(self)) + fn_name
-        self._parallel_manager.register_callable(
-            fn, fn_name, self.base_device_mesh, jit
-        )
+        self._parallel_manager.register_callable(fn, self.base_device_mesh, jit)
 
     def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:
         assert isinstance(device_mesh, tuple), "Device mesh must be tuple or None!"
@@ -183,13 +180,12 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             self._raw_device_mesh
         )
 
-    def _run_callable(self, *primals: Any, fn_name: str) -> Any:
+    def _run_callable(self, *primals: Any, fn: Callable[..., Any]) -> Any:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
 
-        fn_name = str(id(self)) + fn_name
-        return self._parallel_manager.run_callable(*primals, fn_name=fn_name)
+        return self._parallel_manager.run_callable(*primals, fn=fn)
 
     def __getstate__(self) -> object:
         state = self.__dict__.copy()

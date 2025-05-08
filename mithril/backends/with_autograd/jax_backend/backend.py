@@ -154,23 +154,19 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         """
         return data.block_until_ready()
 
-    def register_callable(
-        self, fn: Callable[..., Any], fn_name: str, jit: bool = False
-    ) -> None:
+    def register_callable(self, fn: Callable[..., Any], jit: bool = False) -> None:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
 
-        fn_name = str(id(self)) + fn_name
-        return self._parallel_manager.register_callable(fn, fn_name, jit)
+        return self._parallel_manager.register_callable(fn, jit)
 
-    def _run_callable(self, *primals: jax.Array, fn_name: str) -> Any:
+    def _run_callable(self, *primals: jax.Array, fn: Callable[..., Any]) -> Any:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
 
-        fn_name = str(id(self)) + fn_name
-        return self._parallel_manager.run_callable(*primals, fn_name=fn_name)
+        return self._parallel_manager.run_callable(*primals, fn=fn)
 
     def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:
         self._parallel_manager = JaxParallel(math.prod(device_mesh), self._device)

@@ -1004,7 +1004,9 @@ class PhysicalModel(GenericDataType[DataType]):
                 isinstance(self.backend, ParallelBackend)
                 and self.backend.get_parallel_manager() is not None
             ):
-                outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
+                outputs = self.backend._run_callable(
+                    params, data, fn=self._generated_eval_fn
+                )
             else:
                 if (
                     self.flat_graph.cached_data
@@ -1032,8 +1034,9 @@ class PhysicalModel(GenericDataType[DataType]):
                 isinstance(self.backend, ParallelBackend)
                 and self.backend.get_parallel_manager() is not None
             ):
+                assert self._generated_evaluate_all_fn is not None
                 outputs, gradients = self.backend._run_callable(
-                    params, data, _gradients, fn_name="eval_all_fn"
+                    params, data, _gradients, fn=self._generated_evaluate_all_fn
                 )
             else:
                 outputs, gradients = self._generated_evaluate_all_fn(

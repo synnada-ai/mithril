@@ -204,8 +204,8 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
 def rearrange(num_heads: int, *, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    input_shaepe = input.shape
-    B, L = input_shaepe[0], input_shaepe[1]
+    input_shape = input.shape
+    B, L = input_shape[0], input_shape[1]
     block |= Reshape().connect(input, shape=(B, L, 3, num_heads, -1))
     block += Transpose(axes=(2, 0, 3, 1, 4)).connect(output=IOKey("output"))
     block.expose_keys("output")

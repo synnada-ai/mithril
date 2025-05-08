@@ -139,7 +139,8 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         return TorchParallel.device_meshes[mesh_shape]
 
-    def run_callable(self, *primals: Any, fn_name: str) -> Any:
+    def run_callable(self, *primals: Any, fn: Callable[..., Any]) -> Any:
+        fn_name = str(id(fn))
         primals_ref = apply_to_all_elems(
             lambda x: TensorRef(self.tensor_id_ref[id(x)])
             if isinstance(x, STensor)
@@ -165,12 +166,11 @@ class TorchParallel(Parallel[torch.Tensor]):
     def register_callable(
         self,
         fn: Callable[..., torch.Tensor],
-        fn_name: str,
         base_mesh: DeviceMesh,
         jit: bool = False,
     ) -> int:
         assert self.data_queues is not None, "Parallel manager is not initialized!"
-
+        fn_name = str(id(fn))
         if isinstance(fn, partial):
             caches = fn.keywords["cache"]
             cache_refs = apply_to_all_elems(
@@ -186,7 +186,7 @@ class TorchParallel(Parallel[torch.Tensor]):
             Instructions.REGISTER_CALLABLE,
             None,
             (int(jit),),
-            {"base_mesh": base_mesh.shape, "fn_name": fn_name},
+            {"base_mesh": base_mesh.shape, "fn_name": str(id(fn))},
             False,
         )
 
@@ -560,6 +560,7 @@ class TorchParallel(Parallel[torch.Tensor]):
         self._send_instrcs(Instructions.EXIT)
         TorchParallel._instance = None
         TorchParallel.device_meshes = {}
+        TorchParallel.used_ports = set()
 
         for process in self.processes:
             process.join()
