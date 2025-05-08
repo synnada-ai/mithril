@@ -128,10 +128,11 @@ def test_composite_1_extend_from_inputs():
     layer2 = Layer(dimension=2, activation=Softmax())
 
     # setting up the model by connect method
-    model |= layer2.connect(weight="weight1", bias="bias1", output=IOKey(name="output"))
+    model |= layer2.connect(weight="weight1", bias="bias1", output="output")
     model |= layer1.connect(
         output=layer2.input, weight="weight0", bias="bias0", input="input"
     )
+    model.expose_keys("output")
 
     context = TrainModel(model)
     # Attaching R
@@ -166,8 +167,9 @@ def test_composite_1_extend_from_inputs():
     # setting up the model by extend method
     model |= layer1.connect(weight="weight0", bias="bias0", input="input")
     model |= layer2.connect(
-        input=layer1.output, weight="weight1", bias="bias1", output=IOKey(name="output")
+        input=layer1.output, weight="weight1", bias="bias1", output="output"
     )
+    model.expose_keys("output")
 
     context = TrainModel(model)
     # Attaching R
@@ -257,13 +259,15 @@ def test_cyclic_extension_5():
     sum2 = Add()
     sum3 = Add()
 
-    model |= sum1.connect(left="input1", right="input2", output=IOKey(name="output1"))
-    model |= sum2.connect(left="input3", right="input4", output=IOKey(name="output2"))
+    model |= sum1.connect(left="input1", right="input2", output="output1")
+    model |= sum2.connect(left="input3", right="input4", output="output2")
     model.merge_connections(sum1.left, sum2.right, name="my_input")
     model |= sum3.connect(left="input5", right="input6", output="my_input")
+    model.expose_keys("output1", "output2")
 
     assert set(model.input_keys) == {"input2", "input3", "input5", "input6"}
-    assert model.conns.latent_output_keys == {"my_input"}
+    assert model.conns.internal_keys == {"my_input"}
+    assert model.conns.latent_output_keys == set()
 
 
 def test_different_backend_compile():
@@ -351,24 +355,28 @@ def test_shape():
     model = Model()
 
     model1 = Model()
-    model1 |= Sigmoid().connect(input="input1", output=IOKey(name="output1"))
-    model1 |= Sigmoid().connect(input="input2", output=IOKey(name="output2"))
+    model1 |= Sigmoid().connect(input="input1", output="output1")
+    model1 |= Sigmoid().connect(input="input2", output="output2")
+    model1.expose_keys("output1", "output2")
 
     model2 = Model()
     sigmoid1 = Sigmoid()
     sigmoid1.set_shapes(input=[1, 1, 3, 4, 5])
-    model2 |= sigmoid1.connect(input="input1", output=IOKey(name="output1"))
-    model2 |= Sigmoid().connect(input="input2", output=IOKey(name="output2"))
+    model2 |= sigmoid1.connect(input="input1", output="output1")
+    model2 |= Sigmoid().connect(input="input2", output="output2")
+    model2.expose_keys("output1", "output2")
 
     model3 = Model()
-    model3 |= Sigmoid().connect(input="input1", output=IOKey(name="output1"))
+    model3 |= Sigmoid().connect(input="input1", output="output1")
     sigmoid2 = Sigmoid()
     sigmoid2.set_shapes(input=[5, 6, 8, 9, 10])
-    model3 |= sigmoid2.connect(input="input2", output=IOKey(name="output2"))
+    model3 |= sigmoid2.connect(input="input2", output="output2")
+    model3.expose_keys("output1", "output2")
 
-    model |= model1.connect(input2="in2", output2=IOKey(name="output"))
+    model |= model1.connect(input2="in2", output2="output")
     model |= model2.connect(input1=model1.output1, input2=model1.output2)  # type: ignore
     model |= model3.connect(input2="in3", output1=model1.input1, output2=model1.input2)  # type: ignore
+    model.expose_keys("output")
 
     comp_model = ml.compile(
         model, backend=NumpyBackend(dtype=ml.float64), inference=True
@@ -471,8 +479,9 @@ def test_compile_gradients_boolean():
     layer1 = Layer(dimension=3, activation=Sigmoid())
     layer2 = Layer(dimension=2, activation=Softmax())
 
-    model |= layer2.connect(output=IOKey("output"))
+    model |= layer2.connect(output="output")
     model |= layer1.connect(output=layer2.input, input="input")
+    model.expose_keys("output")
 
     context = TrainModel(model)
     context.add_loss(
@@ -723,10 +732,11 @@ def test_logical_model_compile_twice():
     layer1 = Layer(dimension=3, activation=Sigmoid())
     layer2 = Layer(dimension=2, activation=Softmax())
 
-    model |= layer2.connect(weight="weight1", bias="bias1", output=IOKey(name="output"))
+    model |= layer2.connect(weight="weight1", bias="bias1", output="output")
     model |= layer1.connect(
         output=layer2.input, weight="weight0", bias="bias0", input="input"
     )
+    model.expose_keys("output")
 
     context = TrainModel(model)
     context.add_loss(
@@ -770,10 +780,11 @@ def test_canonical_output_compile():
     layer1 = Layer(dimension=3, activation=Sigmoid())
     layer2 = Layer(dimension=2, activation=Softmax())
 
-    model |= layer2.connect(weight="weight1", bias="bias1", output=IOKey(name="output"))
+    model |= layer2.connect(weight="weight1", bias="bias1", output="output")
     model |= layer1.connect(
         output=layer2.input, weight="weight0", bias="bias0", input="input"
     )
+    model.expose_keys("output")
 
     context = TrainModel(model)
     context.add_loss(
@@ -1049,7 +1060,8 @@ def test_vjp_output_grad_orders():
 
 def test_batch_minibatch_grad():
     model = Model()
-    model += Linear(12).connect(input="input", output=IOKey(name="output1"))
+    model += Linear(12).connect(input="input", output="output1")
+    model.expose_keys("output1")
 
     context = TrainModel(model)
     context.add_loss(
@@ -1123,8 +1135,9 @@ def test_batch_minibatch_grad():
 def test_train_context_numpy():
     backend = NumpyBackend()
     model = Model()
-    model |= Linear(8).connect(input="input", output=IOKey(name="output"))
-    model |= Linear(16).connect(input=model.cout, output=IOKey(name="output2"))
+    model |= Linear(8).connect(input="input", output="output")
+    model |= Linear(16).connect(input=model.cout, output="output2")
+    model.expose_keys("output", "output2")
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], input="output", target="target")
@@ -1159,9 +1172,10 @@ def test_train_context_numpy():
 def test_train_context_example():
     backend = NumpyBackend()
     model = Model()
-    model |= Linear(1).connect(input="input", output=IOKey(name="output"))
-    model |= Linear(1).connect(input=model.cout, output=IOKey(name="output2"))
+    model |= Linear(1).connect(input="input", output="output")
+    model |= Linear(1).connect(input=model.cout, output="output2")
     model.set_differentiability(input=True)
+    model.expose_keys("output", "output2")
 
     context = TrainModel(model)
     context.add_loss(Buffer(), [Sum()], input="output2")
@@ -1320,10 +1334,9 @@ def test_arange_primitive():
             model = Model()
             layer2 = Layer(dimension=2, activation=Softmax())
             model |= layer2.connect(input="input", weight="weight1", bias="bias1")
-            model |= Arange().connect(stop=arange_len, output=IOKey(name="arange_res"))
-            model |= Add().connect(
-                left=Tensor(3), right=layer2.output, output=IOKey(name="output")
-            )
+            model |= Arange().connect(stop=arange_len, output="arange_res")
+            model |= Add().connect(left=Tensor(3), right=layer2.output, output="output")
+            model.expose_keys("arange_res", "output")
 
             context = TrainModel(model)
             context.add_loss(
@@ -1367,11 +1380,10 @@ def test_to_tensor_primitive():
             model |= s.connect(input="input")
             model |= t.connect(input=s.output)
             model |= Power().connect(
-                base=t.output, exponent=Tensor(2), output=IOKey(name="power_out")
+                base=t.output, exponent=Tensor(2), output="power_out"
             )
-            model |= Add().connect(
-                left=Tensor(3), right=layer2.output, output=IOKey(name="output")
-            )
+            model |= Add().connect(left=Tensor(3), right=layer2.output, output="output")
+            model.expose_keys("power_out", "output")
 
             context = TrainModel(model)
             context.add_loss(
@@ -1426,7 +1438,8 @@ def test_flatten_dag0():
     model |= (lin1 := Linear(10)).connect(input="")
     model |= (lin2 := Linear(10)).connect(input="")
     model |= (lin3 := Linear(10)).connect(input="")
-    model |= l5.connect(output=IOKey(name="output1"))
+    model |= l5.connect(output="output1")
+    model.expose_keys("output1")
     lin1.set_differentiability(input=True)
     lin2.set_differentiability(input=True)
     lin3.set_differentiability(input=True)
@@ -1510,6 +1523,7 @@ def test_multiple_output_connections_2():
 def test_static_concat():
     model = Model()
     model += Concat().connect(input="input", output="output")
+    model.expose_keys("output")
 
     backend = NumpyBackend()
     pm = ml.compile(
@@ -1530,15 +1544,10 @@ def test_reduce_overlap_shapes():
     layer_1 = Layer(activation=Relu(), dimension=10)
     layer_2 = Layer(activation=Relu(), dimension=10)
     layer_3 = Layer(activation=Relu(), dimension=10)
-    model |= layer_1.connect(
-        input="input", weight="weight1", output=IOKey(name="output1")
-    )
-    model |= layer_2.connect(
-        weight="weight2", input="output1", output=IOKey(name="output2")
-    )
-    model |= layer_3.connect(
-        weight="weight3", input="output2", output=IOKey(name="output3")
-    )
+    model |= layer_1.connect(input="input", weight="weight1", output="output1")
+    model |= layer_2.connect(weight="weight2", input="output1", output="output2")
+    model |= layer_3.connect(weight="weight3", input="output2", output="output3")
+    model.expose_keys("output1", "output2", "output3")
 
     model.set_shapes(input=[5, 4, 3])
     ctx = TrainModel(model)
@@ -1561,15 +1570,10 @@ def test_reduce_overlap_shapes():
     layer_1_1 = Layer(activation=Relu(), dimension=10)
     layer_2_1 = Layer(activation=Relu(), dimension=10)
     layer_3_1 = Layer(activation=Relu(), dimension=10)
-    model_1 |= layer_1_1.connect(
-        input="input", weight="weight1", output=IOKey(name="output1")
-    )
-    model_1 |= layer_2_1.connect(
-        weight="weight2", input="output1", output=IOKey(name="output2")
-    )
-    model_1 |= layer_3_1.connect(
-        weight="weight3", input="output2", output=IOKey(name="output3")
-    )
+    model_1 |= layer_1_1.connect(input="input", weight="weight1", output="output1")
+    model_1 |= layer_2_1.connect(weight="weight2", input="output1", output="output2")
+    model_1 |= layer_3_1.connect(weight="weight3", input="output2", output="output3")
+    model_1.expose_keys("output1", "output2", "output3")
 
     ctx_1 = TrainModel(model_1)
     ctx_1.add_regularization(L1(), input="weight1", coef=Tensor(1e-1))
@@ -1658,7 +1662,7 @@ def test_geomean_evaluate():
             "input": "input",
             "weight": "weight",
             "bias": "bias",
-            "output": IOKey("output1"),
+            "output": "output1",
         },
     )
     model1._extend(
@@ -1667,9 +1671,11 @@ def test_geomean_evaluate():
             "input": lin1.output,
             "weight": "weight1",
             "bias": "bias1",
-            "output": IOKey("output2"),
+            "output": "output2",
         },
     )
+
+    model1.expose_keys("output1", "output2")
     model1.set_shapes(input=[10, 10, 10])
     lin1.set_differentiability(input=True)
 
@@ -1693,7 +1699,7 @@ def test_geomean_evaluate():
             "input": "input",
             "weight": "weight",
             "bias": "bias",
-            "output": IOKey("output1"),
+            "output": "output1",
         },
     )
     model2._extend(
@@ -1702,9 +1708,10 @@ def test_geomean_evaluate():
             "input": lin2.output,
             "weight": "weight1",
             "bias": "bias1",
-            "output": IOKey("output2"),
+            "output": "output2",
         },
     )
+    model2.expose_keys("output1", "output2")
     lin2.set_differentiability(input=True)
 
     ctx2 = TrainModel(model2)
@@ -1770,12 +1777,11 @@ def test_get_key_dependency_1():
 def test_get_key_dependency_2():
     model = Model()
     model |= Linear().connect(
-        input="input", weight="weight", bias="bias", output=IOKey(name="output")
+        input="input", weight="weight", bias="bias", output="output"
     )
-    model |= Buffer().connect(input="dummy_input", output=IOKey(name="dummy_output"))
-    model |= Buffer().connect(
-        input="dummy_output", output=IOKey(name="dummy_final_output")
-    )
+    model |= Buffer().connect(input="dummy_input", output="dummy_output")
+    model |= Buffer().connect(input="dummy_output", output="dummy_final_output")
+    model.expose_keys("output", "dummy_output", "dummy_final_output")
 
     ctx = TrainModel(model)
     ctx.add_regularization(model=L2(), coef=Tensor(1e-1), input=model.weight)  # type: ignore
@@ -1912,9 +1918,10 @@ def test_regularization_4():
     model |= Multiply().connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=IOKey("w", type=Tensor, differentiable=True),
-        output=IOKey(name="output"),
+        output="output",
     )
-    model |= Multiply().connect(left="left", right="w", output=IOKey(name="output2"))
+    model |= Multiply().connect(left="left", right="w", output="output2")
+    model.expose_keys("output", "output2")
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=Tensor(1e-1), input=model.w)  # type: ignore
@@ -1949,13 +1956,14 @@ def test_regularization_5():
     model |= Multiply().connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=IOKey("w", type=Tensor, differentiable=True),
-        output=IOKey(name="output"),
+        output="output",
     )
     model |= Multiply().connect(
         left=IOKey("left1", type=Tensor),
         right="w",
-        output=IOKey(name="output2"),
+        output="output2",
     )
+    model.expose_keys("output", "output2")
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=Tensor(1e-1), input=model.w)  # type: ignore
@@ -2091,13 +2099,14 @@ def test_prune_1():
     add2 = Add()
     add3 = Add()
     add4 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= add2.connect(left=add1.output, right="input3")
     m |= add3.connect(left=add1.output, right="input4")
     m |= add4.connect(left=add1.output, right="input3")  # Duplicate
-    m |= Buffer().connect(input=add2.output, output=IOKey(name="out_2"))
-    m |= Buffer().connect(input=add3.output, output=IOKey(name="out_3"))
-    m |= Buffer().connect(input=add4.output, output=IOKey(name="out_4"))
+    m |= Buffer().connect(input=add2.output, output="out_2")
+    m |= Buffer().connect(input=add3.output, output="out_3")
+    m |= Buffer().connect(input=add4.output, output="out_4")
+    m.expose_keys("out_1", "out_2", "out_3", "out_4")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2123,13 +2132,14 @@ def test_prune_2():
     add2 = Add()
     add3 = Add()
     add4 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= add2.connect(left=add1.output, right="input3")
     m |= add3.connect(left=add1.output, right="input3")  # Duplicate
     m |= add4.connect(left=add2.output, right="input4")
-    m |= Buffer().connect(input=add2.output, output=IOKey(name="out_2"))
-    m |= Buffer().connect(input=add3.output, output=IOKey(name="out_3"))
-    m |= Buffer().connect(input=add4.output, output=IOKey(name="out_4"))
+    m |= Buffer().connect(input=add2.output, output="out_2")
+    m |= Buffer().connect(input=add3.output, output="out_3")
+    m |= Buffer().connect(input=add4.output, output="out_4")
+    m.expose_keys("out_1", "out_2", "out_3", "out_4")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2156,15 +2166,16 @@ def test_prune_3():
     add3 = Add()
     add4 = Add()
     add5 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= add2.connect(left=add1.output, right="input3")
     m |= add3.connect(left=add1.output, right="input3")  # Duplicate
     m |= add4.connect(left=add3.output, right="input3")
     m |= add5.connect(left=add2.output, right="input3")  # Duplicate
-    m |= Buffer().connect(input=add2.output, output=IOKey(name="out_2"))
-    m |= Buffer().connect(input=add3.output, output=IOKey(name="out_3"))
-    m |= Buffer().connect(input=add4.output, output=IOKey(name="out_4"))
-    m |= Buffer().connect(input=add5.output, output=IOKey(name="out_5"))
+    m |= Buffer().connect(input=add2.output, output="out_2")
+    m |= Buffer().connect(input=add3.output, output="out_3")
+    m |= Buffer().connect(input=add4.output, output="out_4")
+    m |= Buffer().connect(input=add5.output, output="out_5")
+    m.expose_keys("out_1", "out_2", "out_3", "out_4", "out_5")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2308,13 +2319,14 @@ def test_prune_7():
     m = Model()
     add1 = Add()
     add3 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
-    m |= Add().connect(left=add1.output, right="input3", output=IOKey(name="out_2"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
+    m |= Add().connect(left=add1.output, right="input3", output="out_2")
     m |= add3.connect(left=add1.output, right="input4")
     m |= Add().connect(
-        left=add1.output, right="input3", output=IOKey(name="dont_forget_me")
+        left=add1.output, right="input3", output="dont_forget_me"
     )  # Duplicate
-    m |= Buffer().connect(input=add3.output, output=IOKey(name="out_3"))
+    m |= Buffer().connect(input=add3.output, output="out_3")
+    m.expose_keys("out_1", "out_2", "out_3", "dont_forget_me")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2338,13 +2350,14 @@ def test_prune_8():
     m = Model()
     add1 = Add()
     add3 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= Add().connect(left=add1.output, right="input3")
     m |= add3.connect(left=add1.output, right="input4")
     m |= Add().connect(
-        left=add1.output, right="input3", output=IOKey(name="dont_forget_me")
+        left=add1.output, right="input3", output="dont_forget_me"
     )  # Duplicate
-    m |= Buffer().connect(input=add3.output, output=IOKey(name="out_2"))
+    m |= Buffer().connect(input=add3.output, output="out_2")
+    m.expose_keys("out_1", "out_2", "dont_forget_me")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2370,14 +2383,15 @@ def test_prune_9():
     m |= add0.connect(
         left=IOKey("input", type=Tensor),
         right=IOKey("input2", type=Tensor),
-        output=IOKey(name="out_1"),
+        output="out_1",
     )
     m |= add1.connect(left=add0.output, right="input3")
     m |= Add().connect(left=add0.output, right="input4")
     m |= Add().connect(left=add1.output, right="input4")
     m |= Add().connect(
-        left=add0.output, right="input3", output=IOKey(name="dont_forget_me")
+        left=add0.output, right="input3", output="dont_forget_me"
     )  # Duplicate
+    m.expose_keys("out_1", "dont_forget_me")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2399,15 +2413,16 @@ def test_prune_10():
     add0 = Add()
     add1 = Add()
     add2 = Add()
-    m |= add0.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add0.connect(left="input", right="input2", output="out_1")
     m |= add1.connect(left=add0.output, right="input3")
     m |= add2.connect(left=add0.output, right="input4")
-    m |= Add().connect(left=add1.output, right="input4", output=IOKey(name="out_2"))
+    m |= Add().connect(left=add1.output, right="input4", output="out_2")
     m |= Add().connect(
-        left=add0.output, right="input3", output=IOKey(name="dont_forget_me")
+        left=add0.output, right="input3", output="dont_forget_me"
     )  # Duplicate
-    m |= Buffer().connect(input=add1.output, output=IOKey(name="out_3"))
-    m |= Buffer().connect(input=add2.output, output=IOKey(name="out_4"))
+    m |= Buffer().connect(input=add1.output, output="out_3")
+    m |= Buffer().connect(input=add2.output, output="out_4")
+    m.expose_keys("out_1", "out_2", "dont_forget_me", "out_3", "out_4")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2436,15 +2451,16 @@ def test_prune_11():
     mul1 = Multiply()
     add3 = Add()
     mul2 = Multiply()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= add2.connect(left=add1.output, right="input3")
     m |= mul1.connect(left=add2.output, right="input4")
     m |= add3.connect(left=add1.output, right="input3")  # Duplicate
     m |= mul2.connect(left=add3.output, right="input4")  # Duplicate
-    m |= Buffer().connect(input=add2.output, output=IOKey(name="out_3"))
-    m |= Buffer().connect(input=add3.output, output=IOKey(name="out_4"))
-    m |= Buffer().connect(input=mul1.output, output=IOKey(name="out_5"))
-    m |= Buffer().connect(input=mul2.output, output=IOKey(name="out_6"))
+    m |= Buffer().connect(input=add2.output, output="out_3")
+    m |= Buffer().connect(input=add3.output, output="out_4")
+    m |= Buffer().connect(input=mul1.output, output="out_5")
+    m |= Buffer().connect(input=mul2.output, output="out_6")
+    m.expose_keys("out_1", "out_3", "out_4", "out_5", "out_6")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2471,9 +2487,10 @@ def test_prune_11():
 def test_prune_12():
     m = Model()
     add1 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
-    m |= Buffer().connect(input=add1.output, output=IOKey(name="out_2"))
-    m |= Buffer().connect(input=add1.output, output=IOKey(name="out_3"))  # Duplicate
+    m |= add1.connect(left="input", right="input2", output="out_1")
+    m |= Buffer().connect(input=add1.output, output="out_2")
+    m |= Buffer().connect(input=add1.output, output="out_3")  # Duplicate
+    m.expose_keys("out_1", "out_2", "out_3")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2488,9 +2505,10 @@ def test_prune_12():
 def test_prune_13():
     m = Model()
     add1 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= Buffer().connect(input=add1.output, output="out_2")
-    m |= Buffer().connect(input="out_2", output=IOKey(name="out_3"))  # Duplicate
+    m |= Buffer().connect(input="out_2", output="out_3")  # Duplicate
+    m.expose_keys("out_1", "out_3")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2505,9 +2523,10 @@ def test_prune_13():
 def test_prune_14():
     m = Model()
     add1 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
-    m |= Buffer().connect(input=add1.output, output=IOKey(name="out_2"))
-    m |= Buffer().connect(input="out_2", output=IOKey(name="out_3"))  # Duplicate
+    m |= add1.connect(left="input", right="input2", output="out_1")
+    m |= Buffer().connect(input=add1.output, output="out_2")
+    m |= Buffer().connect(input="out_2", output="out_3")  # Duplicate
+    m.expose_keys("out_1", "out_2", "out_3")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2522,9 +2541,10 @@ def test_prune_14():
 def test_prune_15():
     m = Model()
     add1 = Add()
-    m |= add1.connect(left="input", right="input2", output=IOKey(name="out_1"))
+    m |= add1.connect(left="input", right="input2", output="out_1")
     m |= Buffer().connect(input=add1.output, output="out_2")
-    m |= Relu().connect(input="out_2", output=IOKey(name="out_3"))  # Duplicate
+    m |= Relu().connect(input="out_2", output="out_3")  # Duplicate
+    m.expose_keys("out_1", "out_3")
 
     compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2836,11 +2856,6 @@ def test_size():
     input_array = np.ones((1, 2, 3, 4, 5, 6, 7, 8))
     expected_result_1 = input_array.size
     expected_result_2 = input_array.shape[3]
-    expected_result_3 = (
-        input_array.shape[3],
-        input_array.shape[5],
-        input_array.shape[7],
-    )
 
     m1 = Model()
     m1 += Size().connect(input="input", output="output")
@@ -2848,11 +2863,8 @@ def test_size():
     m2 = Model()
     m2 += Size(dim=TBD).connect(input="input", dim=3, output="output")
 
-    m3 = Model()
-    m3 += Size(dim=TBD).connect(input="input", dim=(3, 5, 7), output="output")
-
-    models = [m1, m2, m3]
-    expected_results = [expected_result_1, expected_result_2, expected_result_3]
+    models = [m1, m2]
+    expected_results = [expected_result_1, expected_result_2]
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for model, expected_result in zip(models, expected_results, strict=False):
         for backend_class in backends:
@@ -3003,8 +3015,9 @@ def test_replace_with_primitive_5():
 def test_generate_gradients():
     backend = NumpyBackend()
     model = Model()
-    model |= Linear(8).connect(input="input", output=IOKey(name="output"))
-    model |= Linear(16).connect(input=model.cout, output=IOKey(name="output2"))
+    model |= Linear(8).connect(input="input", output="output")
+    model |= Linear(16).connect(input=model.cout, output="output2")
+    model.expose_keys("output", "output2")
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], input="output", target="target")
@@ -3055,8 +3068,9 @@ def test_generate_gradients():
 def test_evaluate_all_2():
     backend = NumpyBackend()
     model = Model()
-    model |= Linear(8).connect(input="input", output=IOKey(name="output"))
-    model |= Linear(16).connect(input=model.cout, output=IOKey(name="output2"))
+    model |= Linear(8).connect(input="input", output="output")
+    model |= Linear(16).connect(input=model.cout, output="output2")
+    model.expose_keys("output", "output2")
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], input="output", target="target")
@@ -3313,7 +3327,8 @@ def test_add_loss_unknown_key():
     model = Model()
     l1 = Linear()
     model |= l1.connect(input=IOKey("input", differentiable=True), weight="w0")
-    model |= Linear().connect(input=l1.output, weight="w1", output=IOKey(name="output"))
+    model |= Linear().connect(input=l1.output, weight="w1", output="output")
+    model.expose_keys("output")
 
     context = TrainModel(model)
 
@@ -3391,7 +3406,8 @@ def test_add_regularization():
     model = Model()
     l1 = Linear(1)
     model |= l1.connect(input="input", weight=Tensor([[2.0]]))
-    model |= Linear().connect(input=l1.output, weight="w1", output=IOKey(name="output"))
+    model |= Linear().connect(input=l1.output, weight="w1", output="output")
+    model.expose_keys("output")
 
     context = TrainModel(model)
 
@@ -3714,9 +3730,9 @@ def test_mlp_last_dimension_prop_2():
     model += add_model.connect(
         left=IOKey("in1", type=Tensor),
         right=IOKey("in2", type=Tensor),
-        output=IOKey(name="output"),
+        output="output",
     )
-
+    model.expose_keys("output")
     ctx = TrainModel(model)
     ctx.add_loss(AbsoluteError(), input="output", target=Tensor([2.0]))
     comp_model = ml.compile(model=ctx, backend=NumpyBackend(), inference=True)
@@ -3812,7 +3828,7 @@ def test_connect_12():
 
 
 def test_connect_13():
-    model = Model(enforce_jit=False)
+    model = Model()
     add1 = Add()
     add2 = Add()
     buf = Buffer()
@@ -3874,8 +3890,9 @@ def test_connect_error_2():
 
 def test_connect_error_5():
     model_2 = Model()
-    model_2 |= (tanh := Tanh()).connect(output=IOKey(name="output1"))
-    model_2 |= (relu := Relu()).connect(output=IOKey(name="output2"))
+    model_2 |= (tanh := Tanh()).connect(output="output1")
+    model_2 |= (relu := Relu()).connect(output="output2")
+    model_2.expose_keys("output1", "output2")
 
     with pytest.raises(KeyError) as error_info:
         model_2.merge_connections(tanh.input, relu.input)
@@ -3883,8 +3900,7 @@ def test_connect_error_5():
         model_2.expose_keys(tanh.input)
 
     assert (
-        str(error_info.value) == "'Autogenerated keys can only be exposed "
-        "if a name is provided for the connection as keyworded argument.'"
+        str(error_info.value) == "'Connection without a name cannot be set as output'"
     )
 
 
@@ -3967,8 +3983,9 @@ def test_add_loss_coef():
     model += Multiply().connect(
         left=IOKey("left", type=Tensor, differentiable=True),
         right=IOKey("w", type=Tensor, differentiable=True),
-        output=IOKey(name="output"),
+        output="output",
     )
+    model.expose_keys("output")
 
     static_keys = {"left": backend.array([1.5]), "target": backend.array([1.0])}
 
@@ -4609,7 +4626,8 @@ def test_dependency_map_latent_to_input():
     )
 
     # Add second model with global output.
-    model += (buff := Buffer()).connect(output=IOKey("buff_out"))
+    model += (buff := Buffer()).connect(output="buff_out")
+    model.expose_keys("buff_out")
     # Assert dependency map and connection keys status in model.
     buff_out: ConnectionData = model.buff_out  # type: ignore
     expected_global_input_map = {input: OrderedSet([buff_out])}
@@ -4641,8 +4659,9 @@ def test_dependency_map_latent_to_input():
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
     model.rename_key(mean.axis, "mean_axis")
-    conn = IOKey(name="mean_axis", expose=True)
+    conn = IOKey(name="mean_axis")
     model |= (to_tensor := ToTensor()).connect(conn, dtype="dtype", output="output")
+    model.expose_keys("mean_axis")
     # Assert dependency map and connection keys status in model.
     output: ConnectionData = model.output  # type: ignore
     mean_axis: ConnectionData = model.mean_axis  # type: ignore
@@ -4683,7 +4702,8 @@ def test_dependency_map_1():
     "Just extend"
     model = Model()
     tanh = Tanh()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
+    model |= tanh.connect(input="input1", output="output1")
+    model.expose_keys("output1")
 
     input1_data = model.input1  # type: ignore
     output1_data = model.output1  # type: ignore
@@ -4764,8 +4784,9 @@ def test_dependency_map_2():
     model = Model()
     tanh = Tanh()
     sigmoid = Sigmoid()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
-    model |= sigmoid.connect(input="input2", output=IOKey(name="output2"))
+    model |= tanh.connect(input="input1", output="output1")
+    model |= sigmoid.connect(input="input2", output="output2")
+    model.expose_keys("output1", "output2")
 
     input1_data = model.input1  # type: ignore
     input2_data = model.input2  # type: ignore
@@ -4892,8 +4913,9 @@ def test_dependency_map_3():
     model = Model()
     tanh = Tanh()
     sigmoid = Sigmoid()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
-    model |= sigmoid.connect(input="output1", output=IOKey(name="output2"))
+    model |= tanh.connect(input="input1", output="output1")
+    model |= sigmoid.connect(input="output1", output="output2")
+    model.expose_keys("output1", "output2")
 
     input1_data = model.input1  # type: ignore
     output1_data = model.output1  # type: ignore
@@ -5003,8 +5025,9 @@ def test_dependency_map_4():
     model = Model()
     tanh = Tanh()
     sigmoid = Sigmoid()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
+    model |= tanh.connect(input="input1", output="output1")
     model |= sigmoid.connect(input="input2", output="input1")
+    model.expose_keys("output1")
 
     input1_data = model.input1  # type: ignore
     input2_data = model.input2  # type: ignore
@@ -5172,9 +5195,10 @@ def test_dependency_map_5():
     tanh = Tanh()
     sigmoid = Sigmoid()
     relu = Relu()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
-    model |= sigmoid.connect(input="input2", output=IOKey(name="output2"))
+    model |= tanh.connect(input="input1", output="output1")
+    model |= sigmoid.connect(input="input2", output="output2")
     model |= relu.connect(input="output1", output="input2")
+    model.expose_keys("output1", "output2")
 
     input1_data = model.input1  # type: ignore
     input2_data = model.input2  # type: ignore
@@ -5375,9 +5399,10 @@ def test_dependency_map_6():
     tanh = Tanh()
     sigmoid = Sigmoid()
     relu = Relu()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
-    model |= sigmoid.connect(input="input2", output=IOKey(name="output2"))
+    model |= tanh.connect(input="input1", output="output1")
+    model |= sigmoid.connect(input="input2", output="output2")
     model |= relu.connect(input="output1", output="input2")
+    model.expose_keys("output1", "output2")
 
     input1_data = model.input1  # type: ignore
     input2_data = model.input2  # type: ignore
@@ -5579,8 +5604,9 @@ def test_dependency_map_7():
     model = Model()
     tanh = Tanh()
     relu = Relu()
-    model |= tanh.connect(input="input1", output=IOKey(name="output1"))
+    model |= tanh.connect(input="input1", output="output1")
     model |= relu.connect(input="input2")
+    model.expose_keys("output1")
 
     input1_data = model.input1  # type: ignore
     input2_data = model.input2  # type: ignore
@@ -5811,7 +5837,8 @@ def test_deepcopy_2():
     add_model = Add()
     add_model.set_types(left=Tensor, right=Tensor)
     add_model.set_cin("left")
-    model |= add_model.connect(left="left", right="right", output=IOKey(name="output"))
+    model |= add_model.connect(left="left", right="right", output="output")
+    model.expose_keys("output")
 
     copy_model1 = deepcopy(model)
     model += copy_model1
@@ -6066,8 +6093,9 @@ def test_discard_trainables_2():
     # Let the key hanging, compile should understand and discard the input key
     backend = JaxBackend()
     model = Model()
-    model |= Relu().connect(input="input", output=IOKey(name="output"))
+    model |= Relu().connect(input="input", output="output")
     model |= Sigmoid().connect(input="sidein")
+    model.expose_keys("output")
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]}, inference=True)
 
@@ -6085,9 +6113,10 @@ def test_discard_trainables_3():
     # Let the key hanging, compile should understand and discard the input key
     backend = JaxBackend()
     model = Model()
-    model |= Relu().connect(input="input", output=IOKey(name="output"))
+    model |= Relu().connect(input="input", output="output")
     model |= (sigmoid := Sigmoid()).connect(input="sidein")
     model |= Buffer().connect(input=sigmoid.output)
+    model.expose_keys("output")
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]}, inference=True)
 
@@ -6108,10 +6137,11 @@ def test_discard_trainables_4():
     model = Model()
     s = Sigmoid()
     b = Buffer()
-    model |= Relu().connect(input="input", output=IOKey(name="output"))
+    model |= Relu().connect(input="input", output="output")
     model |= s.connect(input="sidein")
     model |= b.connect(input=s.output)
-    model |= Buffer().connect(input=b.output, output=IOKey(name="sideout"))
+    model |= Buffer().connect(input=b.output, output="sideout")
+    model.expose_keys("output", "sideout")
 
     pm = compile(
         model,
@@ -6430,7 +6460,8 @@ def test_numpy_type_promotion_5():
 
 def test_add_loss_with_coef_jit():
     model = Model()
-    model += Relu().connect(input="input", output=IOKey(name="output"))
+    model += Relu().connect(input="input", output="output")
+    model.expose_keys("output")
 
     tm = TrainModel(model)
     tm.add_loss(SquaredError(), coef=Tensor(2), input="output", target="target")
@@ -6621,7 +6652,7 @@ def test_constant_4():
 
 
 def test_constant_5():
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= Add().connect(
         left=Tensor([0, 0]),
         right=IOKey("right", Tensor(Constant.EPSILON)),
@@ -6638,7 +6669,7 @@ def test_constant_5():
 
 
 def test_constant_6():
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= Add().connect(
         left=Tensor([0, 0]), right=IOKey("right", Tensor(3)), output=IOKey("out")
     )
@@ -6735,8 +6766,9 @@ def test_iadd_4():
 
 def test_iadd_5():
     model_sub = Model()
-    model_sub += Sigmoid().connect(IOKey("in1"), IOKey("out1"))
-    model_sub += Sigmoid().connect(output=IOKey("out2"))
+    model_sub += Sigmoid().connect(IOKey("in1"), "out1")
+    model_sub += Sigmoid().connect(output="out2")
+    model_sub.expose_keys("out1", "out2")
 
     model_sub2 = deepcopy(model_sub)
 
@@ -6760,18 +6792,18 @@ def test_iadd_6():
     # If Canonical Output is not available raise
 
     modelsub = Model()
-    modelsub |= Sigmoid().connect(input="in1", output=IOKey(name="out1"))
-    modelsub |= Sigmoid().connect(input="in2", output=IOKey(name="out2"))
+    modelsub |= Sigmoid().connect(input="in1", output="out1")
+    modelsub |= Sigmoid().connect(input="in2", output="out2")
+    modelsub.expose_keys("out1", "out2")
     modelsub.set_cout("out2")
     modelsub.set_cin("in2")
 
     modelsub2 = deepcopy(modelsub)
 
     model = Model()
-    model |= modelsub.connect(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
+    model |= modelsub.connect(in1="in1", in2="in2", out1="out1", out2="out2")
     model |= modelsub2.connect(in2="out2", out2="in1")
+    model.expose_keys("out1", "out2")
 
     with pytest.raises(KeyError) as err_info:
         model += Relu()
@@ -6852,8 +6884,9 @@ def test_generate_keys_duplicates():
 
 def test_output_keys_canonical_output_1():
     model = Model()
-    model |= Add().connect(left="left", right="right", output=IOKey("output"))
+    model |= Add().connect(left="left", right="right", output="output")
     model |= (add := Add()).connect(left="left2", right="right2")
+    model.expose_keys("output")
     model.set_cin("left2")
     model.set_cout(add.output)
 
@@ -6865,13 +6898,15 @@ def test_output_keys_canonical_output_1():
 
 def test_output_keys_canonical_output_2():
     model = Model()
-    model |= Add().connect(left="left", right="right", output=IOKey("output"))
+    model |= Add().connect(left="left", right="right", output="output")
     model |= (add := Add()).connect(left="left2", right="right2")
+    model.expose_keys("output")
     model.set_cin("left2")
     model.set_cout(add.output)
 
     model2 = Model()
-    model2 |= model.connect(output=IOKey("output"))
+    model2 |= model.connect(output="output")
+    model2.expose_keys("output")
 
     assert set(model2.output_keys) == set(["output"])
 

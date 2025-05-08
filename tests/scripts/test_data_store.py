@@ -53,6 +53,7 @@ def test_data_store_1():
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
     # Set input as static and check data store.
     key = "input"
@@ -82,6 +83,7 @@ def test_data_store_1_numpy():
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
     # Set input as static and check data store.
     key = "input"
@@ -200,7 +202,8 @@ def test_data_store_7():
     backend = TorchBackend()
     model = Model()
     model |= Buffer().connect(input="input")
-    model |= Sigmoid().connect(input="input", output=IOKey(name="output1"))
+    model |= Sigmoid().connect(input="input", output="output1")
+    model.expose_keys("output1")
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(
@@ -220,8 +223,9 @@ def test_data_store_8():
     """Infer static keys from pruned buffer 2"""
     backend = TorchBackend()
     model = Model()
-    model |= Buffer().connect(input="input", output=IOKey(name="output1", expose=True))
-    model |= Sigmoid().connect(input="input", output=IOKey(name="output2", expose=True))
+    model |= Buffer().connect(input="input", output="output1")
+    model |= Sigmoid().connect(input="input", output="output2")
+    model.expose_keys("output1", "output2")
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(
@@ -240,11 +244,10 @@ def test_data_store_8():
 def test_data_store_9():
     backend = TorchBackend()
     model = Model()
-    model |= Sigmoid().connect(input="input", output=IOKey(name="output1", expose=True))
-    model |= Sigmoid().connect(input="input", output=IOKey(name="output2", expose=True))
-    model |= Add().connect(
-        left="output2", right=2, output=IOKey(name="output3", expose=True)
-    )
+    model |= Sigmoid().connect(input="input", output="output1")
+    model |= Sigmoid().connect(input="input", output="output2")
+    model |= Add().connect(left="output2", right=2, output="output3")
+    model.expose_keys("output1", "output2", "output3")
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(
         model, backend=backend, constant_keys={"input": value}, inference=True
@@ -277,10 +280,9 @@ def test_data_store_11():
     add.set_types(left=Tensor, right=Tensor)
     subtract = Subtract()
     subtract.set_types(left=Tensor, right=Tensor)
-    model |= add.connect(left="left", right="right", output=IOKey(name="out"))
-    model |= subtract.connect(
-        left="out", right="something", output=IOKey(name="out2", expose=True)
-    )
+    model |= add.connect(left="left", right="right", output="out")
+    model |= subtract.connect(left="out", right="something", output="out2")
+    model.expose_keys("out", "out2")
 
     left = backend.array([1, 2, 3])
     right = backend.array([4, 5, 6])
@@ -308,7 +310,7 @@ def test_data_store_12():
     """Infer statics with shapes"""
     backend = TorchBackend()
     model = Model()
-    model |= Buffer().connect(input="input1", output=IOKey(name="out1", expose=True))
+    model |= Buffer().connect(input="input1", output="out1")
     model |= (s := Shape()).connect(input="out1")
     model |= (i := Indexer(index=1)).connect(input=s.output)
     model |= (u := PrimitiveUnion(2)).connect(input1=i.output, input2=i.output)
@@ -318,8 +320,9 @@ def test_data_store_12():
         input="input2",
         weight="weight",
         stride=u.output,
-        output=IOKey(name="out2", expose=True),
+        output="out2",
     )
+    model.expose_keys("out1", "out2")
 
     input1 = backend.zeros([2, 2])
     input2 = backend.ones([1, 8, 32, 32])
@@ -368,7 +371,7 @@ def test_data_store_13():
     """Infer statics with shapes"""
     backend = TorchBackend()
     model = Model()
-    model |= Buffer().connect(input="input1", output=IOKey(name="out1", expose=True))
+    model |= Buffer().connect(input="input1", output="out1")
     model |= (s := Shape()).connect(input="out1")
     model |= (i := Indexer(index=1)).connect(input=s.output)
     model |= (u := PrimitiveUnion(2)).connect(input1=i.output, input2=i.output)
@@ -378,8 +381,9 @@ def test_data_store_13():
         input="input2",
         weight="weight",
         stride=u.output,
-        output=IOKey(name="out2", expose=True),
+        output="out2",
     )
+    model.expose_keys("out1", "out2")
 
     input1 = backend.zeros([2, 2])
     input2 = backend.ones([1, 8, 32, 32])
@@ -440,6 +444,7 @@ def test_data_store_14():
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {
@@ -476,6 +481,7 @@ def test_data_store_15():
         safe_shapes=True,
         safe_names=False,
         use_short_namings=True,
+        jit=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {
@@ -514,6 +520,7 @@ def test_data_store_16():
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
@@ -551,6 +558,7 @@ def test_data_store_17():
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
@@ -572,9 +580,8 @@ def test_data_store_18():
     model = Model()
     model |= (add := Add()).connect(left="left", right="right")
     model |= (shp := Shape()).connect(input=add.left)
-    model |= ToTensor().connect(
-        input=shp.output, output=IOKey(name="tensor_out", expose=True)
-    )
+    model |= ToTensor().connect(input=shp.output, output="tensor_out")
+    model.expose_keys("tensor_out")
 
     left = backend.ones(5, 5)
     right = backend.ones(5, 5)
@@ -590,6 +597,7 @@ def test_data_store_18():
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
+        jit=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {"tensor_out"}

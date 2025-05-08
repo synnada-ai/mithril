@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 import typing
 from collections.abc import Mapping, Sequence
 from types import EllipsisType
@@ -21,7 +20,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from mithril import JaxBackend, NumpyBackend, compile
+from mithril import JaxBackend, NumpyBackend, TorchBackend, compile
 from mithril.cores.python.jax.ops import (
     add,
     partial,
@@ -36,6 +35,7 @@ from mithril.framework.logical.base import BaseKey
 from mithril.models import (
     TBD,
     Add,
+    Buffer,
     CustomPrimitiveModel,
     Indexer,
     IOKey,
@@ -50,6 +50,7 @@ from mithril.models import (
     Slice,
     TensorToList,
     ToTensor,
+    Unique,
 )
 
 from .test_utils import assert_results_equal
@@ -271,15 +272,15 @@ def test_logical_model_jittable_1():
     model = Model()
     model |= (add1 := Add()).connect(left="l1", right="l2", output=IOKey(name="out1"))
     model |= (add2 := Add()).connect(left="l3", right="l4")
+    model.merge_connections(add1.left, add2.left, name="input")
+    model |= Item().connect(add1.left)
     with pytest.raises(Exception) as error_info:
-        model.merge_connections(add1.left, add2.left, name="input")
-        model |= Item().connect(add1.left)
-    modified_msg = re.sub("\\s*", "", str(error_info.value))
-    expected_msg = (
-        "Model with enforced Jit can not be extended by a non-jittable model! \
-                    Jit can be unforced by setting enforce_jit = False"
+        compile(model=model, backend=JaxBackend(), jit=True)
+
+    assert str(error_info.value) == (
+        "Operator 'item' is not JIT compatible. "
+        "Please set jit=False in compile() function."
     )
-    assert modified_msg == re.sub("\\s*", "", expected_msg)
 
 
 def test_logical_model_jittable_2():
@@ -289,30 +290,20 @@ def test_logical_model_jittable_2():
     model = Model()
     model |= (add1 := Add()).connect(left="l1", right="l2", output=IOKey(name="out1"))
     model |= (add2 := Add()).connect(left="l3", right="l4")
-    model.enforce_jit = False
     model.merge_connections(add1.left, add2.left, name="input")
     model |= Item().connect(input=add1.left)
-    assert not model.enforce_jit
+    compiled_model = compile(
+        model=model, backend=JaxBackend(), jit=False, inference=True
+    )
 
-
-def test_logical_model_jittable_3():
-    """Tests for jittablity in Logical domain. Since this model
-    does not enforce Jit in its init, no error will be thrown.
-    """
-    model = Model(enforce_jit=False)
-    model |= (add1 := Add()).connect(left="l1", right="l2", output=IOKey(name="out1"))
-    model |= (add2 := Add()).connect(left="l3", right="l4")
-    model.enforce_jit = False
-    model.merge_connections(add1.left, add2.left, name="input")
-    model |= Item().connect(input="input")
-    assert not model.enforce_jit
+    assert not compiled_model.jit
 
 
 def test_physical_model_jit_1():
     """Tests for jittablity in Physical domain. Since compilation is done
     with jit = False, no errors will be raised when model is not jittable.
     """
-    model = Model(enforce_jit=False)
+    model = Model()
     add1 = Add()
     add2 = Add()
     model |= add1.connect(
@@ -338,10 +329,9 @@ def test_physical_model_jit_2():
     """Tests for jittablity in Physical domain. Since compilation is done
     with jit = True, exception will be raised because model is not jittable.
     """
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= (add1 := Add()).connect(left="l1", right="l2", output=IOKey(name="out1"))
     model |= (add2 := Add()).connect(left="l3", right="l4")
-    model.enforce_jit = False
     model.merge_connections(add1.left, add2.left, name="input")
     model |= Item().connect(input="input")
 
@@ -350,8 +340,10 @@ def test_physical_model_jit_2():
     with pytest.raises(Exception) as error_info:
         compile(model=model, backend=backend, jit=True)
 
-    expected_msg = "Model is not jittable. Can only be compiled with jit = False."
-    assert str(error_info.value) == expected_msg
+    assert str(error_info.value) == (
+        "Operator 'item' is not JIT compatible. "
+        "Please set jit=False in compile() function."
+    )
 
 
 def test_jit_1():
@@ -376,17 +368,20 @@ def test_jit_1():
     add_model = Add()
     model = Model()
     model |= add_model.connect(left="left", right="right")
+    model |= TensorToList().connect(add_model.output)
+
     with pytest.raises(Exception) as err_info:
-        model |= TensorToList().connect(add_model.output)
+        compile(model=model, backend=JaxBackend(), jit=True)
+
     assert str(err_info.value) == (
-        "Model with enforced Jit can not be extended by a non-jittable model!     "
-        "                        Jit can be unforced by setting enforce_jit = False"
+        "Operator 'tensor_to_list' is not JIT compatible. "
+        "Please set jit=False in compile() function."
     )
 
 
 def test_jit_2():
     backend = JaxBackend()
-    model = Model(enforce_jit=False)
+    model = Model()
     model |= (add_model := Add()).connect(
         left=IOKey("left", differentiable=True),
         right=IOKey("right", differentiable=True),
@@ -471,3 +466,85 @@ def test_jit_5():
     evaluate(params)
     evaluate(params)
     evaluate(params)
+
+
+@pytest.mark.skip(reason="Bool indexing for Tensors is not implemented")
+def test_jit_compile_tensor_bool_slicing():
+    input = IOKey(type=Tensor[float])
+    index = IOKey(type=Tensor[bool])
+
+    indexed = input[index]
+
+    model = Model()
+    model |= Buffer().connect(input=indexed)
+
+    with pytest.raises(RuntimeError) as err_jax:
+        compile(model=model, backend=JaxBackend(), jit=True, inference=True)
+
+    assert str(err_jax.value) == (
+        "Operator 'slice' is not JIT compatible. "
+        "Please set jit=False in compile() function."
+    )
+
+
+def test_jit_compile_to_list():
+    input = IOKey(name="input", type=Tensor[float])
+
+    model = Model()
+    model |= TensorToList().connect(input=input)
+
+    # Jax should raise error
+    with pytest.raises(RuntimeError) as err_jax:
+        compile(model=model, backend=JaxBackend(), jit=True, inference=True)
+
+    with pytest.raises(RuntimeError) as err_torch:
+        compile(model=model, backend=TorchBackend(), jit=True, inference=True)
+
+    assert (
+        str(err_jax.value)
+        == str(err_torch.value)
+        == (
+            "Operator 'tensor_to_list' is not JIT compatible. "
+            "Please set jit=False in compile() function."
+        )
+    )
+
+
+def test_jit_compile_item():
+    input = IOKey(name="input", type=Tensor[float])
+
+    model = Model()
+    model |= Item().connect(input=input)
+
+    # Jax should raise error
+    with pytest.raises(RuntimeError) as err_jax:
+        compile(model=model, backend=JaxBackend(), jit=True, inference=True)
+
+    with pytest.raises(RuntimeError) as err_torch:
+        compile(model=model, backend=TorchBackend(), jit=True, inference=True)
+
+    assert (
+        str(err_jax.value)
+        == str(err_torch.value)
+        == (
+            "Operator 'item' is not JIT compatible. Please set "
+            "jit=False in compile() function."
+        )
+    )
+
+
+def test_jit_compile_unique():
+    model = Model()
+    model |= Unique().connect(input="input", output=IOKey(name="output"))
+
+    # Jax should raise error
+    with pytest.raises(RuntimeError) as err_jax:
+        compile(model=model, backend=JaxBackend(), jit=True, inference=True)
+
+    # Torch should not raise error
+    compile(model=model, backend=TorchBackend(), jit=True, inference=True)
+
+    assert str(err_jax.value) == (
+        "Operator 'unique' is not JIT compatible. Please set "
+        "jit=False in compile() function."
+    )

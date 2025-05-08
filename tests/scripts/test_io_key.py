@@ -106,8 +106,9 @@ def test_1():
     model |= Linear(10).connect(
         input=model.cout,
         bias=IOKey(name="bias_3"),
-        output=IOKey(name="output1"),
+        output="output1",
     )
+    model.expose_keys("output1")
 
     expected_input_keys = {"$4", "$1", "weight_2", "bias_3", "$2"}
     expected_output_keys = {"output1"}
@@ -131,9 +132,8 @@ def test_2():
     """
     model = Model()
     model |= Linear(10).connect(weight="weight_2")
-    model |= Linear(10).connect(
-        input=model.cout, bias="bias_3", output=IOKey(name="output1")
-    )
+    model |= Linear(10).connect(input=model.cout, bias="bias_3", output="output1")
+    model.expose_keys("output1")
 
     expected_input_keys = {"$4", "$1", "weight_2", "bias_3", "$2"}
     expected_output_keys = {"output1"}
@@ -243,8 +243,10 @@ def test_6():
     model |= Linear().connect(
         input=model.cout,
         bias=IOKey(name="bias_2", shape=[5]),
-        output=IOKey(name="output1"),
+        output="output1",
     )
+    model.expose_keys("output1")
+
     expected_input_keys = {"input", "weight_1", "bias_1", "$2", "bias_2"}
     expected_output_keys = {"output1"}
     expected_internal_keys = {"$1"}
@@ -299,9 +301,9 @@ def test_8():
 def test_9():
     """Tests the case where IOKey used as first output and then input"""
     model = Model()
-    out = IOKey(name="out", expose=False)
-    model |= Relu().connect(input="input", output=out)
-    model |= Sigmoid().connect(input=out, output=IOKey("output"))
+    model |= Relu().connect(input="input", output="out")
+    model |= Sigmoid().connect(input="out", output="output")
+    model.expose_keys("output")
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
@@ -317,10 +319,10 @@ def test_9():
 def test_10():
     """Tests the case where IOKey used as first input and then output"""
     model = Model()
-    middle = IOKey(name="middle", expose=True)
-    model |= Sigmoid().connect(input=middle, output=IOKey("output"))
+    middle = IOKey(name="middle")
+    model |= Sigmoid().connect(input=middle, output="output")
     model |= Relu().connect(input="input", output=middle)
-    model.expose_keys(middle)
+    model.expose_keys("output", middle)
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
@@ -337,10 +339,9 @@ def test_10():
 def test_11():
     """Tests the case where IOKey used as first output and then input"""
     model = Model()
-    model |= Relu().connect(input="input", output=IOKey(name="out", expose=False))
-    model |= Sigmoid().connect(
-        input=IOKey(name="out", expose=True), output=IOKey("output")
-    )
+    model |= Relu().connect(input="input", output="out")
+    model |= Sigmoid().connect(input=IOKey(name="out"), output="output")
+    model.expose_keys("output", "out")
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
@@ -356,10 +357,9 @@ def test_11():
 def test_12():
     """Tests the case where IOKey used as first input and then output"""
     model = Model()
-    model |= Sigmoid().connect(
-        input=IOKey(name="middle", expose=True), output=IOKey("output")
-    )
-    model |= Relu().connect(input="input", output=IOKey(name="middle", expose=False))
+    model |= Sigmoid().connect(input=IOKey(name="middle"), output="output")
+    model |= Relu().connect(input="input", output="middle")
+    model.expose_keys("output")
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
@@ -376,12 +376,9 @@ def test_12():
 def test_13():
     """Tests the case where IOKey used as input but created twice"""
     model = Model()
-    model |= Sigmoid().connect(
-        input=IOKey(name="input", expose=True), output=IOKey("output1")
-    )
-    model |= Relu().connect(
-        input=IOKey(name="input", expose=True), output=IOKey(name="output2")
-    )
+    model |= Sigmoid().connect(input=IOKey(name="input"), output="output1")
+    model |= Relu().connect(input=IOKey(name="input"), output="output2")
+    model.expose_keys("output1", "output2")
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
@@ -516,13 +513,13 @@ def test_iokey_values_2():
 
 
 def test_iokey_values_4():
-    """Tests expose = True functionality of input scalars when value is given."""
+    """Tests functionality of input scalars when value is given."""
     model = Model()
     main_model = Model()
     mean_model1 = Mean(axis=2)
 
     # Give name to myaxis value
-    model += mean_model1.connect(axis=IOKey(name="myaxis1", value=2, expose=False))
+    model += mean_model1.connect(axis=IOKey(name="myaxis1", value=2))
     main_model += model
     assert len(main_model.conns.input_connections) == 1
     assert model.myaxis1.metadata.value == 2  # type: ignore
@@ -610,7 +607,7 @@ def test_iokey_values_8():
 
 def test_iokey_values_9_error():
     """Tests connection functinality of IOKey Tensors"""
-    model = Model(enforce_jit=False)
+    model = Model()
     buffer1 = Buffer()
 
     with pytest.raises(ValueError) as err_info:
@@ -684,10 +681,9 @@ def test_iokey_values_12():
 def test_iokey_name_not_given_output_error():
     buff_model = Sigmoid()
     model = Model()
+    model |= buff_model.connect(input="input", output=IOKey(shape=[2, 3]))
     with pytest.raises(KeyError) as err_info:
-        model |= buff_model.connect(
-            input="input", output=IOKey(shape=[2, 3], expose=True)
-        )
+        model.expose_keys(buff_model.output)
     assert str(err_info.value) == "'Connection without a name cannot be set as output'"
 
 
@@ -718,14 +714,13 @@ def test_iokey_tensor_input_all_args():
     possible_names = ["left"]
     possible_values = [Tensor([[2.0]]), TBD]
     possible_shapes = [[1, 1], None]
-    possible_expose = [True, False]
 
-    all_args = [possible_names, possible_values, possible_shapes, possible_expose]
+    all_args = [possible_names, possible_values, possible_shapes]
 
     ref_outputs = {"output": backend.array([[5.0]])}
 
     # take product of all possible values
-    for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
+    for name, value, shape in product(*all_args):  # type: ignore [call-overload]
         model = Model()
         sub_model = Add()
         sub_model.set_types(left=Tensor, right=Tensor)
@@ -736,7 +731,7 @@ def test_iokey_tensor_input_all_args():
 
         try:
             # try to create an IOKey instance
-            input = IOKey(name=name, value=value, shape=shape, expose=expose)
+            input = IOKey(name=name, value=value, shape=shape)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
             if value and shape:
@@ -757,18 +752,18 @@ def test_iokey_tensor_input_all_args():
             # try to extend the model
             model |= sub_model.connect(left=input, right="right", output="output")
         except Exception as e:
-            if not expose and value is TBD:
-                # if both expose and value is not given, It is an expected error
-                assert isinstance(e, ValueError)
-                assert e.args[0] == (
-                    "Expose flag cannot be false when no value is provided for "
-                    "input keys!"
-                )
-            else:
-                # meaning that it is an unexpected error. Raise given exception
-                # in that case
-                raise e
-            continue
+            # if not expose and value is TBD:
+            #     # if both expose and value is not given, It is an expected error
+            #     assert isinstance(e, ValueError)
+            #     assert e.args[0] == (
+            #         "Expose flag cannot be false when no value is provided for "
+            #         "input keys!"
+            #     )
+            # else:
+            #     # meaning that it is an unexpected error. Raise given exception
+            #     # in that case
+            raise e
+        # continue
 
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
@@ -817,12 +812,12 @@ def test_iokey_scalar_output_all_args():
 
     # take product of all possible values
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
-        model = Model(enforce_jit=False)
+        model = Model()
         sub_model = Shape()
 
         try:
             # try to create an IOKey instance
-            output = IOKey(name=name, value=value, shape=shape, expose=expose)
+            output = IOKey(name=name, value=value, shape=shape)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
             if (not isinstance(value, Tensor | ToBeDetermined)) and shape:
@@ -841,6 +836,8 @@ def test_iokey_scalar_output_all_args():
         try:
             # try to extend the model
             model |= sub_model.connect(input="input", output=output)
+            if expose:
+                model.expose_keys(output)
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
@@ -914,19 +911,18 @@ def test_iokey_scalar_input_all_args():
     possible_names = ["axis1", None]
     possible_values = [0, TBD]
     possible_shapes = [[1, 1], None]
-    possible_expose = [True, False]
 
-    all_args = [possible_names, possible_values, possible_shapes, possible_expose]
+    all_args = [possible_names, possible_values, possible_shapes]
 
     # take product of all possible values
-    for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
-        model = Model(enforce_jit=False)
+    for name, value, shape in product(*all_args):  # type: ignore [call-overload]
+        model = Model()
 
         sub_model = Mean(axis=TBD)
 
         try:
             # try to create an IOKey instance
-            axis = IOKey(name=name, value=value, shape=shape, expose=expose)
+            axis = IOKey(name=name, value=value, shape=shape)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
             if value is not TBD and shape:
@@ -947,15 +943,15 @@ def test_iokey_scalar_input_all_args():
             model |= sub_model.connect(input="input", output="output", axis=axis)
 
         except Exception as e:
-            if not expose and value is TBD:
-                # It is an expected error
-                assert isinstance(e, ValueError)
-                assert e.args[0] == (
-                    "Expose flag cannot be false when no value is provided for "
-                    "input keys!"
-                )
+            # if not expose and value is TBD:
+            #     # It is an expected error
+            #     assert isinstance(e, ValueError)
+            #     assert e.args[0] == (
+            #         "Expose flag cannot be false when no value is provided for "
+            #         "input keys!"
+            #     )
 
-            elif shape:
+            if shape:
                 # Since providing shape within IOKey means it is Tensor type,
                 # it is an expected type error.
                 assert (
@@ -980,7 +976,7 @@ def test_iokey_scalar_input_all_args():
         }
         if value is TBD:
             data |= {"axis": 0}
-            if expose and name is not None:
+            if name is not None:
                 data |= {"axis1": 0}
 
         ref_outputs = {"output": backend.ones(2)}
@@ -1023,13 +1019,13 @@ def test_iokey_tensor_output_all_args():
 
     # take product of all possible values
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
-        model = Model(enforce_jit=False)
+        model = Model()
         sub_model = Add()
         sub_model.set_types(left=Tensor, right=Tensor)
 
         try:
             # try to create an IOKey instance
-            output = IOKey(name=name, value=value, shape=shape, expose=expose)
+            output = IOKey(name=name, value=value, shape=shape)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
             if value and shape:
@@ -1048,6 +1044,8 @@ def test_iokey_tensor_output_all_args():
         try:
             # try to extend the model
             model |= sub_model.connect(left="left", right="right", output=output)
+            if expose:
+                model.expose_keys(output)
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
@@ -1282,7 +1280,8 @@ def test_iokey_template_2():
     model += Buffer().connect(IOKey("right", type=Tensor))
     res = left + model.right  # type: ignore
 
-    model |= Buffer().connect(res, IOKey("output"))
+    model |= Buffer().connect(res, "output")
+    model.expose_keys("output")
 
     backend = TorchBackend()
 
@@ -1445,7 +1444,7 @@ def test_iokey_template_10():
 
 def test_iokey_template_11():
     # Use a IOKey twice in extend with different types
-    model = Model(enforce_jit=False)
+    model = Model()
 
     input = IOKey("input")
 

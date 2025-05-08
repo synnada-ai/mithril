@@ -467,14 +467,17 @@ class Model(BaseModel):
 
         # Iterate over the input arguments and keyword arguments
         # and extract the submodels from them.
+        couts = set()
         for value in itertools.chain(args, kwargs.values()):
             assert value.model is not None
             extract_m = value.model.get_outermost_parent()
             assert isinstance(extract_m, Model)
             if extract_m is not model:
                 model.extend_extracted_model(extract_m, value)
+            couts.add(value)
 
         model.expose_keys(**kwargs)
+        model.set_cout(*couts)
         # Freeze the model to prevent further modifications
         model._freeze()
         return model
@@ -532,8 +535,10 @@ class Model(BaseModel):
         assert isinstance(_conn, ConnectionData)
         return _conn
 
-    def rename_key(self, connection: ConnectionData, key: str) -> None:
-        super().rename_key(connection, key)
+    def _rename_key(
+        self, connection: ConnectionData, key: str, check_key: bool = True
+    ) -> None:
+        super()._rename_key(connection, key, check_key)
         conn = self.conns.get_extracted_connection(connection)
         setattr(self, key, conn)
 
@@ -557,7 +562,6 @@ class Model(BaseModel):
         """
         provisional_model.provisional_source = self
         self.provisional_model = provisional_model
-        provisional_model.enforce_jit = self.enforce_jit
         updates = self.constraint_solver.match(provisional_model.constraint_solver)
         provisional_model.constraint_solver.clear()
         self.constraint_solver(updates)
@@ -603,7 +607,7 @@ class Model(BaseModel):
             isinstance(template, ConnectionData)
             and template.model is not None
             and (extract_m := template.model).provisional_source
-            and extract_m is not self
+            and self.conns.get_con_by_metadata(template.metadata) is None
         ):
             assert isinstance(extract_m, Model)
             p_model = extract_m.provisional_source
@@ -655,7 +659,6 @@ class Model(BaseModel):
             use_sub_provisional = True
             self._bind_provisional_model(model)
 
-        self.constraint_solver.match(model.constraint_solver)
         con = model.conns.get_con_by_metadata(start_con.metadata)
         submodels = []
         assert con is not None
@@ -746,7 +749,13 @@ class Model(BaseModel):
             if isinstance(source := mp.provisional_source, BaseModel):
                 source.provisional_model = None
             mp.provisional_source = False
-
+        # Find if any connection is already in the model after unrolling
+        # and replace it with the existing connection.
+        for key, value in kwargs.items():
+            if isinstance(value, ConnectionData) and self.conns.get_con_by_metadata(
+                value.metadata
+            ):
+                kwargs[key] = self.conns.get_con_by_metadata(value.metadata)  # type: ignore
         self.extend(model, trace, **kwargs)
         return self
 
@@ -870,6 +879,8 @@ def _get_replicated_connections(
     if not isinstance(main_model := provisional_model.provisional_source, BaseModel):
         main_model = None
     _conns: list[TemplateConnectionType | ConnectionData] = []
+    # Do not replicate same connection multiple times
+    con_map: dict[IOHyperEdge, ConnectionData] = {}
     for c in connections:
         if isinstance(c, list | tuple):
             c = _get_replicated_connections(c, provisional_model)  # type: ignore
@@ -882,7 +893,11 @@ def _get_replicated_connections(
             assert isinstance(_c, ConnectionData)
             con = provisional_model.conns.get_con_by_metadata(_c.metadata)
             if con is None:
-                con = _c._replicate()
+                if con_map.get(_c.metadata) is None:
+                    con = _c._replicate()
+                    con_map[_c.metadata] = con
+                else:
+                    con = con_map[_c.metadata]
             c = con
         _conns.append(c)
     if isinstance(connections, tuple):
@@ -911,7 +926,8 @@ def _create_provisional_model(connections: list[TemplateConnectionType]) -> Mode
     while stack:
         match current := stack.pop():
             case ConnectionData():
-                all_conns.append(current)
+                if current not in all_conns:
+                    all_conns.append(current)
             case list() | tuple():
                 stack.extend(current)
             case str():

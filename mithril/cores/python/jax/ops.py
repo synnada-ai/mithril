@@ -861,13 +861,11 @@ def shape(input: jax.Array) -> tuple[int, ...]:
     return input.shape
 
 
-def size(input: jax.Array, dim: int | Sequence[int] | None) -> int | tuple[int, ...]:
+def size(input: jax.Array, dim: int | None) -> int | tuple[int, ...]:
     if dim is None:
         return input.size
-    if isinstance(dim, int):
-        return input.shape[dim]
     else:
-        return tuple(input.shape[idx] for idx in dim)
+        return input.shape[dim]
 
 
 def flatten(input: jax.Array, *, start_dim: int = 0, end_dim: int = -1) -> jax.Array:

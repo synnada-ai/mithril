@@ -47,9 +47,9 @@ from ..framework.constraints import (
     padding_1d_constraint,
     padding_2d_constraint,
     polynomial_features_constraints,
+    pool_1d_constraints,
+    pool_2d_constraints,
     randn_constraints,
-    sliding_window_1d_constraints,
-    sliding_window_2d_constraints,
     squeeze_constraints,
     stride_constraint,
     sum_fn,
@@ -1511,7 +1511,7 @@ class PrimitiveMaxPool1D(PrimitiveModel):
             dilation=BaseKey(type=int, value=dilation),
         )
         self._add_constraint(
-            fn=sliding_window_1d_constraints,
+            fn=pool_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
@@ -1762,7 +1762,7 @@ class PrimitivePool2D(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=sliding_window_2d_constraints,
+            fn=pool_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
 
@@ -3411,9 +3411,7 @@ class TensorToList(OperatorModel):
         *,
         name: str | None = None,
     ) -> None:
-        self._enforce_jit = False
         m = TensorToListOp(input=input)
-        m._enforce_jit = False
         super().__init__(name=name, model=m)
 
     def connect(  # type: ignore[override]

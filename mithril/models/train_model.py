@@ -93,9 +93,7 @@ class TrainModel(Model):
         # TODO: If we add inputs as IOKey, we get multi-write error. Fix this.
         key_mappings = model.generate_keys(symbolic=False, include_internals=True)
         extend_kwargs: dict[str, ConnectionType] = {
-            key: key_mappings.get(
-                key, IOKey(name=key) if key in model.conns.output_keys else key
-            )
+            key: key_mappings.get(key, key if key in model.conns.output_keys else key)
             for key in model.input_keys | model.conns.output_keys
         }
 
@@ -107,8 +105,14 @@ class TrainModel(Model):
             raise KeyError(
                 f"'{FinalCost}' could not be used as an external key in TrainModel!"
             )
+        # Hold model's original output keys (not outputs coming from couts)
+        # in order to set them also outputs of the TrainModel.
+        exposed_keys = model.output_keys
         # TODO: We can use _extend instead of extend in TrainModel.
         self._extend(model, extend_kwargs)
+        # Set model's output keys also outputs for TrainModel.
+        if exposed_keys:
+            self.expose_keys(*exposed_keys)
         # self.loss_keys: dict[str, Connection] = {}
         self.loss_keys: dict[str, str] = {}
         self.regularization_keys: list[str] = []
@@ -261,9 +265,10 @@ class TrainModel(Model):
                 # self.extend(m, **{in_key: prev_out_key.conn, out_key: key_name})
                 info: dict[str, ConnectionDataType] = {
                     in_key: prev_out_key,
-                    out_key: IOKey(key_name),
+                    out_key: key_name,
                 }
                 self._extend(m, info)
+                self.expose_keys(key_name)
             else:
                 self._extend(m, {in_key: prev_out_key})
             # Save all reduce inputs for geo-mean
@@ -279,11 +284,13 @@ class TrainModel(Model):
             kwargs = {
                 "left": prev_out_key,
                 "right": coef,
-                "output": IOKey(name=key_name),
+                "output": key_name,
             }
             if key_name is None:
                 kwargs.pop("output")
             self._extend(m := Multiply(), kwargs)
+            if key_name is not None:
+                self.expose_keys(key_name)
             prev_out_key = self.get_single_output(m)
 
         if (loss_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
@@ -404,7 +411,7 @@ class TrainModel(Model):
             if key_name is not None:
                 out = self.get_single_output(model)
                 # kwargs[out.key] = key_name
-                kwargs[out.key] = IOKey(name=key_name)
+                kwargs[out.key] = key_name
 
             keywords: dict[str, ConnectionType] = {}
             for key, value in model.connect(**kwargs).connections.items():
@@ -414,6 +421,9 @@ class TrainModel(Model):
                     keywords[key] = value
 
             self._extend(model, keywords)
+            if key_name is not None:
+                self.expose_keys(key_name)
+
             if isinstance(outer_key := kwargs[reg_str], Connection):
                 outer_key = outer_key.key
 
@@ -531,6 +541,7 @@ class TrainModel(Model):
                 # loss_con = self.conns.get_connection(LossKey)
                 # assert loss_con is not None
                 self.conns.set_connection_type(loss_conn, KeyType.INTERNAL)
+            self.expose_keys("final_cost")
             self._freeze()
 
         self.dependency_map.update_all_keys()

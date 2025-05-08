@@ -21,24 +21,36 @@
 typedef struct ggml_tensor g_tensor;
 typedef struct ggml_context g_context;
 
-g_tensor * add(g_context * ctx, g_tensor * left, g_tensor * right);
-g_tensor * multiplication(g_context * ctx, g_tensor * left, g_tensor * right);
-g_tensor * scalar_multiply(g_context * ctx, g_tensor * left, float scale);
-g_tensor * subtract(g_context * ctx, g_tensor * left, g_tensor * right);
-g_tensor * transpose(g_context * ctx, g_tensor * input, g_tensor * axes);
-g_tensor * matrix_multiplication(g_context * ctx, g_tensor * left, g_tensor * right);
-g_tensor * relu(g_context * ctx, g_tensor * input);
-g_tensor * squared_error(g_context * ctx, g_tensor * left, g_tensor * right) ;
-g_tensor * reduce_mean(g_context * ctx, g_tensor * input, g_tensor * axes,g_tensor * keepdim);
-g_tensor * broadcast_to(g_context * ctx, g_tensor * input, int dim1, int dim2, int dim3, int dim4);
+g_tensor *add(g_context *ctx, g_tensor *left, g_tensor *right);
+g_tensor *multiplication(g_context *ctx, g_tensor *left, g_tensor *right);
+g_tensor *scalar_multiply(g_context *ctx, g_tensor *left, float scale);
+g_tensor *subtract(g_context *ctx, g_tensor *left, g_tensor *right);
+g_tensor *transpose(g_context *ctx, g_tensor *input, g_tensor *axes);
+g_tensor *matrix_multiplication(g_context *ctx, g_tensor *left,
+                                g_tensor *right);
+g_tensor *relu(g_context *ctx, g_tensor *input);
+g_tensor *squared_error(g_context *ctx, g_tensor *left, g_tensor *right);
+g_tensor *reduce_mean(g_context *ctx, g_tensor *input, g_tensor *axes,
+                      g_tensor *keepdim);
+g_tensor *broadcast_to(g_context *ctx, g_tensor *input, int dim1, int dim2,
+                       int dim3, int dim4);
 
-
-g_tensor * add_grad(g_context * ctx, g_tensor * gradient, int idx, g_tensor * output, g_tensor * left, g_tensor * right);
-g_tensor * multiplication_grad(g_context * ctx, g_tensor * gradient, int idx, g_tensor * output, g_tensor * left, g_tensor * right);
-g_tensor * transpose_grad(g_context * ctx, g_tensor * gradient, int idx, g_tensor * output, g_tensor * left,  g_tensor * right);
-g_tensor * matrix_multiplication_grad(g_context * ctx, g_tensor * gradient, int idx, g_tensor * output, g_tensor * left,  g_tensor * right);
-g_tensor * relu_grad(g_context * ctx, g_tensor * output_grad, int idx, g_tensor * output, g_tensor * input );
-g_tensor * squared_error_grad(g_context * ctx, g_tensor * gradient, int idx, g_tensor * output, g_tensor * left, g_tensor * right);
-g_tensor * reduce_mean_grad(g_context * ctx, g_tensor * gradient, int idx, g_tensor * left, g_tensor * right, g_tensor * axes,g_tensor * keepdim);
+g_tensor *add_grad(g_context *ctx, g_tensor *gradient, int idx,
+                   g_tensor *output, g_tensor *left, g_tensor *right);
+g_tensor *multiplication_grad(g_context *ctx, g_tensor *gradient, int idx,
+                              g_tensor *output, g_tensor *left,
+                              g_tensor *right);
+g_tensor *transpose_grad(g_context *ctx, g_tensor *gradient, int idx,
+                         g_tensor *output, g_tensor *left, g_tensor *right);
+g_tensor *matrix_multiplication_grad(g_context *ctx, g_tensor *gradient,
+                                     int idx, g_tensor *output, g_tensor *left,
+                                     g_tensor *right);
+g_tensor *relu_grad(g_context *ctx, g_tensor *output_grad, int idx,
+                    g_tensor *output, g_tensor *input);
+g_tensor *squared_error_grad(g_context *ctx, g_tensor *gradient, int idx,
+                             g_tensor *output, g_tensor *left, g_tensor *right);
+g_tensor *reduce_mean_grad(g_context *ctx, g_tensor *gradient, int idx,
+                           g_tensor *left, g_tensor *right, g_tensor *axes,
+                           g_tensor *keepdim);
 
 #endif

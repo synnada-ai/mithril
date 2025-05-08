@@ -6,7 +6,7 @@ Backend precision  : 32
 -------------------------------------
 Backend device     : TFRT_CPU_0      
 -------------------------------------
-Output keys        : output1         
+Output keys        : None            
 -------------------------------------
 Constant inputs    : None            
 -------------------------------------
@@ -37,7 +37,7 @@ MatrixMultiply   |   Inputs  : left   : [None,  ..., None] : 'input'            
 Add              |   Inputs  : left   : [None,  ...,    3] : MatrixMultiply.output :          0
                  |             right  :             [   3] : 'b'                   :          3
                  |   --------------------------------------------------------------------------
-                 |   Outputs : output : [None,  ...,    3] : 'output1'             :          0
+                 |   Outputs : output : [None,  ...,    3] : 'output'              :          0
 -----------------------------------------------------------------------------------------------
 
 

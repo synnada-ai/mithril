@@ -617,16 +617,13 @@ def test_shapes_3():
 def test_shapes_4():
     # Extend to input
     model = Model()
-    model |= (l1 := Linear(dimension=10)).connect(
-        weight="weight", output=IOKey(name="output")
-    )
-    model |= (l2 := Linear(dimension=10)).connect(
-        weight="weight1", output=IOKey(name="output2")
-    )
+    model |= (l1 := Linear(dimension=10)).connect(weight="weight", output="output")
+    model |= (l2 := Linear(dimension=10)).connect(weight="weight1", output="output2")
     model.merge_connections(l1.input, l2.input)
     model |= Linear(dimension=71).connect(
         input="input", weight="weight2", output=l1.input
     )
+    model.expose_keys("output", "output2")
     shapes = {"input": [4, 256]}
     logical_ref: Mapping[str, list | None] = {
         "$_Linear_0_output": [["(V1, ...)", "u1", 71], ["u2", "(V2, ...)", 71]],
@@ -2361,32 +2358,37 @@ def test_composite_3_extend_shapes_1():
     m1 += add1.connect(
         left=IOKey(value=add_1_left, name="left"),
         right=IOKey(value=add_1_right, name="right"),
-        output=IOKey(name="output"),
+        output="output",
     )
+    m1.expose_keys("output")
     m2 = Model()
     m2 |= m1.connect(left=IOKey(name="left"), right=IOKey(name="right"))
-    m2 |= Add().connect(left=m1.left, right=m1.output, output=IOKey(name="output"))  # type: ignore
+    m2 |= Add().connect(left=m1.left, right=m1.output, output="output")  # type: ignore
+    m2.expose_keys("output", "left", "right")
     m3 = Model()
     m3 |= m2.connect(right=IOKey(name="right"))
     m3 |= Add().connect(
-        left=IOKey(name="left", expose=True),  # type: ignore
+        left=IOKey(name="left"),  # type: ignore
         right=m2.output,  # type: ignore
-        output=IOKey(name="output"),
+        output="output",
     )  # type: ignore
     m3.merge_connections(m3.left, m1.left)  # type: ignore
+    m3.expose_keys("output", "left", "right")
     m4 = Model()
     m4 |= m3.connect(left=IOKey(name="left"), right=IOKey(name="right"))
     m4 |= (add4 := Add()).connect(
         left=m1.left,  # type: ignore
         right=m3.output,  # type: ignore
-        output=IOKey(name="output"),
+        output="output",
     )
+    m4.expose_keys("output", "left", "right")
     composite_3 |= m4.connect()
     composite_3 |= (add5 := Add()).connect(
         left=m1.left,  # type: ignore
         right=m4.output,  # type: ignore
-        output=IOKey(name="output"),
+        output="output",
     )
+    composite_3.expose_keys("output")
 
     key_mappings = composite_3.generate_keys()
 
@@ -6115,8 +6117,9 @@ def test_cartesian_call():
     sig_1.set_shapes(**shape_1)
     sig_2.set_shapes(**shape_2)
     model1 = Model()
-    model1 |= sig_1.connect(input="input", output=IOKey(name="output1"))
-    model1 |= sig_2.connect(input="input", output=IOKey(name="output2"))
+    model1 |= sig_1.connect(input="input", output="output1")
+    model1 |= sig_2.connect(input="input", output="output2")
+    model1.expose_keys("output1", "output2")
 
     model2 = deepcopy(model1)
     model3 = Model()
@@ -6127,8 +6130,9 @@ def test_cartesian_call():
     model3 |= add_model.connect(
         left=model1.input,  # type: ignore
         right=model2.input,  # type: ignore
-        output=IOKey(name="output"),
+        output="output",
     )
+    model3.expose_keys("output")
 
     key_mappings = model3.generate_keys()
     model_1_out1 = key_mappings[
@@ -6159,7 +6163,13 @@ def test_cartesian_call():
         model_3_input_2: [3, 4],
         "output": [3, 4],
     }
-    physical_ref = {"input_0": [3, 4], "input_1": [3, 4], "output": [3, 4]}
+    physical_ref = {
+        "input_0": [3, 4],
+        "output1_0": [3, 4],
+        "input_1": [3, 4],
+        "output1_1": [3, 4],
+        "output": [3, 4],
+    }
     assert_shapes(model3, logical_ref, physical_ref)
 
 
@@ -6689,14 +6699,16 @@ def test_prune_match_5():
     model_sub |= s1.connect(input="input")
     model_sub |= Squeeze().connect(input=s1.output)
     model_sub += Squeeze()
-    model_sub |= Gelu().connect(input=model_sub.cout, output=IOKey(name="out1"))
+    model_sub |= Gelu().connect(input=model_sub.cout, output="out1")
+    model_sub.expose_keys("out1")
 
-    model |= model_sub.connect(input="input", out1=IOKey(name="out1"))
+    model |= model_sub.connect(input="input", out1="out1")
     model |= s2.connect(input="input")
     model.set_cout(s2.output)
     model += Squeeze()
     model += Squeeze()
-    model |= Relu().connect(input=model.cout, output=IOKey(name="out2"))
+    model |= Relu().connect(input=model.cout, output="out2")
+    model.expose_keys("out1", "out2")
 
     shape: dict[str, list] = {
         "input": ["(V1, ...)"],
@@ -10581,3 +10593,15 @@ def test_index_with_list_of_tuple_ints():
         "output2": [3, 6, 1, 1, 1, 5],
     }
     check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_partial_shape_propagation():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model.connect(input="input", output="output1")
+    model.set_shapes(input=["u1", "u2", 3, 4])
+    shp_1 = model.cout.shape[-1]
+    shp_2 = model.cout.shape[-2]
+    out = shp_1 * shp_2
+    model |= Buffer().connect(input=out, output="output2")
+    assert model.cout.metadata.value == 12

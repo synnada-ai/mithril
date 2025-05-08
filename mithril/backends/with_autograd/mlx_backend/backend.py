@@ -38,6 +38,7 @@ class MlxBackend(Backend[mx.array]):
     registered_primitives: dict[str, Callable[..., mx.array]] = {}
     primitive_fn_path = "mithril.cores.python.mlx.ops"
     CODEGEN_CONFIG = utils.CODEGEN_CONFIG
+    JITABLE = utils.JITABLE
 
     def __init__(
         self,

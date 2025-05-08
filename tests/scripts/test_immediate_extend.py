@@ -499,7 +499,7 @@ def test_immediate_extend_integration_str_matching2():
     block |= Buffer().connect(input=input, output="b_odsfut")
 
 
-def test_apply_rope():
+def test_apply_rope_partial():
     block = Model()
     # We define the input connections
     xq = IOKey("xq", type=ml.Tensor)
@@ -533,7 +533,7 @@ def apply_rope(*, name: str | None = None) -> Model:
     return block
 
 
-def test_apply_rope_2():
+def test_apply_rope():
     block = apply_rope()
     for con in block.conns.input_connections:
         assert con.model is block
@@ -586,6 +586,20 @@ def test_multihead():
         output="attention",
     )
     _ = B * L
+    for con in block.conns.input_connections:
+        assert con.model is block
+
+
+def test_rearrange():
+    # This test is to check that the model can be extended with a provisional model's
+    # input connection properly.
+    block = Model()
+    input = IOKey("input")
+    input_shape = input.shape
+    B, L = input_shape[0], input_shape[1]
+    block |= Reshape().connect(input, shape=(B, L, 3, 10, -1))
+    block += Transpose(axes=(2, 0, 3, 1, 4)).connect(output=IOKey("output"))
+    block.expose_keys("output")
     for con in block.conns.input_connections:
         assert con.model is block
 
@@ -663,6 +677,15 @@ def test_flat_model_key_naming_matching():
     assert flat_model.queued_models == {}
 
 
+def test_existing_cons_model_attribute_maps_to_model():
+    input_key = IOKey("input")
+    out = input_key + 2
+    model = Model()
+    model |= Buffer().connect(input=out)
+    model |= Buffer().connect(input=input_key)
+    assert input_key.model is not None
+
+
 def test_functional_model():
     input1 = IOKey("input1")
     input2 = IOKey("input2")
@@ -694,6 +717,23 @@ def test_functional_model_with_lin():
     model |= Linear().connect(input=pow.output)
 
     assert_models_equal(x.model.parent, model)  # type: ignore
+
+
+# TODO: Remove set_cout from second model after fixing the issue with couts.
+def test_exposing_existing_output_connection():
+    input = IOKey("input")
+    out = Buffer()(input=input)
+    a = out**2
+    m = Model.create(output=a, buff_out=out)
+
+    model = Model()
+    model |= (buff := Buffer()).connect("input", "buff_out")
+    model |= Power(exponent=2).connect(buff.output, output="output")
+    model.expose_keys("output", "buff_out")
+    model.set_cout("output", "buff_out")
+    model._freeze()
+
+    assert_models_equal(m, model)  # type: ignore
 
 
 def test_functional_model_with_create_api():
@@ -1000,3 +1040,62 @@ def test_model_create_output_order():
         assert model.out1.metadata == _out1.metadata  # type: ignore
         assert model.out2.metadata == _out2.metadata  # type: ignore
         assert model.out3.metadata == _out3.metadata  # type: ignore
+
+
+def check_constraints(model: Model):
+    constraints = set()
+    for key in model.conns.all.values():
+        constraints |= key.metadata.all_constraints
+    assert model.constraint_solver.constraint_map.keys() == constraints
+
+
+def test_constraint_cleaning():
+    hidden_states = IOKey("input")
+    height = IOKey("height")
+
+    height = Buffer()(input=height)
+    hidden_states = Reshape()(input=hidden_states)
+
+    model = Model.create(height_out=height, output=hidden_states)
+    check_constraints(model)
+
+
+def test_constraint_cleaning_unused_model():
+    from mithril.models import Relu
+
+    hidden_states = IOKey("input")
+    height = IOKey("height")
+
+    height = Buffer()(input=height)
+    hidden_states = Relu()(input=hidden_states)
+    _hidden_states = Relu()(input=hidden_states)
+    _hidden_states = Reshape()(input=_hidden_states)
+
+    model = Model.create(height_out=height, output=hidden_states)
+    assert len(model.constraint_solver.constraint_map) == 3
+    # The last Reshape model is not used and first Relu's connections do not contain
+    # constraints of last Reshape model. Therefore, there will be only 3 constraints
+    # in the constraint_map which are 1 buffer_constraint and 2 general_type_constraint
+    # and the last Reshape model constraint.
+    check_constraints(model)
+
+
+def test_constraint_cleaning_lin():
+    model = Linear()
+    check_constraints(model)
+
+
+def test_constraint_cleaning_manual_lin():
+    weight_key = IOKey(name="weight", differentiable=True).transpose()
+
+    model = Model()
+    model |= Buffer().connect(weight_key)
+    check_constraints(model)
+
+
+def test_constraint_cleaning_composite():
+    in1 = IOKey(name="input1").transpose()
+    in2 = IOKey(name="input2").transpose()
+    model = Model()
+    model |= Add().connect(in1, in2)
+    check_constraints(model)

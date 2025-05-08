@@ -54,13 +54,14 @@ SVM_Model = LinearSVM()
 
 logical_model = Model()
 logical_model |= backbone
-logical_model |= age_head.connect(input=backbone.cout, output=ml.IOKey("age"))
+logical_model |= age_head.connect(input=backbone.cout, output="age")
 logical_model |= gender_head.connect(input=backbone.cout)
 logical_model |= SVM_Model.connect(
     input=gender_head.output,
-    output=ml.IOKey("gender"),
-    decision_output=ml.IOKey("pred_gender"),
+    output="gender",
+    decision_output="pred_gender",
 )
+logical_model.expose_keys("gender", "pred_gender", "age")
 logical_model.set_cin(backbone.cin)
 # Wrap the model in a TrainModel for training purposes
 train_model = TrainModel(logical_model)

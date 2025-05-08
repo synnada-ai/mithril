@@ -60,12 +60,9 @@ def apply_rope(*, name: str | None = None) -> Model:
 
     block |= Reshape().connect(xq_out, shape=xq_shape, output="xq_out_raw")
     block |= Reshape().connect(xk_out, shape=xk_shape, output="xk_out_raw")
-    block |= Cast().connect(
-        input="xq_out_raw", dtype=xq.dtype(), output=IOKey("xq_out")
-    )
-    block |= Cast().connect(
-        input="xk_out_raw", dtype=xk.dtype(), output=IOKey("xk_out")
-    )
+    block |= Cast().connect(input="xq_out_raw", dtype=xq.dtype(), output="xq_out")
+    block |= Cast().connect(input="xk_out_raw", dtype=xk.dtype(), output="xk_out")
+    block.expose_keys("xq_out", "xk_out")
     return block
 
 
@@ -85,8 +82,10 @@ def attention(*, name: str | None = None) -> Model:
     block |= Reshape().connect(
         block.context.transpose(axes=(0, 2, 1, 3)),  # type: ignore[attr-defined]
         shape=(context_shape[0], context_shape[2], -1),
-        output=IOKey("output"),
+        output="output",
     )
+
+    block.expose_keys("output")
     block.set_cout("output")
     return block
 
@@ -125,13 +124,12 @@ def timestep_embedding(
             output="embedding",
         )
         block |= Cast().connect(
-            input="zeros_like_out", dtype=input.dtype(), output=IOKey("output")
+            input="zeros_like_out", dtype=input.dtype(), output="output"
         )
     else:
-        block |= Cast().connect(
-            input="embedding", dtype=input.dtype(), output=IOKey("output")
-        )
+        block |= Cast().connect(input="embedding", dtype=input.dtype(), output="output")
 
+    block.expose_keys("output")
     return block
 
 
@@ -139,8 +137,9 @@ def mlp_embedder(hidden_dim: int, *, name: str | None = None):
     block = Model(name=name)
     block |= Linear(hidden_dim, name="in_layer").connect(input="input")
     block += SiLU()
-    block += Linear(hidden_dim, name="out_layer").connect(output=IOKey("output"))
+    block += Linear(hidden_dim, name="out_layer").connect(output="output")
 
+    block.expose_keys("output")
     return block
 
 
@@ -157,10 +156,11 @@ def rms_norm(dim: int, *, name: str | None = None):
     block |= Cast().connect(
         block.input_casted * rrms,  # type: ignore[attr-defined]
         dtype=input.dtype(),
-        output=IOKey("casted"),  # type: ignore[attr-defined]
+        output="casted",  # type: ignore[attr-defined]
     )
-    block |= Multiply().connect(left="casted", right=scale, output=IOKey("output"))
+    block |= Multiply().connect(left="casted", right=scale, output="output")
 
+    block.expose_keys("output", "casted")
     return block
 
 
@@ -169,8 +169,10 @@ def qk_norm(dim: int, *, name: str | None = None):
     query_norm = rms_norm(dim, name="query_norm")
     key_norm = rms_norm(dim, name="key_norm")
 
-    block |= query_norm.connect(input="q_in", output=IOKey("q_out"))
-    block |= key_norm.connect(input="k_in", output=IOKey("k_out"))
+    block |= query_norm.connect(input="q_in", output="q_out")
+    block |= key_norm.connect(input="k_in", output="k_out")
+
+    block.expose_keys("q_out", "k_out")
     return block
 
 
@@ -182,7 +184,7 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
     block += Linear(dim * multiplier, name="lin").connect(output="lin_out")
     lin_out = block.lin_out[:, None, :]  # type: ignore[attr-defined]
     if double:
-        modulation = IOKey("modulation", expose=False)
+        modulation = IOKey("modulation")
         block |= Split(split_size=2, axis=-1).connect(input=lin_out, output=modulation)
         block |= Split(split_size=3, axis=-1).connect(
             input=modulation[0], output=IOKey("mod_1")
@@ -193,16 +195,20 @@ def modulation(dim: int, double: bool, *, name: str | None = None):
     else:
         block |= Split(split_size=3, axis=-1).connect(lin_out, IOKey("mod_1"))
 
+    block.expose_keys("mod_1")
+    if double:
+        block.expose_keys("mod_2")
     return block
 
 
 def rearrange(num_heads: int, *, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    input_shaepe = input.shape
-    B, L = input_shaepe[0], input_shaepe[1]
+    input_shape = input.shape
+    B, L = input_shape[0], input_shape[1]
     block |= Reshape().connect(input, shape=(B, L, 3, num_heads, -1))
     block += Transpose(axes=(2, 0, 3, 1, 4)).connect(output=IOKey("output"))
+    block.expose_keys("output")
     return block
 
 
@@ -274,9 +280,9 @@ def double_stream_block(
     )
     txt_q, txt_k = block.txt_q_out, block.txt_k_out  # type: ignore[attr-defined]
 
-    block |= Concat(axis=2).connect(input=[txt_q, img_q], output=IOKey("q_concat"))
-    block |= Concat(axis=2).connect(input=[txt_k, img_k], output=IOKey("k_concat"))
-    block |= Concat(axis=2).connect(input=[txt_v, img_v], output=IOKey("v_concat"))
+    block |= Concat(axis=2).connect(input=[txt_q, img_q], output="q_concat")
+    block |= Concat(axis=2).connect(input=[txt_k, img_k], output="k_concat")
+    block |= Concat(axis=2).connect(input=[txt_v, img_v], output="v_concat")
 
     block |= attention().connect(
         q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn"
@@ -326,8 +332,9 @@ def double_stream_block(
     )
     txt = txt + block.txt_mod_2[2] * block.txt_mlp  # type: ignore[attr-defined]
 
-    block |= Buffer().connect(img, output=IOKey("img_out"))
-    block |= Buffer().connect(txt, output=IOKey("txt_out"))
+    block |= Buffer().connect(img, output="img_out")
+    block |= Buffer().connect(txt, output="txt_out")
+    block.expose_keys("img_out", "txt_out")
     return block
 
 
