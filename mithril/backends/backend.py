@@ -1496,11 +1496,11 @@ class ParallelBackend(Backend[DataType]):
         raise NotImplementedError("linspace is not implemented!")
 
     def register_callable[T: Any](
-        self, fn: Callable[..., T] | partial[T], fn_name: str, jit: bool
+        self, fn: Callable[..., T] | partial[T], jit: bool
     ) -> None:
         raise NotImplementedError()
 
-    def _run_callable(self, *primals: Any, fn_name: str) -> Any:
+    def _run_callable(self, *primals: Any, fn: Callable[..., Any]) -> Any:
         raise NotImplementedError()
 
     def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:

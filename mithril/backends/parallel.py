@@ -31,7 +31,7 @@ class Parallel(ABC, Generic[DataType]):
             )
 
     @abstractmethod
-    def run_callable(self, *primals: Any, fn_name: str) -> dict[str, Any]:
+    def run_callable(self, *primals: Any, fn: Callable[..., Any]) -> dict[str, Any]:
         raise NotImplementedError()
 
     @abstractmethod

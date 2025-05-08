@@ -210,12 +210,12 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             isinstance(self.pm.backend, ParallelBackend)
             and self.pm.backend.n_devices > 1
         ):
-            self.pm.backend.register_callable(eval_fn, "eval_fn", jit)
+            self.pm.backend.register_callable(eval_fn, jit)
             if not self.pm.inference:
                 assert (
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
-                self.pm.backend.register_callable(evaluate_all_fn, "eval_all_fn", jit)
+                self.pm.backend.register_callable(evaluate_all_fn, jit)
 
         elif jit and not self.pm.backend.is_manualgrad:
             eval_fn = self.pm.backend.jit(eval_fn)
