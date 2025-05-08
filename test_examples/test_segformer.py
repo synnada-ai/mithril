@@ -54,7 +54,7 @@ from examples.segformer.segformer_semantic_segmentation import (
 from test_examples.test_flux import load_weights
 
 installed_backends: list[type[ml.Backend]] = [
-    # ml.TorchBackend,
+    ml.TorchBackend,
     ml.JaxBackend,
     # ml.NumpyBackend, #slow
 ]
